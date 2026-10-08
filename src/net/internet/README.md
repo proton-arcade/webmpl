@@ -1,7 +1,7 @@
 # The Internet directory
 
 This folder is the network. Every `*.server.tsx` file in `servers/` is a machine:
-it claims hostnames, gets an address in the MintNet block (`10.64.0.0/10`), and
+it claims hostnames, gets an address in the MixtNet block (`10.64.0.0/10`), and
 serves whatever websites it declares.
 
 Drop a file in, save, and the domain resolves — in the browser, in the terminal,
@@ -15,11 +15,11 @@ src/net/internet/
   types.ts                  ← ServerDef, the shape of a machine
   servers/
     nameservers.server.tsx  ← ns1 / ns2 (one file, two machines)
-    portal.server.tsx       ← mintnet.com + the whole zone
-    pedia.server.tsx        ← mintpedia.org + *.mintpedia.org
+    portal.server.tsx       ← mixtnet.com + the whole zone
+    pedia.server.tsx        ← mixtpedia.org + *.mixtpedia.org
     ...
     sandbox.server.tsx      ← a starter machine on a private zone
-    pastemint.server.tsx    ← a complete worked example (pastebin, in one file)
+    pastemixt.server.tsx    ← a complete worked example (pastebin, in one file)
 ```
 
 ## Add a machine in 30 seconds
@@ -29,11 +29,11 @@ cp src/net/internet/servers/sandbox.server.tsx src/net/internet/servers/myapp.se
 $EDITOR src/net/internet/servers/myapp.server.tsx     # change hosts + the page
 ```
 
-Then open `https://myapp.mintnet/` in the Web Browser, or run:
+Then open `https://myapp.mixtnet/` in the Web Browser, or run:
 
 ```console
-mint@mint-web:~$ dig myapp.mintnet
-mint@mint-web:~$ nmap myapp.mintnet
+mixt@mixt-web:~$ dig myapp.mixtnet
+mixt@mixt-web:~$ nmap myapp.mixtnet
 ```
 
 ## The file format
@@ -47,7 +47,7 @@ import { SiteShell, H, Btn } from '../../sitekit'
 import type { PageCtx, SiteDef } from '../../types'
 
 const MY_SITE: SiteDef = {
-  domain: 'myapp.mintnet',           // the canonical hostname
+  domain: 'myapp.mixtnet',           // the canonical hostname
   title: 'My App',
   glyph: 'Box',                      // any icon name from src/shell/AppIcon.tsx
   color: '#61ad2b',
@@ -59,24 +59,24 @@ const MY_SITE: SiteDef = {
     { path: '/', title: 'Home', render: (ctx: PageCtx) => (
       <SiteShell site={MY_SITE} ctx={ctx}>
         <H>Hello</H>
-        <Btn onClick={() => ctx.navigate('https://mintnet.com/')}>Go to the portal</Btn>
+        <Btn onClick={() => ctx.navigate('https://mixtnet.com/')}>Go to the portal</Btn>
       </SiteShell>
     ) },
   ],
   // optional: the plain-text version `curl` and `wget` print
-  text: () => 'Hello from myapp.mintnet',
+  text: () => 'Hello from myapp.mixtnet',
 }
 
 export default defineServer({
   id: 'myapp-01',                    // machine name (unique, shows in the registry)
-  hosts: ['myapp.mintnet'],          // A records — the names this machine answers for
-  aliases: ['www.myapp.mintnet'],    // CNAMEs → the canonical name
-  wildcard: ['*.myapp.mintnet'],     // answer for any subdomain
+  hosts: ['myapp.mixtnet'],          // A records — the names this machine answers for
+  aliases: ['www.myapp.mixtnet'],    // CNAMEs → the canonical name
+  wildcard: ['*.myapp.mixtnet'],     // answer for any subdomain
   ip: undefined,                     // optional: pin an address (otherwise hashed)
   operator: 'me',
   location: 'this computer',
   since: 'today',
-  os: 'MintNetOS 4.2 LTS',
+  os: 'MixtNetOS 4.2 LTS',
   software: 'myappd 1.0',
   banner: 'myappd/1.0',              // shown by `nmap` / the registry
   ttl: 300,
@@ -84,9 +84,9 @@ export default defineServer({
     { port: 443, service: 'https', version: 'myappd 1.0' },
     { port: 22, service: 'ssh' },
   ],
-  records: { MX: ['10 mx1.mintmail.com.'], TXT: ['"v=spf1 -all"'] },
+  records: { MX: ['10 mx1.mixtmail.com.'], TXT: ['"v=spf1 -all"'] },
   sites: [MY_SITE],
-  notes: 'Shown in the MintNet Registry.',
+  notes: 'Shown in the MixtNet Registry.',
 })
 ```
 
@@ -97,7 +97,7 @@ export default defineServer({
 | `id` | machine name, unique across the directory. Required. |
 | `hosts` | hostnames (A records). Required — at least one. |
 | `aliases` | CNAMEs. An alias under a site's domain points at that site; otherwise at the machine's first host. |
-| `wildcard` | zones this machine answers for, e.g. `*.mintpedia.org`. Resolves as a CNAME to the first host. |
+| `wildcard` | zones this machine answers for, e.g. `*.mixtpedia.org`. Resolves as a CNAME to the first host. |
 | `ip` / `ipv6` | pin an address (e.g. `10.0.0.53`). All hosts of a machine share it. |
 | `ports` | what `nmap` and the registry report. |
 | `records` | extra `MX`, `TXT`, `NS` records, printed by `dig -t MX` and friends. |

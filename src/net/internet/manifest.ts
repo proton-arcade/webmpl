@@ -4,7 +4,7 @@
  * build time — drop a file in, save, and the machine is on the network with its
  * hostnames resolved. Nothing else to register anywhere.
  *
- * See ./README.md for the file format, and ./servers/pastemint.server.tsx for a
+ * See ./README.md for the file format, and ./servers/pastemixt.server.tsx for a
  * complete worked example.
  */
 /// <reference types="vite/client" />
@@ -67,5 +67,5 @@ export function webServers(): ServerDef[] {
 }
 
 if (REJECTED.length && typeof console !== 'undefined') {
-  for (const bad of REJECTED) console.warn(`[mintnet] ${bad.file} ignored: ${bad.reason}`)
+  for (const bad of REJECTED) console.warn(`[mixtnet] ${bad.file} ignored: ${bad.reason}`)
 }

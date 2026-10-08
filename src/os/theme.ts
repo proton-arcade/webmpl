@@ -1,6 +1,6 @@
 import type { Settings } from './types'
 
-/** Pushes the session settings into CSS custom properties (Mint-Y theming). */
+/** Pushes the session settings into CSS custom properties (Mixt-Y theming). */
 export function applyThemeVars(s: Settings) {
   if (typeof document === 'undefined') return
   const root = document.documentElement

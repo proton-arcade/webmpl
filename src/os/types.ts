@@ -1,4 +1,4 @@
-/* Core shared types for Mint Web OS */
+/* Core shared types for Mixt Web OS */
 
 export type Scheme = 'light' | 'dark'
 

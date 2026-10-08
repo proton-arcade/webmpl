@@ -1,6 +1,6 @@
 /* ==========================================================================
-   Mint Web OS — global stylesheet
-   Visual language follows Linux Mint (Cinnamon / Mint-Y themes)
+   Mixt Web OS — global stylesheet
+   Visual language follows Mixt OS (Cinnamon / Mixt-Y themes)
    ========================================================================== */
 @import 'tailwindcss';
 
@@ -8,25 +8,25 @@
   --font-sans: 'Ubuntu', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'Ubuntu Mono', 'DejaVu Sans Mono', monospace;
 
-  /* Mint-Y accent palette */
-  --color-mint-50: #f2fce9;
-  --color-mint-100: #e2f7d1;
-  --color-mint-200: #c4eea4;
-  --color-mint-300: #9ede6a;
-  --color-mint-400: #7cc93f;
-  --color-mint-500: #61ad2b;
-  --color-mint-600: #4c8f1f;
-  --color-mint-700: #3b6f18;
-  --color-mint-800: #2c5313;
-  --color-mint-900: #1f3a0e;
+  /* Mixt-Y accent palette */
+  --color-mixt-50: #f2fce9;
+  --color-mixt-100: #e2f7d1;
+  --color-mixt-200: #c4eea4;
+  --color-mixt-300: #9ede6a;
+  --color-mixt-400: #7cc93f;
+  --color-mixt-500: #61ad2b;
+  --color-mixt-600: #4c8f1f;
+  --color-mixt-700: #3b6f18;
+  --color-mixt-800: #2c5313;
+  --color-mixt-900: #1f3a0e;
 
-  /* Mint-Y window greys */
-  --color-mintdark-900: #16181a;
-  --color-mintdark-800: #202325;
-  --color-mintdark-700: #2b2e31;
-  --color-mintdark-600: #35393c;
-  --color-mintdark-500: #42474a;
-  --color-mintdark-400: #5a6064;
+  /* Mixt-Y window greys */
+  --color-mixtdark-900: #16181a;
+  --color-mixtdark-800: #202325;
+  --color-mixtdark-700: #2b2e31;
+  --color-mixtdark-600: #35393c;
+  --color-mixtdark-500: #42474a;
+  --color-mixtdark-400: #5a6064;
 
   --color-panel: #2b2e31;
   --color-titlebar-a: #4b5054;
@@ -34,7 +34,7 @@
 }
 
 :root {
-  --wm-accent: #9ede6a; /* Mint-Y green */
+  --wm-accent: #9ede6a; /* Mixt-Y green */
   --wm-accent-dim: #7cc93f;
   --wm-titlebar-a: #4b5054;
   --wm-titlebar-b: #35393c;
@@ -50,7 +50,7 @@
   --wm-shadow: 0 18px 48px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-/* ----- dark application theme (Mint-Y-Dark) ----- */
+/* ----- dark application theme (Mixt-Y-Dark) ----- */
 html[data-scheme='dark'] {
   --wm-window-bg: #2f3336;
   --wm-window-fg: #eceeed;
@@ -85,7 +85,7 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* ============================ scrollbars (Mint-Y) ========================== */
+/* ============================ scrollbars (Mixt-Y) ========================== */
 ::-webkit-scrollbar {
   width: 12px;
   height: 12px;
@@ -201,7 +201,7 @@ h3 {
 }
 
 /* =============================== chrome bits ============================== */
-.mint-toolbar {
+.mixt-toolbar {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -211,7 +211,7 @@ h3 {
   flex: none;
   color: #24292c;
 }
-html[data-scheme='dark'] .mint-toolbar {
+html[data-scheme='dark'] .mixt-toolbar {
   background-image: linear-gradient(to bottom, #3a3f42, #313538);
   border-bottom-color: rgba(0, 0, 0, 0.5);
   color: #eceeed;
@@ -247,7 +247,7 @@ html[data-scheme='dark'] .btn-ghost[data-active='true'] {
   background: rgba(255, 255, 255, 0.14);
 }
 
-.btn-mint {
+.btn-mixt {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -261,13 +261,13 @@ html[data-scheme='dark'] .btn-ghost[data-active='true'] {
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.btn-mint:hover {
+.btn-mixt:hover {
   filter: brightness(1.06);
 }
-.btn-mint:active {
+.btn-mixt:active {
   filter: brightness(0.93);
 }
-.btn-mint:disabled {
+.btn-mixt:disabled {
   filter: grayscale(0.6) brightness(0.9);
   cursor: default;
 }

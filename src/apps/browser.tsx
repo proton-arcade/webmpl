@@ -19,7 +19,7 @@ import {
   resolveHost,
   resolveUrl,
   reverseLookup,
-  searchMintNet,
+  searchMixtNet,
   fetchAsText,
   serverAddress,
   zoneRecords,
@@ -89,7 +89,7 @@ export default function BrowserApp({ win, api }: AppProps) {
   useEffect(() => {
     const label = active.title === 'New tab' ? 'New Tab' : active.title
     api.setTitle(`${label} — Web Browser`)
-    setUrlText(active.url.startsWith('mintnet://') ? '' : active.url)
+    setUrlText(active.url.startsWith('mixtnet://') ? '' : active.url)
   }, [active.url, active.title])
 
   useEffect(() => {
@@ -182,7 +182,7 @@ export default function BrowserApp({ win, api }: AppProps) {
       title = page ? page.title : `Page not found — ${s.title}`
       favicon = { glyph: s.glyph, color: s.color }
     } else if (r.kind === 'search') {
-      title = `${r.searchQuery} — MintNet search`
+      title = `${r.searchQuery} — Mixtsfox Search`
       favicon = { glyph: 'Search', color: '#61ad2b' }
     } else if (r.kind === 'about') {
       title = `about:${r.aboutPage}`
@@ -240,7 +240,7 @@ export default function BrowserApp({ win, api }: AppProps) {
           const received = Math.min(file.size, d.received + speed * (0.6 + Math.random() * 0.8))
           if (received >= file.size) {
             if (!d.done) {
-              const target = join('/home/mint/Downloads', file.filename)
+              const target = join('/home/mixt/Downloads', file.filename)
               vfs.write(target, file.url ? '' : file.content, file.mime, file.url)
               notify({
                 title: 'Download complete',
@@ -281,10 +281,10 @@ export default function BrowserApp({ win, api }: AppProps) {
     const q = urlText.trim().toLowerCase()
     if (!q) return []
     const items: { label: string; sub: string; action: () => void; glyph: string }[] = []
-    if (!/^https?:|^about:|^mintnet:/.test(urlText) && urlText.includes('.')) {
+    if (!/^https?:|^about:|^mixtnet:/.test(urlText) && urlText.includes('.')) {
       items.push({ label: urlText, sub: 'Open this address', glyph: 'Globe', action: () => navigate(urlText) })
     }
-    items.push({ label: urlText, sub: 'Search MintNet for this', glyph: 'Search', action: () => navigate(`mintnet://search?q=${encodeURIComponent(urlText)}`) })
+    items.push({ label: urlText, sub: 'Search MixtNet for this', glyph: 'Search', action: () => navigate(`mixtnet://search?q=${encodeURIComponent(urlText)}`) })
     for (const b of bookmarks.filter((b) => (b.title + b.url).toLowerCase().includes(q)).slice(0, 4)) {
       items.push({ label: b.title, sub: b.url, glyph: 'Star', action: () => navigate(b.url) })
     }
@@ -389,7 +389,7 @@ export default function BrowserApp({ win, api }: AppProps) {
       </div>
 
       {/* toolbar */}
-      <div className="mint-toolbar" style={{ gap: 3 }}>
+      <div className="mixt-toolbar" style={{ gap: 3 }}>
         <button className="btn-ghost" title="Back" onClick={goBack} style={{ opacity: active.idx > 0 ? 1 : 0.4 }}>
           <Glyph name="ChevronLeft" size={17} />
         </button>
@@ -435,7 +435,7 @@ export default function BrowserApp({ win, api }: AppProps) {
                   urlRef.current?.blur()
                 }
               }}
-              placeholder="Search MintNet or enter an address"
+              placeholder="Search MixtNet or enter an address"
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'inherit', font: 'inherit', minWidth: 0 }}
             />
             <span
@@ -490,7 +490,7 @@ export default function BrowserApp({ win, api }: AppProps) {
               <Glyph name="X" size={13} />
             </button>
           </div>
-          {downloads.length === 0 && <div style={{ color: '#6a736d', fontSize: 12.5 }}>No downloads yet. Try linuxmint.com.</div>}
+          {downloads.length === 0 && <div style={{ color: '#6a736d', fontSize: 12.5 }}>No downloads yet. Try mixtos.com.</div>}
           {downloads.map((d) => (
             <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 12.5 }}>
               <Glyph name="File" size={14} />
@@ -523,7 +523,7 @@ export default function BrowserApp({ win, api }: AppProps) {
       {/* status bar */}
       <div style={{ flex: 'none', height: 22, display: 'flex', alignItems: 'center', gap: 10, padding: '0 10px', fontSize: 11.5, background: 'linear-gradient(to bottom,#f2f3f1,#e6e8e4)', borderTop: '1px solid rgba(0,0,0,0.15)', color: '#37402c' }}>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {status || (active.loading ? 'Contacting MintNet…' : `${resolved.href}`)}
+          {status || (active.loading ? 'Contacting MixtNet…' : `${resolved.href}`)}
         </span>
         {activeDownload && <span>Downloading {activeDownload.filename}…</span>}
         {resolved.kind !== 'about' && <DnsBadge host={resolved.domain} />}
@@ -539,7 +539,7 @@ export default function BrowserApp({ win, api }: AppProps) {
           onClose={() => setMenu(null)}
           items={[
             { label: 'New tab', accel: 'Ctrl+T', icon: <Glyph name="Plus" size={14} />, onClick: () => addTab() },
-            { label: 'New window', icon: <Glyph name="AppWindow" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('webmpl:launch', { detail: { appId: 'browser', props: { url: HOME_URL } } })) },
+            { label: 'New window', icon: <Glyph name="AppWindow" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('mixt:launch', { detail: { appId: 'browser', props: { url: HOME_URL } } })) },
             { separator: true },
             { label: 'Bookmark this page', icon: <Glyph name="Star" size={14} />, onClick: toggleBookmark },
             { label: 'Show bookmarks', icon: <Glyph name="List" size={14} />, onClick: () => setMenu({ ...menu, kind: 'bookmarks' }) },
@@ -551,7 +551,7 @@ export default function BrowserApp({ win, api }: AppProps) {
               icon: <Glyph name="Code" size={14} />,
               onClick: async () => {
                 const text = await fetchAsText(active.url)
-                vfs.write(join('/home/mint/Documents', `source-${Date.now().toString().slice(-6)}.txt`), text)
+                vfs.write(join('/home/mixt/Documents', `source-${Date.now().toString().slice(-6)}.txt`), text)
                 notify({ title: 'View source', body: 'A text rendering was saved to ~/Documents.', appId: 'browser' })
               },
             },
@@ -628,15 +628,15 @@ function pageNotFound(site: SiteDef, ctx: PageCtx, navigate: (u: string) => void
         <div style={{ fontSize: 58, fontWeight: 800, color: site.color }}>404</div>
         <div style={{ fontSize: 20, fontWeight: 600, marginTop: 4 }}>We could not find that page on {site.domain}</div>
         <p style={{ color: '#5c665f', maxWidth: 460, margin: '10px auto' }}>
-          The MintNet could not resolve {ctx.path} on this site. It may have been moved, or it may never have existed,
+          The MixtNet could not resolve {ctx.path} on this site. It may have been moved, or it may never have existed,
           which is arguably worse.
         </p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-          <button className="btn-mint" onClick={() => navigate(`https://${site.domain}/`)}>
+          <button className="btn-mixt" onClick={() => navigate(`https://${site.domain}/`)}>
             Back to {site.title}
           </button>
-          <button className="btn-ghost" onClick={() => navigate('https://mintnet.com/')}>
-            Search MintNet
+          <button className="btn-ghost" onClick={() => navigate('https://mixtnet.com/')}>
+            Search MixtNet
           </button>
         </div>
       </div>
@@ -655,7 +655,7 @@ function LoadingPage({ site }: { site?: SiteDef }) {
             <AppIcon glyph="Globe" color="#4a7fe8" size={44} />
           )}
         </div>
-        <div>Contacting {site?.domain ?? 'MintNet'}…</div>
+        <div>Contacting {site?.domain ?? 'MixtNet'}…</div>
       </div>
     </div>
   )
@@ -666,7 +666,7 @@ function ErrorPage({ msg }: { msg: string }) {
     <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 40 }}>
       <div style={{ textAlign: 'center', color: '#5c665f' }}>
         <div style={{ fontSize: 22, fontWeight: 600, color: '#b8532f' }}>{msg}</div>
-        <p>The address could not be understood. Try “mintnet.com” or a search phrase.</p>
+        <p>The address could not be understood. Try “mixtnet.com” or a search phrase.</p>
       </div>
     </div>
   )
@@ -682,7 +682,7 @@ function DnsBadge({ host }: { host: string }) {
       : 'NXDOMAIN'
   return (
     <span
-      title={`MintNet DNS: ${host} → ${info.status}${info.server ? ` (${info.server.id})` : ''}`}
+      title={`MixtNet DNS: ${host} → ${info.status}${info.server ? ` (${info.server.id})` : ''}`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -719,22 +719,22 @@ function DnsErrorPage({ resolved, navigate }: { resolved: ResolvedUrl; navigate:
           <pre style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: 12, color: '#37402c', whiteSpace: 'pre-wrap' }}>
             {`; <<>> dig ${host}
 ;; status: ${answer.status}, query time: ${answer.rtt} msec
-;; SERVER: 10.0.0.53#53(ns1.mintnet.com)
+;; SERVER: 10.0.0.53#53(ns1.mixtnet.com)
 ${answer.answers.map((r) => `;; ${r.name}. ${r.ttl} IN ${r.type} ${r.value}`).join('\n') || ';; (no answer)'}`}
           </pre>
         </div>
 
         <div style={{ marginTop: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Btn tone="grey" onClick={() => navigate('about:dns')}>
-            Open the MintNet Registry
+            Open the MixtNet Registry
           </Btn>
-          <Btn tone="grey" onClick={() => navigate('https://mintnet.com/')}>
-            Go to mintnet.com
+          <Btn tone="grey" onClick={() => navigate('https://mixtnet.com/')}>
+            Go to mixtnet.com
           </Btn>
         </div>
 
         <p style={{ color: '#77807a', fontSize: 12.5, marginTop: 16 }}>
-          MintNet has {SITES.length} sites on {SERVERS.length} machines. You can add your own: drop a file into{' '}
+          MixtNet has {SITES.length} sites on {SERVERS.length} machines. You can add your own: drop a file into{' '}
           <code>src/net/internet/servers/</code>, or map a name in <code>/etc/hosts</code> (open it in the Text Editor).
         </p>
 
@@ -756,7 +756,7 @@ ${answer.answers.map((r) => `;; ${r.name}. ${r.ttl} IN ${r.type} ${r.value}`).jo
   )
 }
 
-/** about:dns — the MintNet Registry: every machine, every record, live. */
+/** about:dns — the MixtNet Registry: every machine, every record, live. */
 function DnsRegistryPage({ navigate }: { navigate: (u: string) => void }) {
   const [filter, setFilter] = React.useState('')
   const [tab, setTab] = React.useState<'servers' | 'records' | 'hosts'>('servers')
@@ -772,7 +772,7 @@ function DnsRegistryPage({ navigate }: { navigate: (u: string) => void }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <AppIcon glyph="Network" color="#4a7fe8" color2="#2b4f9e" size={40} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>MintNet Registry</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>MixtNet Registry</div>
             <div style={{ color: '#5c665f', fontSize: 13 }}>
               {SERVERS.length} machines · {SITES.length} sites · {records.length} DNS records · resolvers 10.0.0.53,
               10.0.0.54
@@ -788,7 +788,7 @@ function DnsRegistryPage({ navigate }: { navigate: (u: string) => void }) {
 
         <div style={{ display: 'flex', gap: 6, margin: '16px 0 12px' }}>
           {(['servers', 'records', 'hosts'] as const).map((name) => (
-            <Btn key={name} tone={tab === name ? 'mint' : 'grey'} onClick={() => setTab(name)}>
+            <Btn key={name} tone={tab === name ? 'mixt' : 'grey'} onClick={() => setTab(name)}>
               {name === 'servers' ? 'Machines' : name === 'records' ? 'Zone file' : '/etc/hosts'}
             </Btn>
           ))}
@@ -863,7 +863,7 @@ function DnsRegistryPage({ navigate }: { navigate: (u: string) => void }) {
 
         {tab === 'records' && (
           <div style={{ background: '#20262b', color: '#dbe6d3', borderRadius: 10, padding: 14, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-            <div style={{ color: '#8fb573' }}>; MintNet zone — {records.length} records, TTL in seconds</div>
+            <div style={{ color: '#8fb573' }}>; MixtNet zone — {records.length} records, TTL in seconds</div>
             {records.map((r, i) => (
               <div key={i}>
                 {r.name.padEnd(28)} {String(r.ttl).padStart(6)} IN {r.type.padEnd(7)} {r.value}
@@ -876,7 +876,7 @@ function DnsRegistryPage({ navigate }: { navigate: (u: string) => void }) {
           <div style={{ background: '#fff', border: '1px solid #e3e6e1', borderRadius: 10, padding: 14 }}>
             <div style={{ fontWeight: 600, marginBottom: 6 }}>/etc/hosts</div>
             <div style={{ color: '#5c665f', fontSize: 13, marginBottom: 10 }}>
-              These entries are checked before MintNet DNS. Edit the file in the Text Editor or in the Terminal to change
+              These entries are checked before MixtNet DNS. Edit the file in the Text Editor or in the Terminal to change
               what a name resolves to.
             </div>
             {hosts.map(([name, ip]) => (
@@ -902,7 +902,7 @@ function DnsRegistryPage({ navigate }: { navigate: (u: string) => void }) {
         <p style={{ color: '#77807a', fontSize: 12.5, marginTop: 16 }}>
           Add a machine: drop a <code>*.server.tsx</code> file into <code>src/net/internet/servers/</code>. Try{' '}
           <code>dig</code>, <code>host</code> or <code>nslookup</code> in the Terminal, or open{' '}
-          <a onClick={() => navigate('https://mintdev.io/')} style={{ cursor: 'pointer' }}>
+          <a onClick={() => navigate('https://mixtdev.io/')} style={{ cursor: 'pointer' }}>
             the developer docs
           </a>
           .
@@ -915,23 +915,24 @@ function DnsRegistryPage({ navigate }: { navigate: (u: string) => void }) {
 function SearchResults({ query, ctx, navigate }: { query: string; ctx: PageCtx; navigate: (u: string) => void }) {
   const [q, setQ] = React.useState(query)
   const [start] = React.useState(() => Date.now())
-  const results = useMemo(() => searchMintNet(query), [query])
+  const results = useMemo(() => searchMixtNet(query), [query])
   const elapsed = (Date.now() - start) / 1000
 
   return (
     <div style={{ minHeight: '100%', background: '#fff' }}>
       <div style={{ borderBottom: '1px solid #e3e6e1', padding: '14px 22px', display: 'flex', gap: 14, alignItems: 'center' }}>
-        <a onClick={() => navigate('https://mintnet.com/')} style={{ fontSize: 20, fontWeight: 800, color: '#3b6f18', cursor: 'pointer' }}>
-          mintnet
+        <a onClick={() => navigate('https://mixtnet.com/')} style={{ fontSize: 20, fontWeight: 800, color: '#3b6f18', cursor: 'pointer' }}>
+          Mixtsfox
         </a>
+        <span style={{ color: '#8a938c', fontSize: 12.5, marginLeft: -8 }}>Search</span>
         <input
           className="entry"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && navigate(`mintnet://search?q=${encodeURIComponent(q)}`)}
+          onKeyDown={(e) => e.key === 'Enter' && navigate(`mixtnet://search?q=${encodeURIComponent(q)}`)}
           style={{ width: 420 }}
         />
-        <button className="btn-mint" onClick={() => navigate(`mintnet://search?q=${encodeURIComponent(q)}`)}>
+        <button className="btn-mixt" onClick={() => navigate(`mixtnet://search?q=${encodeURIComponent(q)}`)}>
           Search
         </button>
       </div>
@@ -942,12 +943,12 @@ function SearchResults({ query, ctx, navigate }: { query: string; ctx: PageCtx; 
         {results.length === 0 && (
           <div>
             <p style={{ fontSize: 15 }}>
-              Your search did not match any documents on the MintNet.
+              Your search did not match any documents on the MixtNet.
             </p>
             <ul style={{ color: '#39413b', lineHeight: 1.8 }}>
               <li>Check your spelling.</li>
               <li>Try a broader term, such as “linux” or “browser”.</li>
-              <li>Browse the directory at <a onClick={() => navigate('https://mintnet.com/')}>mintnet.com</a>.</li>
+              <li>Browse the directory at <a onClick={() => navigate('https://mixtnet.com/')}>mixtnet.com</a>.</li>
             </ul>
           </div>
         )}
@@ -962,7 +963,7 @@ function SearchResults({ query, ctx, navigate }: { query: string; ctx: PageCtx; 
         ))}
         {results.length > 0 && (
           <div style={{ marginTop: 26, color: '#77807a', fontSize: 12.5 }}>
-            Results {results.length} · the MintNet index is small and proud of it.
+            Results {results.length} · the MixtNet index is small and proud of it.
           </div>
         )}
       </div>
@@ -993,14 +994,14 @@ function RealWebPage({ url, ctx, navigate }: { url: string; ctx: PageCtx; naviga
       <div style={{ background: '#fff8e6', borderBottom: '1px solid #f0dcae', padding: '8px 16px', fontSize: 12.5, color: '#5c5241', display: 'flex', gap: 10, alignItems: 'center' }}>
         <Glyph name="Globe" size={14} />
         <span style={{ flex: 1 }}>
-          You have left the MintNet. <strong>{host}</strong> is a real website, loaded (if it allows it) in an embedded frame —
+          You have left the MixtNet. <strong>{host}</strong> is a real website, loaded (if it allows it) in an embedded frame —
           a real internet inside the pretend internet.
         </span>
         <button className="btn-ghost" onClick={() => setAttempts((a) => a + 1)}>
           Retry
         </button>
-        <button className="btn-ghost" onClick={() => navigate('https://mintnet.com/')}>
-          Back to MintNet
+        <button className="btn-ghost" onClick={() => navigate('https://mixtnet.com/')}>
+          Back to MixtNet
         </button>
       </div>
       {mode === 'embed' ? (
@@ -1027,8 +1028,8 @@ function RealWebPage({ url, ctx, navigate }: { url: string; ctx: PageCtx; naviga
             in a new tab usually works.
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            <button className="btn-mint" onClick={() => navigate('https://mintnet.com/')}>
-              Search the MintNet instead
+            <button className="btn-mixt" onClick={() => navigate('https://mixtnet.com/')}>
+              Search the MixtNet instead
             </button>
             <button className="btn-ghost" onClick={() => setAttempts((a) => a + 1)}>
               Try embedding again
@@ -1096,12 +1097,12 @@ function renderAbout(
   if (page === 'version') {
     return (
       <div style={{ padding: 24, fontFamily: 'var(--font-mono)' }}>
-        <h2 style={{ marginTop: 0, fontFamily: 'var(--font-sans)' }}>About MintNet Explorer</h2>
-        <pre>{`MintNet Explorer 1.0.0
+        <h2 style={{ marginTop: 0, fontFamily: 'var(--font-sans)' }}>About Mixtsfox</h2>
+        <pre>{`MixtNet Explorer 1.0.0
 Engine: React 18 virtual DOM
 Layout: CSS
 JavaScript: your browser's engine
-Sites: ${SITES.length} registered MintNet properties
+Sites: ${SITES.length} registered MixtNet properties
 Real web: embedded frames where permitted`}</pre>
       </div>
     )
@@ -1113,11 +1114,11 @@ Real web: embedded frames where permitted`}</pre>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 26 }}>
           <AppIcon glyph="Compass" color="#61ad2b" color2="#2f6b12" size={54} />
-          <div style={{ fontSize: 30, fontWeight: 800, color: '#3b6f18', marginTop: 10 }}>MintNet Explorer</div>
-          <div style={{ color: '#5c665f' }}>Type an address or search the MintNet</div>
+          <div style={{ fontSize: 30, fontWeight: 800, color: '#3b6f18', marginTop: 10 }}>Mixtsfox</div>
+          <div style={{ color: '#5c665f' }}>Type an address, or search with Mixtsfox Search</div>
           <div style={{ marginTop: 8, fontSize: 12.5 }}>
             <a onClick={() => navigate('about:dns')} style={{ cursor: 'pointer' }}>
-              MintNet Registry
+              MixtNet Registry
             </a>
             <span style={{ color: '#9aa39c' }}> — every machine on the network, live from DNS</span>
           </div>

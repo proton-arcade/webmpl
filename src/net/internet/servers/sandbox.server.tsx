@@ -1,11 +1,11 @@
 /* A starter machine on a private zone — the "hello world" of this directory.
  *
- * It uses no TLD of its own: example.mintnet resolves because *you* own this
+ * It uses no TLD of its own: example.mixtnet resolves because *you* own this
  * zone. Copy this file, change the hostnames and the page, and you have
  * published something.
  *
- * (Note there is no wildcard here: anything.mintnet stays NXDOMAIN, which is
- * what you want. Add `wildcard: ['*.mintnet']` if you really do own the zone.)
+ * (Note there is no wildcard here: anything.mixtnet stays NXDOMAIN, which is
+ * what you want. Add `wildcard: ['*.mixtnet']` if you really do own the zone.)
  */
 import React from 'react'
 import { defineServer } from '../types'
@@ -14,7 +14,7 @@ import { addressFor, ipv6For, servers } from '../../dns'
 import type { PageCtx, SiteDef } from '../../types'
 
 const SANDBOX_SITE: SiteDef = {
-  domain: 'example.mintnet',
+  domain: 'example.mixtnet',
   title: 'Sandbox',
   glyph: 'Box',
   color: '#7b8794',
@@ -25,7 +25,7 @@ const SANDBOX_SITE: SiteDef = {
   pages: [
     {
       path: '/',
-      title: 'example.mintnet — sandbox',
+      title: 'example.mixtnet — sandbox',
       keywords: ['example', 'sandbox', 'hello', 'starter'],
       snippet: 'A minimal site served from a machine you can edit.',
       render: (ctx) => <SandboxHome ctx={ctx} />,
@@ -39,11 +39,11 @@ const SANDBOX_SITE: SiteDef = {
   ],
   text: () =>
     [
-      'example.mintnet — sandbox',
+      'example.mixtnet — sandbox',
       '========================',
       '',
       'A blank machine on the local zone.',
-      'It resolves to ' + addressFor('example.mintnet') + ' because this zone is yours.',
+      'It resolves to ' + addressFor('example.mixtnet') + ' because this zone is yours.',
       '',
       'Edit src/net/internet/servers/sandbox.server.tsx to change this page.',
     ].join('\n'),
@@ -52,14 +52,14 @@ const SANDBOX_SITE: SiteDef = {
 function SandboxHome({ ctx }: { ctx: PageCtx }) {
   return (
     <SiteShell site={SANDBOX_SITE} ctx={ctx} maxWidth={720}>
-      <H>Hello from example.mintnet</H>
+      <H>Hello from example.mixtnet</H>
       <p>
         This page is served by <code>sandbox-01</code>, a machine defined in{' '}
         <code>src/net/internet/servers/sandbox.server.tsx</code> — the same file that declares its hostnames,
         ports and DNS records.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0' }}>
-        <Pill>.mintnet is a private zone</Pill>
+        <Pill>.mixtnet is a private zone</Pill>
         <Pill tone="#eef2f7" color="#3f4d5a">
           no TLD needed
         </Pill>
@@ -67,17 +67,17 @@ function SandboxHome({ ctx }: { ctx: PageCtx }) {
       <H level={2}>Publish your own</H>
       <ol style={{ lineHeight: 1.7, color: '#3f4a43' }}>
         <li>
-          Copy <code>pastemint.server.tsx</code> in the same folder to a new name.
+          Copy <code>pastemixt.server.tsx</code> in the same folder to a new name.
         </li>
-        <li>Change <code>hosts</code> to the name you want, e.g. <code>myapp.mintnet</code>.</li>
+        <li>Change <code>hosts</code> to the name you want, e.g. <code>myapp.mixtnet</code>.</li>
         <li>Replace the site with your own pages.</li>
         <li>
-          Reload — the address resolves, and <code>dig myapp.mintnet</code> shows your machine.
+          Reload — the address resolves, and <code>dig myapp.mixtnet</code> shows your machine.
         </li>
       </ol>
       <div style={{ display: 'flex', gap: 8 }}>
-        <Btn onClick={() => ctx.navigate('https://example.mintnet/dns')}>What DNS knows</Btn>
-        <Btn tone="grey" onClick={() => ctx.navigate('https://mintdev.io/')}>
+        <Btn onClick={() => ctx.navigate('https://example.mixtnet/dns')}>What DNS knows</Btn>
+        <Btn tone="grey" onClick={() => ctx.navigate('https://mixtdev.io/')}>
           Developer docs
         </Btn>
       </div>
@@ -90,13 +90,13 @@ function SandboxDns({ ctx }: { ctx: PageCtx }) {
   return (
     <SiteShell site={SANDBOX_SITE} ctx={ctx} maxWidth={720}>
       <H>This machine</H>
-      <Meta>Live from the MintNet zone — the same data `dig` reads.</Meta>
+      <Meta>Live from the MixtNet zone — the same data `dig` reads.</Meta>
       <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: 14, fontSize: 13.5 }}>
         <tbody>
           {[
             ['machine', self?.id ?? 'sandbox-01'],
-            ['A record', addressFor('example.mintnet')],
-            ['AAAA record', ipv6For('example.mintnet')],
+            ['A record', addressFor('example.mixtnet')],
+            ['AAAA record', ipv6For('example.mixtnet')],
             ['hosts', (self?.hosts ?? []).join(', ')],
             ['aliases', (self?.aliases ?? []).join(', ') || '—'],
             ['wildcard', (self?.wildcard ?? []).join(', ') || '—'],
@@ -119,13 +119,13 @@ function SandboxDns({ ctx }: { ctx: PageCtx }) {
 
 export default defineServer({
   id: 'sandbox-01',
-  hosts: ['example.mintnet', 'sandbox.mintnet'],
-  aliases: ['test.mintnet'],
+  hosts: ['example.mixtnet', 'sandbox.mixtnet'],
+  aliases: ['test.mixtnet'],
   operator: 'you (local user)',
   location: 'this computer',
   since: 'boot time',
-  os: 'MintNetOS 4.2 LTS',
-  software: 'mintdev preview 0.9',
+  os: 'MixtNetOS 4.2 LTS',
+  software: 'mixtdev preview 0.9',
   ports: [{ port: 3000, service: 'http-alt', version: 'local preview' }],
   sites: [SANDBOX_SITE],
   notes: 'Not a real TLD — resolvable because this zone is yours.',

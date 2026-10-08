@@ -1,6 +1,6 @@
-/* MintNet — the internet inside Mint Web OS.
+/* MixtNet — the internet inside Mixt Web OS.
    A client-side "web": sites are React components, search is an inverted index,
-   and anything that is not part of MintNet can still be opened as a real site
+   and anything that is not part of MixtNet can still be opened as a real site
    through an embedded frame when the remote server allows it. */
 import { SERVERS, REJECTED, webServers } from './internet/manifest'
 import { readHosts } from './internet/hosts'
@@ -12,9 +12,9 @@ import type { ResolvedUrl, SearchResult, SiteDef } from './types'
 export const SITES: SiteDef[] = webServers().flatMap((server) => server.sites ?? [])
 export { SERVERS, REJECTED, webServers }
 
-export const HOME_URL = 'https://mintnet.com/'
+export const HOME_URL = 'https://mixtnet.com/'
 
-/** tlds that feel like "the real web" rather than MintNet */
+/** tlds that feel like "the real web" rather than MixtNet */
 const REAL_TLDS = /\.(com|org|net|io|dev|gov|edu|co\.uk|de|fr|nl|es|it|ru|jp|cn|au|ca|us|info|me|app|xyz|tech|ai|sh|tv)$/i
 
 export function stripWww(host: string) {
@@ -35,13 +35,13 @@ export function findServer(domain: string) {
   return answer.status === 'NOERROR' ? answer.server : undefined
 }
 
-/** tlds that exist only inside MintNet, so a failed lookup is an NXDOMAIN page */
-const MINT_TLDS = /^(\.?)(mintnet|mint|webmpl|test|local|lan|internal|lab|home)$/i
+/** tlds that exist only inside MixtNet, so a failed lookup is an NXDOMAIN page */
+const MIXT_TLDS = /^(\.?)(mixtnet|mixt|mixt|test|local|lan|internal|lab|home)$/i
 
 export function looksInternal(host: string) {
   const bare = stripWww(host)
   if (!bare.includes('.')) return true
-  return MINT_TLDS.test(`.${bare.split('.').pop()}`)
+  return MIXT_TLDS.test(`.${bare.split('.').pop()}`)
 }
 
 /** What the resolver thinks of an address, for the browser's status bar. */
@@ -66,8 +66,8 @@ export function resolveUrl(input: string, baseUrl = HOME_URL): ResolvedUrl {
     return { kind: 'about', href: `about:${page}`, domain: '', path: `/${page}`, query: '', aboutPage: page }
   }
 
-  if (/^mintnet:\/\//i.test(raw)) {
-    const rest = raw.replace(/^mintnet:\/\//i, '')
+  if (/^mixtnet:\/\//i.test(raw)) {
+    const rest = raw.replace(/^mixtnet:\/\//i, '')
     const [hostPart, queryPart] = rest.split('?')
     const host = hostPart.replace(/\/+$/, '')
     const [domain, ...pathBits] = host.split('/')
@@ -75,7 +75,7 @@ export function resolveUrl(input: string, baseUrl = HOME_URL): ResolvedUrl {
     const query = decodeURIComponent(queryPart ?? '')
     if (stripWww(domain) === 'search') {
       const q = new URLSearchParams(query).get('q') ?? ''
-      return { kind: 'search', href: `mintnet://search?q=${encodeURIComponent(q)}`, domain: 'search', path: '/', query, searchQuery: q }
+      return { kind: 'search', href: `mixtnet://search?q=${encodeURIComponent(q)}`, domain: 'search', path: '/', query, searchQuery: q }
     }
     const site = findSite(domain)
     if (site) {
@@ -102,9 +102,9 @@ export function resolveUrl(input: string, baseUrl = HOME_URL): ResolvedUrl {
     return searchUrl(raw)
   }
 
-  if (stripWww(host) === 'search.mintnet.com' || stripWww(host) === 'search') {
+  if (stripWww(host) === 'search.mixtnet.com' || stripWww(host) === 'search') {
     const q = new URLSearchParams(query).get('q') ?? ''
-    return { kind: 'search', href: `mintnet://search?q=${encodeURIComponent(q)}`, domain: 'search', path: '/', query, searchQuery: q }
+    return { kind: 'search', href: `mixtnet://search?q=${encodeURIComponent(q)}`, domain: 'search', path: '/', query, searchQuery: q }
   }
 
   // ask the resolver — this is where www, aliases, wildcards and /etc/hosts land
@@ -127,7 +127,7 @@ export function resolveUrl(input: string, baseUrl = HOME_URL): ResolvedUrl {
       domain: host,
       path,
       query,
-      notFoundReason: `${host} resolves to ${answer.server.id} (${answer.server.software ?? 'a MintNet machine'}) but that machine does not serve a website on port 443.`,
+      notFoundReason: `${host} resolves to ${answer.server.id} (${answer.server.software ?? 'a MixtNet machine'}) but that machine does not serve a website on port 443.`,
     }
   }
   const internal = looksInternal(host)
@@ -138,7 +138,7 @@ export function resolveUrl(input: string, baseUrl = HOME_URL): ResolvedUrl {
       domain: host,
       path,
       query,
-      notFoundReason: `MintNet DNS has no record for ${host}.`,
+      notFoundReason: `MixtNet DNS has no record for ${host}.`,
     }
   }
   if (REAL_TLDS.test(`.${host.split('.').pop()}`) || host.includes('.')) {
@@ -150,7 +150,7 @@ export function resolveUrl(input: string, baseUrl = HOME_URL): ResolvedUrl {
 export function searchUrl(q: string): ResolvedUrl {
   return {
     kind: 'search',
-    href: `mintnet://search?q=${encodeURIComponent(q)}`,
+    href: `mixtnet://search?q=${encodeURIComponent(q)}`,
     domain: 'search',
     path: '/',
     query: '',
@@ -202,7 +202,7 @@ export function buildIndex(): IndexEntry[] {
   return entries
 }
 
-export function searchMintNet(query: string): SearchResult[] {
+export function searchMixtNet(query: string): SearchResult[] {
   const q = query.trim().toLowerCase()
   if (!q) return []
   const terms = q.split(/\s+/)
@@ -226,12 +226,12 @@ export function searchMintNet(query: string): SearchResult[] {
   return scored
 }
 
-/** Suggested queries shown under the MintNet search box. */
+/** Suggested queries shown under the MixtNet search box. */
 export const SUGGESTED_SEARCHES = [
-  'linux mint',
+  'mixt os',
   'cinnamon desktop',
   'what is a virtual filesystem',
-  'mint recipes',
+  'mixt recipes',
   'web development',
   'space exploration',
   'how do browsers work',
@@ -247,8 +247,8 @@ export async function fetchAsText(input: string): Promise<string> {
     return `${site.title} (https://${site.domain}${r.path})\n\n${site.description}\n\n[This page has no plain-text version. Open it in the Web Browser to see the full layout.]`
   }
   if (r.kind === 'search') {
-    const results = searchMintNet(r.searchQuery ?? '')
-    return `MintNet Search — ${r.searchQuery}\n${'='.repeat(40)}\n\n${results
+    const results = searchMixtNet(r.searchQuery ?? '')
+    return `Mixtsfox Search — ${r.searchQuery}\n${'='.repeat(40)}\n\n${results
       .map((x, i) => `${i + 1}. ${x.title}\n   ${x.url}\n   ${x.snippet}`)
       .join('\n\n') || 'No results found.'}`
   }
@@ -265,15 +265,15 @@ export async function fetchAsText(input: string): Promise<string> {
         : `curl: could not reach ${r.href}`,
       '',
       internal
-        ? `MintNet DNS: NXDOMAIN for ${host} (asked 10.0.0.53, ${answer.rtt} msec)`
-        : 'This sandbox cannot reach the real internet — only MintNet names resolve.',
-      internal ? 'Browse the directory at https://mintnet.com/ to see every machine on the network.' : '',
+        ? `MixtNet DNS: NXDOMAIN for ${host} (asked 10.0.0.53, ${answer.rtt} msec)`
+        : 'This sandbox cannot reach the real internet — only MixtNet names resolve.',
+      internal ? 'Browse the directory at https://mixtnet.com/ to see every machine on the network.' : '',
       internal ? 'Tip: add a name to /etc/hosts, or drop a server into src/net/internet/servers/.' : '',
     ]
       .filter(Boolean)
       .join('\n')
   }
-  return `curl: cannot reach ${r.href}\nThis sandbox only allows MintNet pages and package mirrors to be fetched.\nTry: curl https://mintnews.com/  or  curl https://mintpedia.org/article/linux-mint`
+  return `curl: cannot reach ${r.href}\nThis sandbox only allows MixtNet pages and package mirrors to be fetched.\nTry: curl https://mixtnews.com/  or  curl https://mixtpedia.org/article/mixt-os`
 }
 
 export * from './types'

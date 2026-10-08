@@ -33,7 +33,7 @@ export default function ScreenshotApp({ api }: AppProps) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--wm-window-bg)' }}>
-      <div className="mint-toolbar">
+      <div className="mixt-toolbar">
         <button className="btn-ghost" onClick={() => launch('nemo', { path: `${HOME}/Pictures` })}>
           <Glyph name="FolderOpen" size={15} /> Open Pictures folder
         </button>
@@ -80,7 +80,7 @@ export default function ScreenshotApp({ api }: AppProps) {
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <button className="btn-mint" disabled={busy} onClick={take}>
+          <button className="btn-mixt" disabled={busy} onClick={take}>
             <Glyph name="Camera" size={15} /> {busy ? 'Working…' : 'Take screenshot'}
           </button>
           <button className="btn-ghost" onClick={() => api.close()}>

@@ -18,71 +18,71 @@ interface Feed {
 
 const FEEDS: Feed[] = [
   {
-    id: 'mintnews',
-    title: 'MintNews',
-    url: 'https://mintnews.com/',
+    id: 'mixtnews',
+    title: 'MixtNews',
+    url: 'https://mixtnews.com/',
     glyph: 'Newspaper',
     color: '#b8532f',
     color2: '#7a2f14',
     description: 'Desktop and internet news, updated whenever the authors feel like it.',
     items: [
-      { title: 'Cinnamon 6.4 lands with smoother window animations', summary: 'The new release focuses on latency: unmaximising a window now takes a single frame on modest hardware.', url: 'https://mintnews.com/article/cinnamon-64', date: '2 Oct', tag: 'Desktop' },
-      { title: 'MintNet passes one billion virtual page views', summary: 'A network that exists entirely inside a browser tab has crossed a milestone nobody was counting.', url: 'https://mintnews.com/article/mintnet-billion', date: '29 Sep', tag: 'Internet' },
-      { title: 'Opinion: the browser is the new operating system', summary: 'Every decade or so, the platform underneath our software quietly changes name.', url: 'https://mintnews.com/article/browser-as-os', date: '27 Sep', tag: 'Opinion' },
-      { title: 'Kernel 6.8 brings better power management to laptops', summary: 'Idle draw drops again, and the scheduler learns a few new tricks for hybrid CPUs.', url: 'https://mintnews.com/article/kernel-68', date: '24 Sep', tag: 'Technology' },
-      { title: 'Running a desktop at 60 frames per second in a single thread', summary: 'No workers, no WebAssembly: just careful state updates and a very small virtual DOM diff.', url: 'https://mintnews.com/article/js-at-60fps', date: '21 Sep', tag: 'Development' },
-      { title: 'The surprising history of mint in the kitchen', summary: 'Before it was a colour, mint was a flavour — and it still makes the best lemonade.', url: 'https://mintnews.com/article/mint-recipes', date: '18 Sep', tag: 'Culture' },
+      { title: 'Cinnamon 6.4 lands with smoother window animations', summary: 'The new release focuses on latency: unmaximising a window now takes a single frame on modest hardware.', url: 'https://mixtnews.com/article/cinnamon-64', date: '2 Oct', tag: 'Desktop' },
+      { title: 'MixtNet passes one billion virtual page views', summary: 'A network that exists entirely inside a browser tab has crossed a milestone nobody was counting.', url: 'https://mixtnews.com/article/mixtnet-billion', date: '29 Sep', tag: 'Internet' },
+      { title: 'Opinion: the browser is the new operating system', summary: 'Every decade or so, the platform underneath our software quietly changes name.', url: 'https://mixtnews.com/article/browser-as-os', date: '27 Sep', tag: 'Opinion' },
+      { title: 'Kernel 6.8 brings better power management to laptops', summary: 'Idle draw drops again, and the scheduler learns a few new tricks for hybrid CPUs.', url: 'https://mixtnews.com/article/kernel-68', date: '24 Sep', tag: 'Technology' },
+      { title: 'Running a desktop at 60 frames per second in a single thread', summary: 'No workers, no WebAssembly: just careful state updates and a very small virtual DOM diff.', url: 'https://mixtnews.com/article/js-at-60fps', date: '21 Sep', tag: 'Development' },
+      { title: 'The surprising history of mixt in the kitchen', summary: 'Before it was a colour, mixt was a flavour — and it still makes the best lemonade.', url: 'https://mixtnews.com/article/mixt-recipes', date: '18 Sep', tag: 'Culture' },
     ],
   },
   {
-    id: 'mintpedia',
-    title: 'MintPedia — featured',
-    url: 'https://mintpedia.org/',
+    id: 'mixtpedia',
+    title: 'MixtPedia — featured',
+    url: 'https://mixtpedia.org/',
     glyph: 'BookOpen',
     color: '#3b4c5a',
     color2: '#1f2933',
-    description: 'Articles from the free encyclopaedia that ships with the MintNet.',
+    description: 'Articles from the free encyclopaedia that ships with the MixtNet.',
     items: [
-      { title: 'Linux Mint', summary: 'A community-driven Linux distribution known for its green branding and its focus on usability.', url: 'https://mintpedia.org/article/linux-mint', date: 'featured', tag: 'Operating systems' },
-      { title: 'Cinnamon (desktop environment)', summary: 'A desktop environment built on GNOME technologies, providing a panel, a menu and Muffin.', url: 'https://mintpedia.org/article/cinnamon-desktop', date: 'featured', tag: 'Desktop' },
-      { title: 'Virtual file system', summary: 'An abstraction layer that presents a uniform interface to different storage back-ends.', url: 'https://mintpedia.org/article/virtual-file-system', date: 'featured', tag: 'Computer science' },
-      { title: 'Web browser', summary: 'An application that retrieves, parses and renders documents from the World Wide Web.', url: 'https://mintpedia.org/article/web-browser', date: 'featured', tag: 'Software' },
-      { title: 'Terminal emulator', summary: 'A program that emulates a character-based video terminal inside a window.', url: 'https://mintpedia.org/article/terminal-emulator', date: 'featured', tag: 'Software' },
+      { title: 'Mixt OS', summary: 'A community-driven Linux distribution known for its green branding and its focus on usability.', url: 'https://mixtpedia.org/article/mixt-os', date: 'featured', tag: 'Operating systems' },
+      { title: 'Cinnamon (desktop environment)', summary: 'A desktop environment built on GNOME technologies, providing a panel, a menu and Muffin.', url: 'https://mixtpedia.org/article/cinnamon-desktop', date: 'featured', tag: 'Desktop' },
+      { title: 'Virtual file system', summary: 'An abstraction layer that presents a uniform interface to different storage back-ends.', url: 'https://mixtpedia.org/article/virtual-file-system', date: 'featured', tag: 'Computer science' },
+      { title: 'Web browser', summary: 'An application that retrieves, parses and renders documents from the World Wide Web.', url: 'https://mixtpedia.org/article/web-browser', date: 'featured', tag: 'Software' },
+      { title: 'Terminal emulator', summary: 'A program that emulates a character-based video terminal inside a window.', url: 'https://mixtpedia.org/article/terminal-emulator', date: 'featured', tag: 'Software' },
     ],
   },
   {
-    id: 'mintube',
-    title: 'Mintube — trending',
-    url: 'https://mintube.com/',
+    id: 'mixtube',
+    title: 'Mixtube — trending',
+    url: 'https://mixtube.com/',
     glyph: 'Video',
     color: '#c0392b',
     color2: '#7c1d12',
-    description: 'What the MintNet is watching right now, allegedly.',
+    description: 'What the MixtNet is watching right now, allegedly.',
     items: [
-      { title: 'Installing Mint Web OS (and why nothing needed installing)', summary: 'A walkthrough of the boot process, from the splash to the panel applets.', url: 'https://mintube.com/watch/v1', date: '3 days', tag: 'Mint Tips' },
-      { title: 'Snapping windows with a pointer capture in React', summary: 'Pointer capture, transform-based dragging and the snap-preview rectangle.', url: 'https://mintube.com/watch/v2', date: '1 week', tag: 'Frontend Kitchen' },
-      { title: 'I wrote a shell in TypeScript and it has pipes', summary: 'Tokenisation, pipelines and redirection in about 500 lines.', url: 'https://mintube.com/watch/v3', date: '2 weeks', tag: 'Terminal Velocity' },
-      { title: 'Review: the 2048 clone inside the browser inside the OS', summary: 'It is 2048. It has arrow-key support. Ten out of ten.', url: 'https://mintube.com/watch/v5', date: '1 month', tag: 'Arcade Corner' },
+      { title: 'Installing Mixt Web OS (and why nothing needed installing)', summary: 'A walkthrough of the boot process, from the splash to the panel applets.', url: 'https://mixtube.com/watch/v1', date: '3 days', tag: 'Mixt Tips' },
+      { title: 'Snapping windows with a pointer capture in React', summary: 'Pointer capture, transform-based dragging and the snap-preview rectangle.', url: 'https://mixtube.com/watch/v2', date: '1 week', tag: 'Frontend Kitchen' },
+      { title: 'I wrote a shell in TypeScript and it has pipes', summary: 'Tokenisation, pipelines and redirection in about 500 lines.', url: 'https://mixtube.com/watch/v3', date: '2 weeks', tag: 'Terminal Velocity' },
+      { title: 'Review: the 2048 clone inside the browser inside the OS', summary: 'It is 2048. It has arrow-key support. Ten out of ten.', url: 'https://mixtube.com/watch/v5', date: '1 month', tag: 'Arcade Corner' },
     ],
   },
   {
-    id: 'mintcart',
-    title: 'MintCart — new arrivals',
-    url: 'https://mintcart.com/',
+    id: 'mixtcart',
+    title: 'MixtCart — new arrivals',
+    url: 'https://mixtcart.com/',
     glyph: 'ShoppingBag',
     color: '#2f9e8f',
     color2: '#14705f',
     description: 'Products from the shop, including the ones that download into your file manager.',
     items: [
-      { title: 'Tux plush toy — £19.50', summary: 'Seventeen centimetres of unstoppable penguin. Embroidered beak, weighted base.', url: 'https://mintcart.com/product/tux-plush', date: 'in stock', tag: 'Toys' },
-      { title: 'Wallpaper pack (3 images) — Free', summary: 'The wave, the facets and the leaf. Yours to download immediately.', url: 'https://mintcart.com/product/wallpaper-pack', date: 'digital', tag: 'Digital' },
-      { title: 'Mechanical keyboard, 87 keys — £84.90', summary: 'Tactile brown switches, PBT caps, a volume knob that actually turns.', url: 'https://mintcart.com/product/keyboard', date: 'in stock', tag: 'Hardware' },
-      { title: 'Shell cheat sheet (PDF) — Free', summary: 'Pipes, redirects and the commands you always look up.', url: 'https://mintcart.com/product/cheatsheet', date: 'digital', tag: 'Digital' },
+      { title: 'Tux plush toy — £19.50', summary: 'Seventeen centimetres of unstoppable penguin. Embroidered beak, weighted base.', url: 'https://mixtcart.com/product/tux-plush', date: 'in stock', tag: 'Toys' },
+      { title: 'Wallpaper pack (3 images) — Free', summary: 'The wave, the facets and the leaf. Yours to download immediately.', url: 'https://mixtcart.com/product/wallpaper-pack', date: 'digital', tag: 'Digital' },
+      { title: 'Mechanical keyboard, 87 keys — £84.90', summary: 'Tactile brown switches, PBT caps, a volume knob that actually turns.', url: 'https://mixtcart.com/product/keyboard', date: 'in stock', tag: 'Hardware' },
+      { title: 'Shell cheat sheet (PDF) — Free', summary: 'Pipes, redirects and the commands you always look up.', url: 'https://mixtcart.com/product/cheatsheet', date: 'digital', tag: 'Digital' },
     ],
   },
 ]
 
-const READ_KEY = 'webmpl.news.read'
+const READ_KEY = 'mixt.news.read'
 
 export default function NewsApp({ api }: AppProps) {
   const settings = useOS((s) => s.settings)
@@ -162,12 +162,12 @@ export default function NewsApp({ api }: AppProps) {
           <Glyph name="Globe" size={14} /> Open feed site
         </div>
         <div style={{ padding: '10px 8px 0', fontSize: 11.5, opacity: 0.65, lineHeight: 1.5 }}>
-          Feeds are fetched from the MintNet and cached in your browser ({vfsRev} filesystem revisions so far).
+          Feeds are fetched from the MixtNet and cached in your browser ({vfsRev} filesystem revisions so far).
         </div>
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <div className="mint-toolbar">
+        <div className="mixt-toolbar">
           <input className="entry" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search all feeds…" style={{ width: 220 }} />
           <button className="btn-ghost" data-active={view === 'cards'} onClick={() => setView('cards')} title="Card view">
             <Glyph name="LayoutGrid" size={15} />
@@ -195,10 +195,10 @@ export default function NewsApp({ api }: AppProps) {
                 <p style={{ fontSize: 15.5, lineHeight: 1.7 }}>{current.summary}</p>
                 <p style={{ lineHeight: 1.7, opacity: 0.85 }}>
                   This is the summary carried by the feed. The full article — with its own layout, comments and
-                  illustrations — lives on the MintNet, where it is updated whenever the author feels productive.
+                  illustrations — lives on the MixtNet, where it is updated whenever the author feels productive.
                 </p>
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                  <button className="btn-mint" onClick={() => openUrl(current.url)}>
+                  <button className="btn-mixt" onClick={() => openUrl(current.url)}>
                     <Glyph name="Globe" size={14} /> Read the full article
                   </button>
                   <button className="btn-ghost" onClick={() => markRead(current.url)}>

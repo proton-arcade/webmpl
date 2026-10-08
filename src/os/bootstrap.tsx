@@ -11,14 +11,14 @@ export function bootstrap() {
   // Make sure the user's home directories exist (fresh installs / old stores).
   const vfs = useVFS.getState()
   for (const dir of [
-    '/home/mint/Desktop',
-    '/home/mint/Documents',
-    '/home/mint/Downloads',
-    '/home/mint/Music',
-    '/home/mint/Pictures',
-    '/home/mint/Videos',
-    '/home/mint/.local/share/Trash/files',
-    '/home/mint/.config',
+    '/home/mixt/Desktop',
+    '/home/mixt/Documents',
+    '/home/mixt/Downloads',
+    '/home/mixt/Music',
+    '/home/mixt/Pictures',
+    '/home/mixt/Videos',
+    '/home/mixt/.local/share/Trash/files',
+    '/home/mixt/.config',
     '/tmp',
     '/var/tmp',
   ]) {
@@ -28,14 +28,14 @@ export function bootstrap() {
   // /etc/hosts and /etc/resolv.conf — the local resolver's configuration
   ensureNetworkFiles()
 
-  const uptimeKey = 'webmpl.boot.cycle'
+  const uptimeKey = 'mixt.boot.cycle'
   const cycles = Number(sessionStorage.getItem(uptimeKey) ?? '0') + 1
   sessionStorage.setItem(uptimeKey, String(cycles))
 
   setTimeout(() => {
     if (cycles <= 1) {
       os.notify({
-        title: 'Welcome to Mint Web OS',
+        title: 'Welcome to Mixt Web OS',
         body: `${os.settings.username}@${os.settings.hostname} is ready.\nOpen the Menu to explore, or type "help" in the Terminal.`,
         appId: 'help',
       })
@@ -45,14 +45,14 @@ export function bootstrap() {
         os.notify({
           title: 'Update Manager',
           body: 'Your system is up to date.\n3 packages can be installed from the Software Manager.',
-          appId: 'mintinstall',
+          appId: 'mixtinstall',
         })
       }, 5200)
     }
     if (os.settings.startupApps.includes('update-notifier')) {
       os.notify({
         title: 'Network',
-        body: os.settings.wifi ? 'Connected to "MintNet" wireless network.' : 'Wireless is switched off.',
+        body: os.settings.wifi ? 'Connected to "MixtNet" wireless network.' : 'Wireless is switched off.',
         appId: 'network',
       })
     }

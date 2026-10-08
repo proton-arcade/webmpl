@@ -87,7 +87,7 @@ function hasMoves(grid: Grid) {
 export default function Game2048App({ api }: AppProps) {
   const [grid, setGrid] = useState<Grid>(newGame)
   const [score, setScore] = useState(0)
-  const [best, setBest] = useState(() => Number(localStorage.getItem('webmpl.2048.best') ?? '0'))
+  const [best, setBest] = useState(() => Number(localStorage.getItem('mixt.2048.best') ?? '0'))
   const [history, setHistory] = useState<{ grid: Grid; score: number }[]>([])
   const [state, setState] = useState<'playing' | 'won' | 'lost'>('playing')
   const [moves, setMoves] = useState(0)
@@ -96,7 +96,7 @@ export default function Game2048App({ api }: AppProps) {
     api.setTitle(`${score > best ? score : best} — 2048`)
     if (score > best) {
       setBest(score)
-      localStorage.setItem('webmpl.2048.best', String(score))
+      localStorage.setItem('mixt.2048.best', String(score))
     }
   }, [score, best])
 
@@ -110,8 +110,8 @@ export default function Game2048App({ api }: AppProps) {
         const withNew = addRandom(res.grid)
         setScore((s) => s + res.gained)
         setMoves((m) => m + 1)
-        if (res.grid.flat().includes(2048) && state === 'playing' && !localStorage.getItem('webmpl.2048.won')) {
-          localStorage.setItem('webmpl.2048.won', '1')
+        if (res.grid.flat().includes(2048) && state === 'playing' && !localStorage.getItem('mixt.2048.won')) {
+          localStorage.setItem('mixt.2048.won', '1')
           setState('won')
         } else if (!hasMoves(withNew)) {
           setState('lost')
@@ -171,7 +171,7 @@ export default function Game2048App({ api }: AppProps) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: '#faf8f3' }}>
-      <div className="mint-toolbar" style={{ background: '#f0ece2', color: '#4a4238' }}>
+      <div className="mixt-toolbar" style={{ background: '#f0ece2', color: '#4a4238' }}>
         <button className="btn-ghost" onClick={restart}>
           <Glyph name="RefreshCw" size={15} /> New game
         </button>
@@ -192,7 +192,7 @@ export default function Game2048App({ api }: AppProps) {
             <div style={{ fontSize: 11, opacity: 0.85 }}>BEST</div>
             <div style={{ fontSize: 20, fontWeight: 700 }}>{best}</div>
           </div>
-          <button className="btn-mint" onClick={restart} style={{ alignSelf: 'stretch' }}>
+          <button className="btn-mixt" onClick={restart} style={{ alignSelf: 'stretch' }}>
             New game
           </button>
         </div>
@@ -267,7 +267,7 @@ export default function Game2048App({ api }: AppProps) {
                 </div>
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 14 }}>
                   {state === 'won' && (
-                    <button className="btn-mint" onClick={() => setState('playing')}>
+                    <button className="btn-mixt" onClick={() => setState('playing')}>
                       Keep playing
                     </button>
                   )}

@@ -12,8 +12,8 @@ export interface HistoryEntry {
   time: number
 }
 
-const BOOKMARKS = '/home/mint/.config/mintnet/bookmarks.json'
-const HISTORY = '/home/mint/.config/mintnet/history.json'
+const BOOKMARKS = '/home/mixt/.config/mixtnet/bookmarks.json'
+const HISTORY = '/home/mixt/.config/mixtnet/history.json'
 
 function read<T>(path: string, fallback: T): T {
   const raw = vfs.read(path)
@@ -30,16 +30,16 @@ export function loadBookmarks(): Bookmark[] {
   if (b.length) return b
   // first run: a few sensible defaults
   const defaults: Bookmark[] = [
-    { url: 'https://mintnet.com/', title: 'MintNet', added: Date.now() },
-    { url: 'https://mintpedia.org/article/linux-mint', title: 'Linux Mint — MintPedia', added: Date.now() },
-    { url: 'https://mintnews.com/', title: 'MintNews', added: Date.now() },
+    { url: 'https://mixtnet.com/', title: 'MixtNet', added: Date.now() },
+    { url: 'https://mixtpedia.org/article/mixt-os', title: 'Mixt OS — MixtPedia', added: Date.now() },
+    { url: 'https://mixtnews.com/', title: 'MixtNews', added: Date.now() },
   ]
   saveBookmarks(defaults)
   return defaults
 }
 
 export function saveBookmarks(list: Bookmark[]) {
-  vfs.mkdirp('/home/mint/.config/mintnet')
+  vfs.mkdirp('/home/mixt/.config/mixtnet')
   vfs.write(BOOKMARKS, JSON.stringify(list, null, 2), 'application/json')
 }
 
@@ -54,7 +54,7 @@ export function pushHistory(entry: HistoryEntry) {
   } else {
     list.unshift(entry)
   }
-  vfs.mkdirp('/home/mint/.config/mintnet')
+  vfs.mkdirp('/home/mixt/.config/mixtnet')
   vfs.write(HISTORY, JSON.stringify(list.slice(0, 300), null, 2), 'application/json')
 }
 
@@ -80,6 +80,6 @@ export function prettyPath(url: string) {
   }
 }
 
-export function titleFor(url: string, fallback = 'MintNet') {
+export function titleFor(url: string, fallback = 'MixtNet') {
   return fallback
 }

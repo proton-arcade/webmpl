@@ -1,4 +1,4 @@
-/** A machine on the MintNet — the thing you "drop in" to publish hostnames. */
+/** A machine on the MixtNet — the thing you "drop in" to publish hostnames. */
 import type { SiteDef } from '../types'
 
 export interface ServerPort {
@@ -23,12 +23,12 @@ export interface ServerDef {
   hosts: string[]
   /** CNAMEs included for convenience */
   aliases?: string[]
-  /** zones it answers for, e.g. "*.mintnet.com" */
+  /** zones it answers for, e.g. "*.mixtnet.com" */
   wildcard?: string[]
   /** override the generated address (must be unique) */
   ip?: string
   ipv6?: string
-  /** who runs it — shown in the MintNet Registry */
+  /** who runs it — shown in the MixtNet Registry */
   operator?: string
   location?: string
   since?: string

@@ -4,42 +4,42 @@ import { FILES } from '../downloads'
 import type { PageCtx, SiteDef } from '../types'
 
 /* ==========================================================================
-   linuxmint.com — the distribution that inspired all of this
+   mixtos.com — the distribution that inspired all of this
    ========================================================================== */
 
 function DownloadButton({ ctx, fileId, label }: { ctx: PageCtx; fileId: string; label?: string }) {
   const file = FILES.find((f) => f.id === fileId)!
   return (
-    <Btn onClick={() => ctx.navigate(`https://linuxmint.com/download/${file.filename}`)}>
+    <Btn onClick={() => ctx.navigate(`https://mixtos.com/download/${file.filename}`)}>
       ⬇ {label ?? file.filename}
     </Btn>
   )
 }
 
-function MintHome({ ctx }: { ctx: PageCtx }) {
+function MixtHome({ ctx }: { ctx: PageCtx }) {
   return (
     <SiteShell
-      site={LINUXMINT}
+      site={MIXTOS}
       ctx={ctx}
       nav={[
-        { label: 'Home', href: 'https://linuxmint.com/' },
-        { label: 'Download', href: 'https://linuxmint.com/download.php' },
-        { label: 'Features', href: 'https://linuxmint.com/features' },
-        { label: 'Documentation', href: 'https://linuxmint.com/documentation' },
+        { label: 'Home', href: 'https://mixtos.com/' },
+        { label: 'Download', href: 'https://mixtos.com/download.php' },
+        { label: 'Features', href: 'https://mixtos.com/features' },
+        { label: 'Documentation', href: 'https://mixtos.com/documentation' },
       ]}
       maxWidth={980}
     >
       <div style={{ background: 'linear-gradient(120deg,#2f6b12,#61ad2b)', color: '#fff', borderRadius: 12, padding: '30px 26px', marginBottom: 20 }}>
-        <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: -0.6 }}>Linux Mint</div>
+        <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: -0.6 }}>Mixt OS</div>
         <div style={{ opacity: 0.92, marginTop: 6, fontSize: 15.5, maxWidth: 620 }}>
           A modern, elegant and comfortable operating system which is both powerful and easy to use. This is the real
-          project's homepage, honest — Mint Web OS is a loving tribute that runs in your browser.
+          project's homepage, honest — Mixt Web OS is a loving tribute that runs in your browser.
         </div>
         <div style={{ marginTop: 18, display: 'flex', gap: 10 }}>
-          <Btn tone="grey" onClick={() => ctx.navigate('https://linuxmint.com/download.php')}>
+          <Btn tone="grey" onClick={() => ctx.navigate('https://mixtos.com/download.php')}>
             Download
           </Btn>
-          <Btn tone="outline" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.6)' }} onClick={() => ctx.navigate('https://mintnews.com/article/cinnamon-64')}>
+          <Btn tone="outline" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.6)' }} onClick={() => ctx.navigate('https://mixtnews.com/article/cinnamon-64')}>
             Read the release notes
           </Btn>
         </div>
@@ -48,13 +48,13 @@ function MintHome({ ctx }: { ctx: PageCtx }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
         {[
           ['Cinnamon', 'A traditional desktop with modern touches: panel, menu, applets, workspaces.', 'cinnamon-desktop'],
-          ['Software Manager', 'Tens of thousands of packages, one search box, zero command line required.', 'linux-mint'],
-          ['Update Manager', 'Tiered safety levels so you decide how brave today is.', 'linux-mint'],
+          ['Software Manager', 'Tens of thousands of packages, one search box, zero command line required.', 'mixt-os'],
+          ['Update Manager', 'Tiered safety levels so you decide how brave today is.', 'mixt-os'],
         ].map(([title, text, slug]) => (
           <Card key={title}>
             <H level={3}>{title}</H>
             <p style={{ color: '#39413b', lineHeight: 1.6 }}>{text}</p>
-            <A ctx={ctx} href={`https://mintpedia.org/article/${slug}`} style={{ textDecoration: 'none' }}>
+            <A ctx={ctx} href={`https://mixtpedia.org/article/${slug}`} style={{ textDecoration: 'none' }}>
               Learn more →
             </A>
           </Card>
@@ -64,25 +64,25 @@ function MintHome({ ctx }: { ctx: PageCtx }) {
   )
 }
 
-function MintDownload({ ctx }: { ctx: PageCtx }) {
+function MixtDownload({ ctx }: { ctx: PageCtx }) {
   return (
     <SiteShell
-      site={LINUXMINT}
+      site={MIXTOS}
       ctx={ctx}
       nav={[
-        { label: 'Home', href: 'https://linuxmint.com/' },
-        { label: 'Download', href: 'https://linuxmint.com/download.php' },
+        { label: 'Home', href: 'https://mixtos.com/' },
+        { label: 'Download', href: 'https://mixtos.com/download.php' },
       ]}
     >
-      <H level={1}>Download Linux Mint</H>
+      <H level={1}>Download Mixt OS</H>
       <p style={{ color: '#4a524d', maxWidth: 700 }}>
         Choose an edition below. Downloads are handled by the Web Browser and saved to <code>~/Downloads</code> — you can
         watch the progress in the browser's status bar and in the Files application.
       </p>
       {[
-        ['linuxmint-22-iso', 'Cinnamon Edition — 64-bit', '2.9 GB', 'The flagship edition, with the desktop you are using right now (allegedly).'],
-        ['mint-wallpaper-pack', 'Wallpaper pack', '18 MB', 'Three wallpapers for people who like green and geometry.'],
-        ['mintnet-spec', 'MintNet protocol spec (PDF)', '420 kB', 'How the fictional internet inside this computer is put together.'],
+        ['mixtos-iso', 'Cinnamon Edition — 64-bit', '2.9 GB', 'The flagship edition, with the desktop you are using right now (allegedly).'],
+        ['mixt-wallpaper-pack', 'Wallpaper pack', '18 MB', 'Three wallpapers for people who like green and geometry.'],
+        ['mixtnet-spec', 'MixtNet protocol spec (PDF)', '420 kB', 'How the fictional internet inside this computer is put together.'],
       ].map(([fileId, title, size, blurb]) => (
         <Card key={fileId} style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ flex: 1 }}>
@@ -105,13 +105,13 @@ function MintDownload({ ctx }: { ctx: PageCtx }) {
 }
 
 /* ==========================================================================
-   mintdev.io — developer documentation
+   mixtdev.io — developer documentation
    ========================================================================== */
 
 const CODE = {
-  component: `// A MintNet site is just a component tree.
+  component: `// A MixtNet site is just a component tree.
 export const MY_SITE: SiteDef = {
-  domain: 'example.mintnet',
+  domain: 'example.mixtnet',
   title: 'Example',
   glyph: 'Compass',
   color: '#61ad2b',
@@ -130,8 +130,8 @@ export const MY_SITE: SiteDef = {
 function Home({ ctx }: { ctx: PageCtx }) {
   return (
     <SiteShell site={MY_SITE} ctx={ctx}>
-      <h1>Hello MintNet</h1>
-      <a onClick={() => ctx.navigate('https://mintpedia.org/')}>Go somewhere</a>
+      <h1>Hello MixtNet</h1>
+      <a onClick={() => ctx.navigate('https://mixtpedia.org/')}>Go somewhere</a>
     </SiteShell>
   )
 }`,
@@ -142,20 +142,20 @@ echo "new note" >> ~/Desktop/notes.txt
 find / -name "*.ogg" | wc -l`,
   fetch: `// fetching from inside the OS
 import { fetchAsText } from '../net'
-const page = await fetchAsText('https://mintnews.com/')
-console.log(page) // plain-text rendering of a MintNet page`,
+const page = await fetchAsText('https://mixtnews.com/')
+console.log(page) // plain-text rendering of a MixtNet page`,
 }
 
-function mintdevHome({ ctx }: { ctx: PageCtx }) {
+function mixtdevHome({ ctx }: { ctx: PageCtx }) {
   return (
     <SiteShell
-      site={MINTDEV}
+      site={MIXTDEV}
       ctx={ctx}
-      nav={[{ label: 'Docs', href: 'https://mintdev.io/' }, { label: 'Protocol', href: 'https://mintdev.io/protocol' }, { label: 'Shell', href: 'https://mintdev.io/shell' }]}
+      nav={[{ label: 'Docs', href: 'https://mixtdev.io/' }, { label: 'Protocol', href: 'https://mixtdev.io/protocol' }, { label: 'Shell', href: 'https://mixtdev.io/shell' }]}
     >
-      <H level={1}>Build a site for the MintNet</H>
+      <H level={1}>Build a site for the MixtNet</H>
       <p style={{ color: '#4a524d', maxWidth: 740, lineHeight: 1.7 }}>
-        MintNet has no servers. Every site is a React component and every navigation is a function call inside the
+        MixtNet has no servers. Every site is a React component and every navigation is a function call inside the
         browser's tab. That makes it the fastest web you will ever deploy to, and the easiest to break.
       </p>
       <H level={2}>Anatomy of a site</H>
@@ -163,7 +163,7 @@ function mintdevHome({ ctx }: { ctx: PageCtx }) {
       <H level={2}>Search integration</H>
       <p style={{ color: '#39413b', maxWidth: 740 }}>
         Add <code>title</code>, <code>keywords</code> and <code>snippet</code> to a page and it joins the inverted index
-        immediately — the MintNet portal picks it up without any crawling.
+        immediately — the MixtNet portal picks it up without any crawling.
       </p>
       <H level={2}>Downloads</H>
       <p style={{ color: '#39413b' }}>
@@ -171,8 +171,8 @@ function mintdevHome({ ctx }: { ctx: PageCtx }) {
         with a progress bar and a notification.
       </p>
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <Btn onClick={() => ctx.navigate('https://mintdev.io/protocol')}>Read the protocol spec</Btn>
-        <Btn tone="grey" onClick={() => ctx.navigate('https://mintdev.io/shell')}>
+        <Btn onClick={() => ctx.navigate('https://mixtdev.io/protocol')}>Read the protocol spec</Btn>
+        <Btn tone="grey" onClick={() => ctx.navigate('https://mixtdev.io/shell')}>
           Shell cheatsheet
         </Btn>
       </div>
@@ -181,7 +181,7 @@ function mintdevHome({ ctx }: { ctx: PageCtx }) {
 }
 
 /* ==========================================================================
-   webmpl.dev — about this operating system
+   mixt.dev — about this operating system
    ========================================================================== */
 
 const SHORTCUTS: [string, string][] = [
@@ -196,18 +196,18 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl + Alt + L', 'Lock the screen'],
 ]
 
-function webmplHome({ ctx }: { ctx: PageCtx }) {
+function mixtHome({ ctx }: { ctx: PageCtx }) {
   return (
     <SiteShell
-      site={WEBMPL}
+      site={MIXT}
       ctx={ctx}
-      nav={[{ label: 'About', href: 'https://webmpl.dev/' }, { label: 'Shortcuts', href: 'https://webmpl.dev/shortcuts' }, { label: 'Download', href: 'https://webmpl.dev/download' }]}
+      nav={[{ label: 'About', href: 'https://mixt.dev/' }, { label: 'Shortcuts', href: 'https://mixt.dev/shortcuts' }, { label: 'Download', href: 'https://mixt.dev/download' }]}
     >
-      <H level={1}>Mint Web OS</H>
+      <H level={1}>Mixt Web OS</H>
       <p style={{ color: '#4a524d', maxWidth: 760, lineHeight: 1.75 }}>
         A complete desktop computer that runs inside a web page: window manager, panel, virtual filesystem, terminal,
         file manager, software store, media players and a browser that surfs a fictional internet. Styled after Linux
-        Mint because green is a nice colour and because the Cinnamon layout is a genuinely good idea.
+        Mixt because green is a nice colour and because the Cinnamon layout is a genuinely good idea.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 8 }}>
         <Card>
@@ -223,10 +223,10 @@ function webmplHome({ ctx }: { ctx: PageCtx }) {
         <Card>
           <H level={3}>What is pretend</H>
           <ul style={{ lineHeight: 1.8, color: '#39413b' }}>
-            <li>The MintNet sites and their contents</li>
+            <li>The MixtNet sites and their contents</li>
             <li>The kernel version, the CPU and the battery</li>
-            <li>The 2.9 GB ISO on linuxmint.com</li>
-            <li>The van that delivers your MintCart order</li>
+            <li>The 2.9 GB ISO on mixtos.com</li>
+            <li>The van that delivers your MixtCart order</li>
           </ul>
         </Card>
       </div>
@@ -245,11 +245,11 @@ function webmplHome({ ctx }: { ctx: PageCtx }) {
       </table>
       <H level={2}>Get it</H>
       <p style={{ color: '#39413b' }}>
-        Mint Web OS is not an install — it is the page you are looking at. You can still download a tarball, because
+        Mixt Web OS is not an install — it is the page you are looking at. You can still download a tarball, because
         tarballs are comforting.
       </p>
       <div style={{ marginTop: 8 }}>
-        <Btn onClick={() => ctx.navigate(`https://webmpl.dev/download/${FILES.find((f) => f.id === 'webmpl-source')!.filename}`)}>⬇ webmpl-1.0.0.tar.gz</Btn>
+        <Btn onClick={() => ctx.navigate(`https://mixt.dev/download/${FILES.find((f) => f.id === 'mixt-source')!.filename}`)}>⬇ mixt-1.0.0.tar.gz</Btn>
       </div>
     </SiteShell>
   )
@@ -259,34 +259,34 @@ function webmplHome({ ctx }: { ctx: PageCtx }) {
    site definitions
    ========================================================================== */
 
-export const LINUXMINT: SiteDef = {
-  domain: 'linuxmint.com',
-  aliases: ['linuxmint.org', 'mint.com'],
-  title: 'Linux Mint',
+export const MIXTOS: SiteDef = {
+  domain: 'mixtos.com',
+  aliases: ['mixtos.org', 'mixt.com'],
+  title: 'Mixt OS',
   glyph: 'Award',
   color: '#2f6b12',
   color2: '#1c4309',
-  description: 'The homepage of the Linux Mint project: downloads, features and documentation.',
-  tags: ['linux', 'mint', 'download', 'distro', 'iso'],
+  description: 'The homepage of the Mixt OS project: downloads, features and documentation.',
+  tags: ['linux', 'mixt', 'download', 'distro', 'iso'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'Linux Mint — home', keywords: ['linux mint', 'distro', 'distribution', 'homepage'], snippet: 'A modern, elegant and comfortable operating system.', render: (ctx) => <MintHome ctx={ctx} /> },
+    { path: '/', title: 'Mixt OS — home', keywords: ['mixt os', 'distro', 'distribution', 'homepage'], snippet: 'A modern, elegant and comfortable operating system.', render: (ctx) => <MixtHome ctx={ctx} /> },
     {
       path: '/download.php',
-      title: 'Linux Mint — download',
+      title: 'Mixt OS — download',
       keywords: ['download', 'iso', 'cinnamon edition', 'mirror'],
-      snippet: 'Download Linux Mint images: the ISO really downloads into your Downloads folder.',
-      render: (ctx) => <MintDownload ctx={ctx} />,
+      snippet: 'Download Mixt OS images: the ISO really downloads into your Downloads folder.',
+      render: (ctx) => <MixtDownload ctx={ctx} />,
     },
-    { path: '/features', title: 'Linux Mint — features', keywords: ['features', 'desktop', 'software manager'], snippet: 'What makes the distribution pleasant to use.', render: (ctx) => <MintHome ctx={ctx} /> },
-    { path: '/documentation', title: 'Linux Mint — documentation', keywords: ['documentation', 'wiki', 'manual'], snippet: 'Guides and manuals.', render: (ctx) => <MintHome ctx={ctx} /> },
+    { path: '/features', title: 'Mixt OS — features', keywords: ['features', 'desktop', 'software manager'], snippet: 'What makes the distribution pleasant to use.', render: (ctx) => <MixtHome ctx={ctx} /> },
+    { path: '/documentation', title: 'Mixt OS — documentation', keywords: ['documentation', 'wiki', 'manual'], snippet: 'Guides and manuals.', render: (ctx) => <MixtHome ctx={ctx} /> },
     {
       path: '/download',
-      title: 'Linux Mint — downloading',
+      title: 'Mixt OS — downloading',
       keywords: ['download', 'progress'],
       snippet: 'Your download should have started.',
       render: (ctx) => (
-        <SiteShell site={LINUXMINT} ctx={ctx} nav={[{ label: 'Home', href: 'https://linuxmint.com/' }]}>
+        <SiteShell site={MIXTOS} ctx={ctx} nav={[{ label: 'Home', href: 'https://mixtos.com/' }]}>
           <H level={1}>Thank you for downloading</H>
           <p>The file is being written to ~/Downloads. Open the Files application to see it arrive.</p>
         </SiteShell>
@@ -295,39 +295,39 @@ export const LINUXMINT: SiteDef = {
   ],
   text: () =>
     [
-      'Linux Mint',
+      'Mixt OS',
       '==========',
       '',
       'A modern, elegant and comfortable operating system which is both powerful and easy to use.',
       '',
       'Downloads (these really work in the browser):',
-      ...FILES.filter((f) => f.from.startsWith('https://linuxmint.com')).map((f) => `  - https://linuxmint.com/download/${f.filename}  (${(f.size / 1e6).toFixed(1)} MB)`),
+      ...FILES.filter((f) => f.from.startsWith('https://mixtos.com')).map((f) => `  - https://mixtos.com/download/${f.filename}  (${(f.size / 1e6).toFixed(1)} MB)`),
     ].join('\n'),
 }
 
-export const MINTDEV: SiteDef = {
-  domain: 'mintdev.io',
-  aliases: ['developer.mint.com'],
-  title: 'MintDev',
+export const MIXTDEV: SiteDef = {
+  domain: 'mixtdev.io',
+  aliases: ['developer.mixt.com'],
+  title: 'MixtDev',
   glyph: 'Code',
   color: '#1f2933',
   color2: '#0d1116',
-  description: 'Developer documentation for the MintNet: site format, search index, downloads and the shell API.',
+  description: 'Developer documentation for the MixtNet: site format, search index, downloads and the shell API.',
   tags: ['docs', 'developer', 'api', 'documentation', 'tutorial'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'MintDev — build a site', keywords: ['docs', 'api', 'tutorial', 'developers', 'site'], snippet: 'How to add a website to the MintNet, with code.', render: (ctx) => mintdevHome({ ctx }) },
+    { path: '/', title: 'MixtDev — build a site', keywords: ['docs', 'api', 'tutorial', 'developers', 'site'], snippet: 'How to add a website to the MixtNet, with code.', render: (ctx) => mixtdevHome({ ctx }) },
     {
       path: '/protocol',
-      title: 'MintNet protocol specification',
+      title: 'MixtNet protocol specification',
       keywords: ['protocol', 'spec', 'url', 'routing', 'search index'],
       snippet: 'URLs, resolution rules, the search index and downloads.',
       render: (ctx) => (
-        <SiteShell site={MINTDEV} ctx={ctx} nav={[{ label: 'Docs', href: 'https://mintdev.io/' }]}>
-          <H level={1}>MintNet protocol, version 1.0</H>
+        <SiteShell site={MIXTDEV} ctx={ctx} nav={[{ label: 'Docs', href: 'https://mixtdev.io/' }]}>
+          <H level={1}>MixtNet protocol, version 1.0</H>
           <H level={2}>1. URLs</H>
           <p style={{ color: '#39413b', lineHeight: 1.7 }}>
-            MintNet URLs look exactly like real ones. A host that is not in the site registry resolves as a <em>real</em>{' '}
+            MixtNet URLs look exactly like real ones. A host that is not in the site registry resolves as a <em>real</em>{' '}
             URL and is opened in an embedded frame when the remote server permits embedding.
           </p>
           <H level={2}>2. Resolution</H>
@@ -341,7 +341,7 @@ export const MINTDEV: SiteDef = {
             index built lazily on first search.
           </p>
           <H level={2}>4. Downloads</H>
-          <Btn onClick={() => ctx.navigate(`https://mintdev.io/download/${FILES.find((f) => f.id === 'mintnet-spec')!.filename}`)}>
+          <Btn onClick={() => ctx.navigate(`https://mixtdev.io/download/${FILES.find((f) => f.id === 'mixtnet-spec')!.filename}`)}>
             ⬇ Download this specification
           </Btn>
         </SiteShell>
@@ -349,17 +349,17 @@ export const MINTDEV: SiteDef = {
     },
     {
       path: '/shell',
-      title: 'MintDev — the shell',
+      title: 'MixtDev — the shell',
       keywords: ['shell', 'terminal', 'commands', 'pipes', 'bash'],
       snippet: 'Command reference for the built-in terminal, with a downloadable cheat sheet.',
       render: (ctx) => (
-        <SiteShell site={MINTDEV} ctx={ctx} nav={[{ label: 'Docs', href: 'https://mintdev.io/' }]}>
-          <H level={1}>The Mint Web OS shell</H>
+        <SiteShell site={MIXTDEV} ctx={ctx} nav={[{ label: 'Docs', href: 'https://mixtdev.io/' }]}>
+          <H level={1}>The Mixt Web OS shell</H>
           <pre style={{ background: '#1e2327', color: '#d7dbd8', padding: 14, borderRadius: 8, overflow: 'auto', fontSize: 12.5, lineHeight: 1.55 }}>{CODE.shell}</pre>
-          <H level={2}>Calling MintNet from code</H>
+          <H level={2}>Calling MixtNet from code</H>
           <pre style={{ background: '#1e2327', color: '#d7dbd8', padding: 14, borderRadius: 8, overflow: 'auto', fontSize: 12.5, lineHeight: 1.55 }}>{CODE.fetch}</pre>
           <div style={{ marginTop: 14 }}>
-            <Btn onClick={() => ctx.navigate(`https://mintdev.io/download/${FILES.find((f) => f.id === 'mint-cheatsheet')!.filename}`)}>
+            <Btn onClick={() => ctx.navigate(`https://mixtdev.io/download/${FILES.find((f) => f.id === 'mixt-cheatsheet')!.filename}`)}>
               ⬇ Download the cheat sheet
             </Btn>
           </div>
@@ -369,35 +369,35 @@ export const MINTDEV: SiteDef = {
   ],
   text: (path) =>
     path === '/shell'
-      ? ['The Mint Web OS shell', '====================', '', CODE.shell].join('\n')
-      : ['MintDev — build a site for the MintNet', '=====================================', '', CODE.component].join('\n'),
+      ? ['The Mixt Web OS shell', '====================', '', CODE.shell].join('\n')
+      : ['MixtDev — build a site for the MixtNet', '=====================================', '', CODE.component].join('\n'),
 }
 
-export const WEBMPL: SiteDef = {
-  domain: 'webmpl.dev',
-  aliases: ['mintwebos.dev', 'mintwebozos.local'],
-  title: 'webmpl.dev',
+export const MIXT: SiteDef = {
+  domain: 'mixt.dev',
+  aliases: ['mixtwebos.dev', 'mixtwebozos.local'],
+  title: 'mixt.dev',
   glyph: 'Globe',
   color: '#4b8fd6',
   color2: '#245b93',
-  description: 'About Mint Web OS: what is real, what is pretend, keyboard shortcuts and a source download.',
-  tags: ['about', 'webmpl', 'desktop', 'shortcuts'],
+  description: 'About Mixt Web OS: what is real, what is pretend, keyboard shortcuts and a source download.',
+  tags: ['about', 'mixt', 'desktop', 'shortcuts'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'webmpl.dev — about Mint Web OS', keywords: ['about', 'operating system', 'webmpl', 'desktop in browser'], snippet: 'What Mint Web OS is, what is real and what is pretend.', render: (ctx) => webmplHome({ ctx }) },
-    { path: '/shortcuts', title: 'webmpl.dev — keyboard shortcuts', keywords: ['shortcuts', 'keyboard', 'hotkeys'], snippet: 'Every keyboard shortcut the desktop understands.', render: (ctx) => webmplHome({ ctx }) },
-    { path: '/download', title: 'webmpl.dev — download', keywords: ['download', 'source', 'tarball'], snippet: 'Download the source tarball.', render: (ctx) => webmplHome({ ctx }) },
+    { path: '/', title: 'mixt.dev — about Mixt Web OS', keywords: ['about', 'operating system', 'mixt', 'desktop in browser'], snippet: 'What Mixt Web OS is, what is real and what is pretend.', render: (ctx) => mixtHome({ ctx }) },
+    { path: '/shortcuts', title: 'mixt.dev — keyboard shortcuts', keywords: ['shortcuts', 'keyboard', 'hotkeys'], snippet: 'Every keyboard shortcut the desktop understands.', render: (ctx) => mixtHome({ ctx }) },
+    { path: '/download', title: 'mixt.dev — download', keywords: ['download', 'source', 'tarball'], snippet: 'Download the source tarball.', render: (ctx) => mixtHome({ ctx }) },
   ],
   text: () =>
     [
-      'Mint Web OS (webmpl)',
+      'Mixt Web OS (mixt)',
       '====================',
       '',
-      'A complete desktop computer inside a web page, styled after Linux Mint.',
+      'A complete desktop computer inside a web page, styled after Mixt OS.',
       '',
       'Keyboard shortcuts:',
       ...SHORTCUTS.map(([k, v]) => `  ${k.padEnd(20)} ${v}`),
     ].join('\n'),
 }
 
-export const TECH_SITES = [LINUXMINT, MINTDEV, WEBMPL]
+export const TECH_SITES = [MIXTOS, MIXTDEV, MIXT]

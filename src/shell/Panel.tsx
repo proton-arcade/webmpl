@@ -75,7 +75,7 @@ export default function Panel() {
           onClick={() => S.setMenuOpen(!menuOpen)}
           title="Main Menu (Super)"
         >
-          <MintLogo />
+          <MixtLogo />
         </div>
 
         {/* quick launch */}
@@ -144,7 +144,7 @@ export default function Panel() {
           </div>
 
           {/* network */}
-          <div className="panel-item" title={settings.wifi ? 'Connected to MintNet' : 'Wireless off'} onClick={() => setPopup({ kind: 'network', x: window.innerWidth - 240, y: top ? size : window.innerHeight - size - 150 })}>
+          <div className="panel-item" title={settings.wifi ? 'Connected to MixtNet' : 'Wireless off'} onClick={() => setPopup({ kind: 'network', x: window.innerWidth - 240, y: top ? size : window.innerHeight - size - 150 })}>
             <Glyph name={settings.wifi ? 'Wifi' : 'WifiOff'} size={15} />
           </div>
 
@@ -193,7 +193,7 @@ export default function Panel() {
           onClose={() => setPopup(null)}
           items={[
             {
-              label: settings.wifi ? 'Wireless: connected to “MintNet”' : 'Wireless is off',
+              label: settings.wifi ? 'Wireless: connected to “MixtNet”' : 'Wireless is off',
               disabled: true,
             },
             { separator: true },
@@ -231,9 +231,9 @@ export default function Panel() {
             { label: `${settings.fullName} (${settings.username})`, disabled: true },
             { separator: true },
             { label: 'Lock screen', icon: <Glyph name="Lock" size={14} />, onClick: () => S.setLocked(true) },
-            { label: 'Log out…', icon: <Glyph name="LogOut" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('webmpl:session', { detail: 'logout' })) },
-            { label: 'Restart…', icon: <Glyph name="RefreshCw" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('webmpl:session', { detail: 'reboot' })) },
-            { label: 'Shut down…', icon: <Glyph name="Power" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('webmpl:session', { detail: 'shutdown' })) },
+            { label: 'Log out…', icon: <Glyph name="LogOut" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'logout' })) },
+            { label: 'Restart…', icon: <Glyph name="RefreshCw" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'reboot' })) },
+            { label: 'Shut down…', icon: <Glyph name="Power" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'shutdown' })) },
             { separator: true },
             { label: 'System Settings', icon: <Glyph name="Settings" size={14} />, onClick: () => launch('settings', {}) },
             { label: 'About This Computer', icon: <Glyph name="Info" size={14} />, onClick: () => launch('about', {}) },
@@ -292,7 +292,7 @@ export default function Panel() {
   )
 }
 
-function MintLogo() {
+function MixtLogo() {
   return (
     <svg width="20" height="20" viewBox="0 0 128 128" aria-label="Menu">
       <path
@@ -323,7 +323,7 @@ function CalendarPopup({ x, y, onClose }: { x: number; y: number; onClose: () =>
   for (let d = 1; d <= days; d++) cells.push(d)
 
   const EVENTS: Record<number, string[]> = {
-    [today.getDate()]: ['MintNet release day', 'Back up ~/Documents'],
+    [today.getDate()]: ['MixtNet release day', 'Back up ~/Documents'],
   }
 
   return (

@@ -1,7 +1,7 @@
 import React from 'react'
 
 export interface PageCtx {
-  /** path within the site, e.g. "/article/linux-mint" */
+  /** path within the site, e.g. "/article/mixt-os" */
   path: string
   /** decoded query string of the URL */
   query: string
@@ -31,7 +31,7 @@ export interface SiteDef {
   color: string
   color2?: string
   description: string
-  /** shown on the MintNet home page */
+  /** shown on the MixtNet home page */
   tags?: string[]
   defaultPath: string
   pages: SitePage[]

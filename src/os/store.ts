@@ -1,19 +1,19 @@
-/* Mint Web OS — window manager + session state.
+/* Mixt Web OS — window manager + session state.
    A tiny "Cinnamon" implemented with zustand. */
 import { create } from 'zustand'
 import type { Notification, Settings, WinGeometry, WinState } from './types'
 import { applyThemeVars } from './theme'
 
-const LS_SETTINGS = 'webmpl.settings.v2'
+const LS_SETTINGS = 'mixt.settings.v2'
 
 export const DEFAULT_SETTINGS: Settings = {
-  username: 'mint',
-  fullName: 'Mint User',
-  hostname: 'mint-web',
+  username: 'mixt',
+  fullName: 'Mixt User',
+  hostname: 'mixt-web',
   avatar: '🪴',
   scheme: 'light',
   accent: '#9ede6a',
-  wallpaper: '/wallpapers/mint-wave.jpg',
+  wallpaper: '/wallpapers/mixt-wave.jpg',
   panelPosition: 'bottom',
   panelSize: 40,
   panelAutohide: false,
@@ -26,8 +26,8 @@ export const DEFAULT_SETTINGS: Settings = {
   hotCorner: true,
   focusMode: 'click',
   buttonSide: 'right',
-  themeName: 'Mint-Y',
-  iconTheme: 'Mint-Y',
+  themeName: 'Mixt-Y',
+  iconTheme: 'Mixt-Y',
   desktopIcons: ['nemo', 'terminal', 'browser', 'texteditor', 'help'],
   startupApps: ['update-notifier'],
   autoUpdates: true,

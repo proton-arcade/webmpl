@@ -18,12 +18,12 @@ interface Proc {
 const SYSTEM_PROCS = [
   { pid: 1, user: 'root', name: 'systemd(web)', base: 0.3, mem: 12.4 },
   { pid: 212, user: 'root', name: 'dbus-daemon', base: 0.1, mem: 3.2 },
-  { pid: 388, user: 'mint', name: 'cinnamon(webmpl-shell)', base: 1.4, mem: 46.8 },
-  { pid: 402, user: 'mint', name: 'mintpanel', base: 0.4, mem: 18.9 },
-  { pid: 517, user: 'mint', name: 'mintwindowmanager', base: 0.7, mem: 27.6 },
-  { pid: 622, user: 'mint', name: 'pulseaudio(virtual)', base: 0.1, mem: 6.1 },
-  { pid: 704, user: 'mint', name: 'mintnetd', base: 0.2, mem: 9.4 },
-  { pid: 811, user: 'mint', name: 'localstoraged', base: 0.5, mem: 21.3 },
+  { pid: 388, user: 'mixt', name: 'cinnamon(mixt-shell)', base: 1.4, mem: 46.8 },
+  { pid: 402, user: 'mixt', name: 'mixtpanel', base: 0.4, mem: 18.9 },
+  { pid: 517, user: 'mixt', name: 'mixtwindowmanager', base: 0.7, mem: 27.6 },
+  { pid: 622, user: 'mixt', name: 'pulseaudio(virtual)', base: 0.1, mem: 6.1 },
+  { pid: 704, user: 'mixt', name: 'mixtnetd', base: 0.2, mem: 9.4 },
+  { pid: 811, user: 'mixt', name: 'localstoraged', base: 0.5, mem: 21.3 },
 ]
 
 export default function SystemMonitorApp({ api }: AppProps) {
@@ -51,7 +51,7 @@ export default function SystemMonitorApp({ api }: AppProps) {
   const procs = useMemo<Proc[]>(() => {
     const winProcs: Proc[] = windows.map((w, i) => ({
       pid: 1000 + i * 13,
-      user: 'mint',
+      user: 'mixt',
       name: w.appId,
       cpu: 1 + ((w.z + i) % 9) * 0.8 + (w.minimized ? -0.5 : 0.6),
       mem: 18 + ((w.z * 7 + i * 11) % 90),
@@ -97,7 +97,7 @@ export default function SystemMonitorApp({ api }: AppProps) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--wm-window-bg)' }}>
-      <div className="mint-toolbar">
+      <div className="mixt-toolbar">
         {(['processes', 'resources', 'file-systems'] as const).map((t) => (
           <button key={t} className="btn-ghost" data-active={tab === t} onClick={() => setTab(t)}>
             {t === 'processes' ? 'Processes' : t === 'resources' ? 'Resources' : 'File Systems'}
@@ -176,7 +176,7 @@ export default function SystemMonitorApp({ api }: AppProps) {
               <div>Status: {selectedProc.state}</div>
               <div>Nice: 0</div>
               <div style={{ marginTop: 8, opacity: 0.75 }}>
-                Command: /usr/bin/{selectedProc.name} --session=webmpl
+                Command: /usr/bin/{selectedProc.name} --session=mixt
               </div>
             </div>
           )}
@@ -220,7 +220,7 @@ export default function SystemMonitorApp({ api }: AppProps) {
               {[
                 ['localStorage', 'webstorage', '10 GB', humanSize(fsUsed), humanSize(Math.max(0, 10e9 - fsUsed)), `${Math.min(99, Math.round((fsUsed / 10e9) * 100))}%`, '/'],
                 ['tmpfs', 'tmpfs', '2 GB', '12 MB', '2 GB', '1%', '/run'],
-                ['mintnetfs', 'fuse.mintnet', '∞', '0 B', '∞', '—', '/media/mintnet'],
+                ['mixtnetfs', 'fuse.mixtnet', '∞', '0 B', '∞', '—', '/media/mixtnet'],
                 ['sessionStorage', 'webstorage', '5 MB', `${(JSON.stringify(useOS.getState().installed).length / 1024).toFixed(1)} kB`, '5 MB', '1%', '/run/user/1000'],
               ].map((row) => (
                 <tr key={row[0]}>

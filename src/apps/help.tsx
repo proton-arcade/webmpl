@@ -8,28 +8,28 @@ import type { AppProps } from '../os/types'
 const TOPICS: { id: string; title: string; glyph: string; body: React.ReactNode }[] = [
   {
     id: 'welcome',
-    title: 'Welcome to Mint Web OS',
+    title: 'Welcome to Mixt Web OS',
     glyph: 'Home',
     body: (
       <>
         <Para>
-          Everything you are looking at is a web page pretending, convincingly, to be a Linux Mint desktop. There is a
+          Everything you are looking at is a web page pretending, convincingly, to be a Mixt OS desktop. There is a
           window manager, a panel with applets, a virtual filesystem, a terminal, a software store, a media player and a
-          browser that surfs a fictional internet called the MintNet.
+          browser that surfs a fictional internet called the MixtNet.
         </Para>
         <Steps
           items={[
             ['Look at the panel', 'The bottom bar holds the menu, quick launch buttons, the window list, workspaces, the tray and the clock.'],
             ['Open the menu', 'Click the green button on the left of the panel, or press the Super key.'],
             ['Try the terminal', 'It implements around ninety commands, plus pipes and redirection.'],
-            ['Go exploring', 'The MintNet has a dozen sites: search, encyclopaedia, news, video, social, shop, maps, mail and games.'],
+            ['Go exploring', 'The MixtNet has a dozen sites: search, encyclopaedia, news, video, social, shop, maps, mail and games.'],
           ]}
         />
         <Actions
           items={[
             ['Open the Terminal', () => launch('terminal', {})],
             ['Open the Files app', () => launch('nemo', {})],
-            ['Browse the MintNet', () => launch('browser', { url: HOME_URL })],
+            ['Browse the MixtNet', () => launch('browser', { url: HOME_URL })],
           ]}
         />
       </>
@@ -92,56 +92,56 @@ const TOPICS: { id: string; title: string; glyph: string; body: React.ReactNode 
           The terminal is a small shell written for this project. It understands pipes (<Code>|</Code>), output
           redirection (<Code>&gt;</Code> and <Code>&gt;&gt;</Code>), tab completion and command history.
         </Para>
-        <Pre>{`mint@mint-web:~$ neofetch
-mint@mint-web:~$ ls -la ~/Documents | wc -l
-mint@mint-web:~$ echo "hello" > ~/Desktop/hello.txt
-mint@mint-web:~$ apt search game
-mint@mint-web:~$ sudo apt install paint
-mint@mint-web:~$ curl https://mintnews.com/`}</Pre>
+        <Pre>{`mixt@mixt-web:~$ neofetch
+mixt@mixt-web:~$ ls -la ~/Documents | wc -l
+mixt@mixt-web:~$ echo "hello" > ~/Desktop/hello.txt
+mixt@mixt-web:~$ apt search game
+mixt@mixt-web:~$ sudo apt install paint
+mixt@mixt-web:~$ curl https://mixtnews.com/`}</Pre>
         <Para>
           <Code>apt install</Code> really installs applications: they appear in the menu straight away. <Code>curl</Code>{' '}
-          fetches plain-text renderings of MintNet pages.
+          fetches plain-text renderings of MixtNet pages.
         </Para>
         <Actions items={[['Open the Terminal', () => launch('terminal', {})]]} />
       </>
     ),
   },
   {
-    id: 'mintnet',
-    title: 'The MintNet — an internet inside the OS',
+    id: 'mixtnet',
+    title: 'The MixtNet — an internet inside the OS',
     glyph: 'Globe',
     body: (
       <>
         <Para>
-          The Web Browser opens two kinds of address. MintNet sites are rendered inside the app as React components —
+          Mixtsfox opens two kinds of address. MixtNet sites are rendered inside the app as React components —
           instant, offline and searchable. Anything else is treated as a real website and loaded in an embedded frame,
           when the remote server allows embedding.
         </Para>
         <List
           items={[
-            'mintpedia.org — an encyclopaedia with articles on Linux, browsers, kernels and void* pointers to nowhere.',
-            'mintnews.com — a newspaper with a front page, sections and comments.',
-            'mintube.com — a video site with a working (fake) player and likes.',
-            'mintcart.com — a shop with a cart, checkout, and receipts saved into ~/Documents.',
-            'mintmaps.com — a procedurally drawn map with panning, zoom and directions.',
-            'linuxmint.com — downloads that really land in ~/Downloads.',
-            'webmpl.dev — documentation for this operating system, including every keyboard shortcut.',
+            'mixtpedia.org — an encyclopaedia with articles on Linux, browsers, kernels and void* pointers to nowhere.',
+            'mixtnews.com — a newspaper with a front page, sections and comments.',
+            'mixtube.com — a video site with a working (fake) player and likes.',
+            'mixtcart.com — a shop with a cart, checkout, and receipts saved into ~/Documents.',
+            'mixtmaps.com — a procedurally drawn map with panning, zoom and directions.',
+            'mixtos.com — downloads that really land in ~/Downloads.',
+            'mixt.dev — documentation for this operating system, including every keyboard shortcut.',
           ]}
         />
         <Para>
-          Search boxes on MintNet sites feed a real inverted index over titles and keywords. Try searching for
+          Search boxes on MixtNet sites feed a real inverted index over titles and keywords. Try searching for
           “cinnamon desktop” or “virtual filesystem”.
         </Para>
-        <h3 style={{ margin: '18px 0 6px', fontSize: 14.5 }}>The MintNet has a real DNS</h3>
+        <h3 style={{ margin: '18px 0 6px', fontSize: 14.5 }}>The MixtNet has a real DNS</h3>
         <Para>
           Every site is a machine in the Internet directory, and names are resolved by a fake resolver with a zone,
           CNAMEs, wildcard subdomains, MX/TXT records and reverse lookups. Ask it yourself:
         </Para>
-        <Pre>{`dig mintpedia.org          # A record + authority
+        <Pre>{`dig mixtpedia.org          # A record + authority
 dig -x 10.83.17.204        # reverse lookup
-host mintgames.com         # the short form
-nmap mintcart.com          # open ports
-ping nope.mintnet          # NXDOMAIN, honestly`}</Pre>
+host mixtgames.com         # the short form
+nmap mixtcart.com          # open ports
+ping nope.mixtnet          # NXDOMAIN, honestly`}</Pre>
         <Para>
           The directory is the folder <Code>src/net/internet/servers/</Code> — one file per machine. Drop a new
           <Code>*.server.tsx</Code> file in, reload, and its domain resolves: a website, DNS records and open ports
@@ -151,9 +151,9 @@ ping nope.mintnet          # NXDOMAIN, honestly`}</Pre>
         </Para>
         <Actions
           items={[
-            ['Open the MintNet portal', () => launch('browser', { url: 'https://mintnet.com/' })],
-            ['Open the MintNet Registry', () => launch('browser', { url: 'about:dns' })],
-            ['Search for “linux mint”', () => launch('browser', { url: 'mintnet://search?q=linux%20mint' })],
+            ['Open the MixtNet portal', () => launch('browser', { url: 'https://mixtnet.com/' })],
+            ['Open the MixtNet Registry', () => launch('browser', { url: 'about:dns' })],
+            ['Search for “mixt os”', () => launch('browser', { url: 'mixtnet://search?q=mixt%20os' })],
           ]}
         />
       </>
@@ -177,7 +177,7 @@ ping nope.mintnet          # NXDOMAIN, honestly`}</Pre>
             'Reset your filesystem from Settings ▸ Privacy if you want a clean slate.',
           ]}
         />
-        <Actions items={[['Open the Software Manager', () => launch('mintinstall', {})]]} />
+        <Actions items={[['Open the Software Manager', () => launch('mixtinstall', {})]]} />
       </>
     ),
   },
@@ -188,7 +188,7 @@ ping nope.mintnet          # NXDOMAIN, honestly`}</Pre>
     body: (
       <>
         <Para>
-          System Settings ▸ Appearance switches between the light and dark Mint-Y themes and eight accent colours. The
+          System Settings ▸ Appearance switches between the light and dark Mixt-Y themes and eight accent colours. The
           accent colour flows through selections, switches and the panel menu button.
         </Para>
         <List
@@ -237,7 +237,7 @@ Esc                  Close menus and dialogs`}</Pre>
             'Real: window management, the filesystem (localStorage), the shell, the search index, downloads, themes, settings.',
             'Real: screen capture via the browser API, when the browser allows it.',
             'Pretend: the kernel version, the CPU, the battery, the network and the map.',
-            'Pretend: every MintNet website and everything on it.',
+            'Pretend: every MixtNet website and everything on it.',
             'Not present: a real network stack, real package archives and any telemetry whatsoever.',
           ]}
         />
@@ -305,7 +305,7 @@ function Actions({ items }: { items: [string, () => void][] }) {
   return (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
       {items.map(([label, action]) => (
-        <button key={label} className="btn-mint" onClick={action}>
+        <button key={label} className="btn-mixt" onClick={action}>
           <Glyph name="Play" size={13} /> {label}
         </button>
       ))}
@@ -328,7 +328,7 @@ export default function HelpApp({ api }: AppProps) {
           <AppIcon glyph="HelpCircle" color="#3fa89a" color2="#17685e" size={30} />
           <div>
             <div style={{ fontWeight: 600 }}>Help</div>
-            <div style={{ fontSize: 11.5, opacity: 0.7 }}>Mint Web OS 1.0</div>
+            <div style={{ fontSize: 11.5, opacity: 0.7 }}>Mixt Web OS 1.0</div>
           </div>
         </div>
         {TOPICS.map((t) => (
@@ -343,8 +343,8 @@ export default function HelpApp({ api }: AppProps) {
           </div>
         ))}
         <div className="menu-sep" />
-        <div className="menu-item" onClick={() => openUrl('https://webmpl.dev/shortcuts')}>
-          <Glyph name="Globe" size={14} /> Read it on the MintNet
+        <div className="menu-item" onClick={() => openUrl('https://mixt.dev/shortcuts')}>
+          <Glyph name="Globe" size={14} /> Read it on the MixtNet
         </div>
       </div>
 

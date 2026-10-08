@@ -83,7 +83,7 @@ export default function ImageViewerApp({ win, api }: AppProps) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: '#23282b' }}>
-      <div className="mint-toolbar">
+      <div className="mixt-toolbar">
         <button className="btn-ghost" title="Previous image" onClick={prev} disabled={images.length < 2}>
           <Glyph name="ChevronLeft" size={16} />
         </button>
@@ -166,7 +166,7 @@ export default function ImageViewerApp({ win, api }: AppProps) {
             <Glyph name="Image" size={42} />
             <div style={{ marginTop: 8 }}>No images in {folder.replace(HOME, '~')}</div>
             <div style={{ opacity: 0.7, fontSize: 12.5, marginTop: 4 }}>
-              Browse to another folder, or download wallpaper from mintcart.com
+              Browse to another folder, or download wallpaper from mixtcart.com
             </div>
           </div>
         )}

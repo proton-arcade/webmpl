@@ -15,7 +15,7 @@ interface Entry {
 }
 
 interface ArchiveBody {
-  kind: 'webmpl-archive'
+  kind: 'mixt-archive'
   version: 1
   created: number
   entries: Entry[]
@@ -61,7 +61,7 @@ export default function ArchiveApp({ win, api }: AppProps) {
     if (!raw) return
     try {
       const body = JSON.parse(raw) as ArchiveBody
-      if (body.kind === 'webmpl-archive') {
+      if (body.kind === 'mixt-archive') {
         setEntries(body.entries)
         setMessage(`${body.entries.length} items`)
       }
@@ -108,7 +108,7 @@ export default function ArchiveApp({ win, api }: AppProps) {
     while (vfs.exists(target)) target = join(browsing, `${name.replace('.zip', '')}-${++i}.zip`)
     const all: Entry[] = []
     for (const src of sources) all.push(...collect(src))
-    const body: ArchiveBody = { kind: 'webmpl-archive', version: 1, created: Date.now(), entries: all }
+    const body: ArchiveBody = { kind: 'mixt-archive', version: 1, created: Date.now(), entries: all }
     vfs.write(target, JSON.stringify(body), 'application/zip')
     setArchivePath(target)
     setCreateTarget(null)
@@ -119,7 +119,7 @@ export default function ArchiveApp({ win, api }: AppProps) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--wm-window-bg)' }}>
-      <div className="mint-toolbar">
+      <div className="mixt-toolbar">
         <button className="btn-ghost" onClick={() => launch('nemo', { path: browsing })}>
           <Glyph name="FolderOpen" size={15} /> Open
         </button>
@@ -155,7 +155,7 @@ export default function ArchiveApp({ win, api }: AppProps) {
             <input className="entry" value={browsing} onChange={(e) => setBrowsing(e.target.value)} style={{ width: 320 }} />
           </div>
           <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-            <button className="btn-mint" onClick={() => create(createTarget)}>
+            <button className="btn-mixt" onClick={() => create(createTarget)}>
               <Glyph name="Archive" size={14} /> Create archive
             </button>
             <button className="btn-ghost" onClick={() => setCreateTarget(null)}>
@@ -163,7 +163,7 @@ export default function ArchiveApp({ win, api }: AppProps) {
             </button>
           </div>
           <p style={{ opacity: 0.65, fontSize: 12, marginTop: 14 }}>
-            Mint Web OS archives store their entries as JSON, so they open instantly and never corrupt. They are .zip
+            Mixt Web OS archives store their entries as JSON, so they open instantly and never corrupt. They are .zip
             files in name only, which we consider a feature.
           </p>
         </div>

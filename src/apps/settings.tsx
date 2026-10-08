@@ -25,14 +25,14 @@ const SECTIONS = [
 ]
 
 const ACCENTS: [string, string][] = [
-  ['#9ede6a', 'Mint-Y'],
-  ['#4a9be8', 'Mint-Y-Aqua'],
-  ['#4aa8a0', 'Mint-Y-Teal'],
-  ['#e0793a', 'Mint-Y-Orange'],
-  ['#e05f8a', 'Mint-Y-Pink'],
-  ['#8b5cf6', 'Mint-Y-Purple'],
-  ['#e8b64c', 'Mint-Y-Sand'],
-  ['#b8532f', 'Mint-Y-Red'],
+  ['#9ede6a', 'Mixt-Y'],
+  ['#4a9be8', 'Mixt-Y-Aqua'],
+  ['#4aa8a0', 'Mixt-Y-Teal'],
+  ['#e0793a', 'Mixt-Y-Orange'],
+  ['#e05f8a', 'Mixt-Y-Pink'],
+  ['#8b5cf6', 'Mixt-Y-Purple'],
+  ['#e8b64c', 'Mixt-Y-Sand'],
+  ['#b8532f', 'Mixt-Y-Red'],
 ]
 
 export default function SettingsApp({ win, api }: AppProps) {
@@ -202,7 +202,7 @@ function Appearance() {
             {(['light', 'dark'] as const).map((scheme) => (
               <div
                 key={scheme}
-                onClick={() => setSettings({ scheme, themeName: scheme === 'dark' ? 'Mint-Y-Dark' : 'Mint-Y' })}
+                onClick={() => setSettings({ scheme, themeName: scheme === 'dark' ? 'Mixt-Y-Dark' : 'Mixt-Y' })}
                 style={{
                   width: 132,
                   borderRadius: 8,
@@ -244,7 +244,7 @@ function Appearance() {
             value={settings.buttonSide}
             onChange={(v) => setSettings({ buttonSide: v })}
             options={[
-              ['right', 'Right (Mint default)'],
+              ['right', 'Right (Mixt default)'],
               ['left', 'Left (Ubuntu style)'],
             ]}
           />
@@ -327,7 +327,7 @@ function Background() {
                     border: settings.wallpaper === url ? '3px solid var(--wm-accent)' : '1px solid rgba(0,0,0,0.25)',
                   }}
                 />
-                <div style={{ fontSize: 12, marginTop: 4, textAlign: 'center', opacity: 0.85 }}>{w.replace('.jpg', '').replace('mint-', 'Mint ')}</div>
+                <div style={{ fontSize: 12, marginTop: 4, textAlign: 'center', opacity: 0.85 }}>{w.replace('.jpg', '').replace('mixt-', 'Mixt ')}</div>
               </div>
             )
           })}
@@ -351,7 +351,7 @@ function Background() {
           ))}
         </div>
       </Card>
-      <Card title="Your pictures" hint="Images in ~/Pictures can be used as backgrounds. Download wallpapers from mintcart.com to add more.">
+      <Card title="Your pictures" hint="Images in ~/Pictures can be used as backgrounds. Download wallpapers from mixtcart.com to add more.">
         {pictures.length === 0 ? (
           <div style={{ opacity: 0.7 }}>No images found in ~/Pictures.</div>
         ) : (
@@ -380,12 +380,12 @@ function Themes() {
   const settings = useOS((s) => s.settings)
   const setSettings = useOS((s) => s.setSettings)
   const themes: [string, string, string][] = [
-    ['Mint-Y', 'light', '#9ede6a'],
-    ['Mint-Y-Dark', 'dark', '#9ede6a'],
-    ['Mint-Y-Aqua', 'light', '#4a9be8'],
-    ['Mint-Y-Teal', 'light', '#4aa8a0'],
-    ['Mint-Y-Purple', 'light', '#8b5cf6'],
-    ['Mint-Y-Sand', 'light', '#e8b64c'],
+    ['Mixt-Y', 'light', '#9ede6a'],
+    ['Mixt-Y-Dark', 'dark', '#9ede6a'],
+    ['Mixt-Y-Aqua', 'light', '#4a9be8'],
+    ['Mixt-Y-Teal', 'light', '#4aa8a0'],
+    ['Mixt-Y-Purple', 'light', '#8b5cf6'],
+    ['Mixt-Y-Sand', 'light', '#e8b64c'],
   ]
   return (
     <Section title="Themes" subtitle="Themes bundle window decorations, controls and this accent colour.">
@@ -418,9 +418,9 @@ function Themes() {
             value={settings.iconTheme}
             onChange={(v) => setSettings({ iconTheme: v })}
             options={[
-              ['Mint-Y', 'Mint-Y'],
-              ['Mint-Y-Sand', 'Mint-Y-Sand'],
-              ['Mint-X', 'Mint-X (classic)'],
+              ['Mixt-Y', 'Mixt-Y'],
+              ['Mixt-Y-Sand', 'Mixt-Y-Sand'],
+              ['Mixt-X', 'Mixt-X (classic)'],
             ]}
           />
         </Row>
@@ -563,7 +563,7 @@ function DisplaySection() {
         <Row label="Enable night light">
           <Toggle
             value={settings.scheme === 'dark'}
-            onChange={(v) => setSettings({ scheme: v ? 'dark' : 'light', themeName: v ? 'Mint-Y-Dark' : 'Mint-Y' })}
+            onChange={(v) => setSettings({ scheme: v ? 'dark' : 'light', themeName: v ? 'Mixt-Y-Dark' : 'Mixt-Y' })}
           />
         </Row>
       </Card>
@@ -588,7 +588,7 @@ function SoundSection() {
           <Select value={output} onChange={setOutput} options={[['Built-in Audio (virtual)', 'Built-in Audio (virtual)'], ['HDMI / DisplayPort', 'HDMI / DisplayPort'], ['WebAudio Synth', 'WebAudio Synth']]} />
         </Row>
         <Row label="Alert sound">
-          <button className="btn-ghost" onClick={() => window.dispatchEvent(new CustomEvent('webmpl:notify', { detail: { title: 'Alert', body: 'That is the alert sound. It is a notification. This is the web.' } }))}>
+          <button className="btn-ghost" onClick={() => window.dispatchEvent(new CustomEvent('mixt:notify', { detail: { title: 'Alert', body: 'That is the alert sound. It is a notification. This is the web.' } }))}>
             <Glyph name="Volume2" size={14} /> Test sound
           </button>
         </Row>
@@ -601,8 +601,8 @@ function NetworkSection() {
   const settings = useOS((s) => s.settings)
   const setSettings = useOS((s) => s.setSettings)
   const nets = [
-    ['MintNet', 'WPA2', true],
-    ['MintNet Guest', 'open', false],
+    ['MixtNet', 'WPA2', true],
+    ['MixtNet Guest', 'open', false],
     ['Cinnamon-5G', 'WPA2', false],
     ['Neighbour_2.4GHz', 'WPA2', false],
   ] as [string, string, boolean][]
@@ -715,9 +715,9 @@ function StartupSection() {
   const setSettings = useOS((s) => s.setSettings)
   const apps: [string, string, string][] = [
     ['update-notifier', 'Update Notifier', 'Tells you that 3 packages are waiting, forever'],
-    ['network', 'Network', 'Connects to MintNet and mentions it'],
+    ['network', 'Network', 'Connects to MixtNet and mentions it'],
     ['xed-daemon', 'Text Editor daemon', 'Keeps a text editor warm in case of inspiration'],
-    ['mintwelcome', 'Welcome Screen', 'A friendly greeting on every boot'],
+    ['mixtwelcome', 'Welcome Screen', 'A friendly greeting on every boot'],
   ]
   return (
     <Section title="Startup Applications" subtitle="Programs that start when the session begins.">
@@ -796,15 +796,15 @@ function PrivacySection({ onReset }: { onReset: () => void }) {
             <Glyph name="Trash2" size={14} /> Reset filesystem…
           </button>
         </Row>
-        <Row label="Cookies" hint="MintNet sites do not track you, because they do not exist outside this page">
+        <Row label="Cookies" hint="MixtNet sites do not track you, because they do not exist outside this page">
           <span style={{ opacity: 0.7 }}>none</span>
         </Row>
         <Row label="Browsing history">
-          <span style={{ opacity: 0.7 }}>stored locally in ~/.config/mintnet/history.json</span>
+          <span style={{ opacity: 0.7 }}>stored locally in ~/.config/mixtnet/history.json</span>
         </Row>
       </Card>
       <Card title="Notifications">
-        <Row label="Allow notifications from MintNet sites">
+        <Row label="Allow notifications from MixtNet sites">
           <span style={{ opacity: 0.75 }}>always on (it is charming that way)</span>
         </Row>
       </Card>
@@ -822,13 +822,13 @@ function InfoSection() {
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <AppIcon glyph="Compass" color="#61ad2b" color2="#2f6b12" size={54} />
           <div>
-            <div style={{ fontSize: 17, fontWeight: 600 }}>Mint Web OS 1.0 “Minty”</div>
-            <div style={{ opacity: 0.75 }}>Cinnamon web edition · Mint-Y theme · GNU/JavaScript</div>
+            <div style={{ fontSize: 17, fontWeight: 600 }}>Mixt Web OS 1.0 “Mixty”</div>
+            <div style={{ opacity: 0.75 }}>Cinnamon web edition · Mixt-Y theme · GNU/JavaScript</div>
           </div>
         </div>
         <div className="menu-sep" />
         <Row label="Kernel">
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>6.8.0-webmpl #1 SMP PREEMPT_DYNAMIC</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>6.8.0-mixt #1 SMP PREEMPT_DYNAMIC</span>
         </Row>
         <Row label="Processor">
           <span>JS Virtual Core × {navigator.hardwareConcurrency || 4} @ 3.20 GHz</span>
@@ -846,14 +846,14 @@ function InfoSection() {
       <Card title="Updates" hint="The Software Manager handles packages; this button pretends to check.">
         <div style={{ display: 'flex', gap: 8 }}>
           <button
-            className="btn-mint"
+            className="btn-mixt"
             onClick={() =>
               notify('Update Manager', 'Refreshing package lists… done.\nYour system is up to date (3 optional applications available).')
             }
           >
             <Glyph name="RefreshCw" size={14} /> Check for updates
           </button>
-          <button className="btn-ghost" onClick={() => window.dispatchEvent(new CustomEvent('webmpl:session', { detail: 'reboot' }))}>
+          <button className="btn-ghost" onClick={() => window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'reboot' }))}>
             <Glyph name="Power" size={14} /> Restart
           </button>
         </div>
@@ -863,7 +863,7 @@ function InfoSection() {
           className="btn-ghost"
           onClick={() => {
             useOS.getState().setSettings({ ...DEFAULT_SETTINGS, username: settings.username, fullName: settings.fullName })
-            notify('Settings', 'Appearance settings restored to the Mint defaults.')
+            notify('Settings', 'Appearance settings restored to the Mixt defaults.')
           }}
         >
           <Glyph name="RotateCcw" size={14} /> Restore default settings
@@ -885,7 +885,7 @@ function ResetDialog({ onClose }: { onClose: () => void }) {
           Cancel
         </button>
         <button
-          className="btn-mint"
+          className="btn-mixt"
           onClick={() => {
             useVFS.getState().reset()
             notify('Filesystem', 'The virtual disk was recreated from the original image.')

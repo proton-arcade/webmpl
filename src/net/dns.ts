@@ -1,8 +1,8 @@
-/* MintNet DNS — a fake but faithful resolver.
+/* MixtNet DNS — a fake but faithful resolver.
  *
  * Every machine in the Internet directory (src/net/internet/servers/) registers
  * the hostnames it answers for. Those names get a stable fake address in the
- * 10.64.0.0/10 "MintNet block", a PTR record back to the name, CNAMEs for www
+ * 10.64.0.0/10 "MixtNet block", a PTR record back to the name, CNAMEs for www
  * and for aliases, and optional MX/TXT/NS records.
  *
  * On top of the zone sits /etc/hosts — a real file in the virtual filesystem.
@@ -44,10 +44,10 @@ export interface DnsAnswer {
 
 /* --------------------------------- zones ---------------------------------- */
 
-/** The nameservers every client in MintNet is configured to ask. */
-export const NAMESERVERS = ['ns1.mintnet.com', 'ns2.mintnet.com']
+/** The nameservers every client in MixtNet is configured to ask. */
+export const NAMESERVERS = ['ns1.mixtnet.com', 'ns2.mixtnet.com']
 
-export const ROOT_ZONE = 'mintnet'
+export const ROOT_ZONE = 'mixtnet'
 
 interface ZoneEntry {
   server: ServerDef
@@ -82,7 +82,7 @@ export function hashString(input: string): number {
 
 /** The address a hostname would get if nothing else had claimed it. */
 export function addressFor(hostname: string): string {
-  const h = hashString(`mintnet://${hostname}`)
+  const h = hashString(`mixtnet://${hostname}`)
   const b = 64 + (h % 64)
   const c = (h >>> 8) % 256
   const d = 1 + ((h >>> 16) % 254)
@@ -90,7 +90,7 @@ export function addressFor(hostname: string): string {
 }
 
 export function ipv6For(hostname: string): string {
-  const h = hashString(`mintnet6://${hostname}`)
+  const h = hashString(`mixtnet6://${hostname}`)
   const hex = (n: number) => n.toString(16).padStart(4, '0')
   return `fd00:${hex((h >>> 16) % 0xffff)}:${hex(h % 0xffff)}::1`
 }
@@ -242,7 +242,7 @@ export function soaRecord(): DnsRecord {
   return {
     name: `${ROOT_ZONE}.`,
     type: 'SOA',
-    value: `ns1.mintnet.com. hostmaster.mintnet.com. 2025${String(hashString('serial') % 10000).padStart(4, '0')} 7200 3600 1209600 3600`,
+    value: `ns1.mixtnet.com. hostmaster.mixtnet.com. 2025${String(hashString('serial') % 10000).padStart(4, '0')} 7200 3600 1209600 3600`,
     ttl: 3600,
   }
 }
@@ -385,7 +385,7 @@ const pad = (s: string, n: number) => (s.length >= n ? s : s + ' '.repeat(n - s.
 export function renderDig(answer: DnsAnswer, type: RecordType | 'ANY' = 'A', at = new Date()): string {
   const id = hashString(`${answer.name}|${type}`) % 65535
   const lines = [
-    `; <<>> DiG 9.18.28-MintNet <<>> ${answer.name || '.'}${type === 'ANY' ? '' : ` ${type}`}`,
+    `; <<>> DiG 9.18.28-MixtNet <<>> ${answer.name || '.'}${type === 'ANY' ? '' : ` ${type}`}`,
     ';; global options: +cmd',
     ';; Got answer:',
     `;; ->>HEADER<<- opcode: QUERY, status: ${answer.status}, id: ${id}`,
@@ -413,7 +413,7 @@ export function renderDig(answer: DnsAnswer, type: RecordType | 'ANY' = 'A', at 
   }
   lines.push(
     `;; Query time: ${answer.rtt} msec`,
-    `;; SERVER: 10.0.0.53#53(ns1.mintnet.com) (${answer.source === 'hosts' ? 'hosts file' : 'MintNet DNS'})`,
+    `;; SERVER: 10.0.0.53#53(ns1.mixtnet.com) (${answer.source === 'hosts' ? 'hosts file' : 'MixtNet DNS'})`,
     `;; WHEN: ${at.toUTCString()}`,
     `;; MSG SIZE  rcvd: ${54 + answer.answers.length * 16}`,
   )

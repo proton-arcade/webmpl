@@ -34,7 +34,7 @@ export function Glyph({ name, className, size = 16 }: { name: string; className?
   return <Cmp size={size} className={className} strokeWidth={1.9} />
 }
 
-/** Mint-style application icon: rounded gradient tile with a white glyph. */
+/** Mixt-style application icon: rounded gradient tile with a white glyph. */
 export function AppIcon({
   glyph,
   color,
@@ -118,7 +118,7 @@ function parse(hex: string) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
-/** File-type icon for the file manager (Mint-Y-ish colours). */
+/** File-type icon for the file manager (Mixt-Y-ish colours). */
 export function FileIcon({ node, size = 24 }: { node: { type: string; mime?: string; name?: string }; size?: number }) {
   if (node.type === 'dir') return <AppIcon glyph="Folder" color="#e8b64c" color2="#c98f18" size={size} />
   const mime = node.mime || 'text/plain'

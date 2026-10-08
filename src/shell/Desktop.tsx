@@ -46,7 +46,7 @@ export default function Desktop() {
         vfs.write(path, content, mime)
         useOS.getState().notify({
           title: 'File saved',
-          body: `${path.replace('/home/mint/', '~/')}`,
+          body: `${path.replace('/home/mixt/', '~/')}`,
           appId: 'nemo',
         })
       }
@@ -60,17 +60,17 @@ export default function Desktop() {
       if (detail === 'shutdown' || detail === 'poweroff') setSession('shutdown')
       else if (detail === 'reboot') setSession('reboot')
     }
-    window.addEventListener('webmpl:windowmenu', onWindowMenu)
-    window.addEventListener('webmpl:launch', onLaunch)
-    window.addEventListener('webmpl:file', onFile)
-    window.addEventListener('webmpl:notify', onNotify)
-    window.addEventListener('webmpl:session', onSession)
+    window.addEventListener('mixt:windowmenu', onWindowMenu)
+    window.addEventListener('mixt:launch', onLaunch)
+    window.addEventListener('mixt:file', onFile)
+    window.addEventListener('mixt:notify', onNotify)
+    window.addEventListener('mixt:session', onSession)
     return () => {
-      window.removeEventListener('webmpl:windowmenu', onWindowMenu)
-      window.removeEventListener('webmpl:launch', onLaunch)
-      window.removeEventListener('webmpl:file', onFile)
-      window.removeEventListener('webmpl:notify', onNotify)
-      window.removeEventListener('webmpl:session', onSession)
+      window.removeEventListener('mixt:windowmenu', onWindowMenu)
+      window.removeEventListener('mixt:launch', onLaunch)
+      window.removeEventListener('mixt:file', onFile)
+      window.removeEventListener('mixt:notify', onNotify)
+      window.removeEventListener('mixt:session', onSession)
     }
   }, [])
 
@@ -567,7 +567,7 @@ function RunDialog({ onClose }: { onClose: () => void }) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && run()}
-        placeholder="terminal, files, mintnet.com…"
+        placeholder="terminal, files, mixtnet.com…"
         style={{ width: '100%' }}
       />
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -581,7 +581,7 @@ function RunDialog({ onClose }: { onClose: () => void }) {
         <button className="btn-ghost" onClick={onClose}>
           Cancel
         </button>
-        <button className="btn-mint" onClick={run}>
+        <button className="btn-mixt" onClick={run}>
           Run
         </button>
       </div>
@@ -622,7 +622,7 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
       document.body.appendChild(overlay)
       setTimeout(() => {
         if (kind === 'shutdown') {
-          overlay.textContent = '\n\n\n                 Goodbye.\n\n     (Reload the page to boot Mint Web OS again)'
+          overlay.textContent = '\n\n\n                 Goodbye.\n\n     (Reload the page to boot Mixt Web OS again)'
           return
         }
         overlay.style.opacity = '0'
@@ -640,14 +640,14 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
         {kind === 'logout'
           ? 'End this session? Open windows will be closed and the screen locked.'
           : kind === 'reboot'
-            ? 'Restart Mint Web OS? The page will reload and your files will still be here.'
+            ? 'Restart Mixt Web OS? The page will reload and your files will still be here.'
             : `Shut down the computer?${seconds > 0 ? ` Automatic shutdown in ${seconds} s.` : ''}`}
       </p>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
         <button className="btn-ghost" onClick={onCancel}>
           Cancel
         </button>
-        <button className="btn-mint" onClick={doIt} disabled={busy}>
+        <button className="btn-mixt" onClick={doIt} disabled={busy}>
           {kind === 'logout' ? 'Log out' : kind === 'reboot' ? 'Restart' : 'Shut down'}
         </button>
       </div>
@@ -699,7 +699,7 @@ function LockScreen() {
             placeholder="Password (any will do)"
             style={{ width: 240, textAlign: 'center' }}
           />
-          <button className="btn-mint" onClick={unlock}>
+          <button className="btn-mixt" onClick={unlock}>
             Unlock
           </button>
           <button

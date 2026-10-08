@@ -225,7 +225,7 @@ export default function CalculatorApp({ api }: AppProps) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--wm-window-bg)' }}>
-      <div className="mint-toolbar" style={{ gap: 3 }}>
+      <div className="mixt-toolbar" style={{ gap: 3 }}>
         {(['basic', 'advanced', 'programmer'] as Mode[]).map((m) => (
           <button key={m} className="btn-ghost" data-active={mode === m} onClick={() => setMode(m)} style={{ textTransform: 'capitalize' }}>
             {m}

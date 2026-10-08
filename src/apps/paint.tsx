@@ -251,7 +251,7 @@ export default function PaintApp({ win, api }: AppProps) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--wm-window-bg)' }}>
-      <div className="mint-toolbar" style={{ flexWrap: 'wrap' }}>
+      <div className="mixt-toolbar" style={{ flexWrap: 'wrap' }}>
         <button className="btn-ghost" onClick={undo} disabled={undoStack.length < 2} title="Undo">
           <Glyph name="RotateCcw" size={15} />
         </button>
@@ -292,7 +292,7 @@ export default function PaintApp({ win, api }: AppProps) {
         >
           <Glyph name="Trash2" size={15} /> Clear
         </button>
-        <button className="btn-mint" onClick={() => setShowSave(true)}>
+        <button className="btn-mixt" onClick={() => setShowSave(true)}>
           <Glyph name="Save" size={15} /> Save to Pictures
         </button>
       </div>
@@ -349,7 +349,7 @@ export default function PaintApp({ win, api }: AppProps) {
             <button className="btn-ghost" onClick={() => setTextDraft(null)}>
               Cancel
             </button>
-            <button className="btn-mint" onClick={() => commitText(textDraft)}>
+            <button className="btn-mixt" onClick={() => commitText(textDraft)}>
               Add to canvas
             </button>
           </div>

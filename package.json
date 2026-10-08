@@ -1,9 +1,9 @@
 {
-  "name": "webmpl",
+  "name": "mixt-web-os",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Mint Web OS - a full desktop computer that runs in the browser, styled after Linux Mint",
+  "description": "Mixt Web OS — a full desktop computer that runs in the browser, styled after Linux Mint",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

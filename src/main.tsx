@@ -1,3 +1,4 @@
+import './os/migrate' // must run before the stores read localStorage
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'

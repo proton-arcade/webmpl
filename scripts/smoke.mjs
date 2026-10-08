@@ -5,7 +5,7 @@
  *
  * Builds src/smoke/bundle.tsx for node, executes it inside jsdom with a stubbed
  * canvas, and reports whether the desktop mounts, every application renders and
- * every MintNet page renders.
+ * every MixtNet page renders.
  */
 import { execSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'

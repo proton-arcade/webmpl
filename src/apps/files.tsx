@@ -373,7 +373,7 @@ export default function FilesApp({ win, api }: AppProps) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--wm-window-bg)' }}>
       {/* toolbar */}
-      <div className="mint-toolbar" style={{ gap: 3 }}>
+      <div className="mixt-toolbar" style={{ gap: 3 }}>
         <button className="btn-ghost" title="Back" disabled={histIdx === 0} onClick={goBack} style={{ opacity: histIdx === 0 ? 0.45 : 1 }}>
           <Glyph name="ChevronLeft" size={17} />
         </button>
@@ -468,9 +468,9 @@ export default function FilesApp({ win, api }: AppProps) {
               <Glyph name="HardDrive" size={15} />
               <span style={{ flex: 1 }}>64 GB Volume</span>
             </div>
-            <div className="menu-item" style={{ padding: '4px 7px' }} onClick={() => notify('Files', 'MintNet drives are mounted read-only in the web edition.')}>
+            <div className="menu-item" style={{ padding: '4px 7px' }} onClick={() => notify('Files', 'MixtNet drives are mounted read-only in the web edition.')}>
               <Glyph name="Network" size={15} />
-              <span style={{ flex: 1 }}>MintNet</span>
+              <span style={{ flex: 1 }}>MixtNet</span>
             </div>
           </SidebarGroup>
         </div>
@@ -744,12 +744,12 @@ function PropertiesDialog({ path, onClose }: { path: string; onClose: () => void
           <div>Location: {parentPath(path)}</div>
           <div>Size: {humanSize(nodeSize(node))}{isDir ? ` (${countNodes(node)} items)` : ''}</div>
           <div>Modified: {new Date(node.modified).toLocaleString()}</div>
-          <div>Owner: mint (1000)</div>
+          <div>Owner: mixt (1000)</div>
           <div>Permissions: {isDir ? 'drwxr-xr-x' : '-rw-r--r--'}</div>
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <button className="btn-mint" onClick={onClose}>Close</button>
+        <button className="btn-mixt" onClick={onClose}>Close</button>
       </div>
     </Dialog>
   )
@@ -772,7 +772,7 @@ function FolderPropertiesDialog({ path, entries, onClose }: { path: string; entr
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <button className="btn-mint" onClick={onClose}>Close</button>
+        <button className="btn-mixt" onClick={onClose}>Close</button>
       </div>
     </Dialog>
   )

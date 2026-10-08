@@ -2,7 +2,7 @@ import React from 'react'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import type { PageCtx, SiteDef } from './types'
 
-/** Shared chrome so every MintNet site feels like a real website. */
+/** Shared chrome so every MixtNet site feels like a real website. */
 export function SiteShell({
   site,
   ctx,
@@ -77,7 +77,7 @@ export function SiteShell({
       >
         {footer ?? (
           <span>
-            © {new Date().getFullYear()} {site.title} — a fictional website served by MintNet inside Mint Web OS.
+            © {new Date().getFullYear()} {site.title} — a fictional website served by MixtNet inside Mixt Web OS.
           </span>
         )}
       </footer>
@@ -114,16 +114,16 @@ export function Card({ children, style, onClick }: { children: React.ReactNode; 
 export function Btn({
   children,
   onClick,
-  tone = 'mint',
+  tone = 'mixt',
   style,
 }: {
   children: React.ReactNode
   onClick?: () => void
-  tone?: 'mint' | 'grey' | 'outline'
+  tone?: 'mixt' | 'grey' | 'outline'
   style?: React.CSSProperties
 }) {
   const tones: Record<string, React.CSSProperties> = {
-    mint: { background: '#61ad2b', color: '#fff', border: '1px solid #4c8f1f' },
+    mixt: { background: '#61ad2b', color: '#fff', border: '1px solid #4c8f1f' },
     grey: { background: '#eef0ec', color: '#242c22', border: '1px solid #d7dbd4' },
     outline: { background: 'transparent', color: '#2c6b12', border: '1px solid #7cc93f' },
   }
@@ -158,7 +158,7 @@ export function H({ children, level = 1, style }: { children: React.ReactNode; l
 }
 
 export function Img({ src = '', alt, height = 150, style }: { src?: string; alt?: string; height?: number; style?: React.CSSProperties }) {
-  // MintNet does not ship photographs, so "images" are procedural gradients.
+  // MixtNet does not ship photographs, so "images" are procedural gradients.
   const seed = [...(alt ?? src)].reduce((a, c) => a + c.charCodeAt(0), 0)
   const h1 = seed % 360
   const h2 = (seed * 7) % 360
@@ -202,7 +202,7 @@ export function Progress({ value }: { value: number }) {
   )
 }
 
-/** MintNet 404 page, shared by every site. */
+/** MixtNet 404 page, shared by every site. */
 export function NotFound({ ctx, site }: { ctx: PageCtx; site: SiteDef }) {
   return (
     <SiteShell site={site} ctx={ctx}>
@@ -210,14 +210,14 @@ export function NotFound({ ctx, site }: { ctx: PageCtx; site: SiteDef }) {
         <div style={{ fontSize: 60, fontWeight: 800, color: site.color }}>404</div>
         <H level={2}>We could not find that page on {site.domain}</H>
         <p style={{ color: '#5c665f' }}>
-          The link may be broken, or the page may have been moved inside the MintNet.
+          The link may be broken, or the page may have been moved inside the MixtNet.
         </p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
           <Btn onClick={() => ctx.navigate(`https://${site.domain}/`)}>
             <Glyph name="Home" size={14} /> Back to {site.title}
           </Btn>
-          <Btn tone="outline" onClick={() => ctx.navigate('https://mintnet.com/')}>
-            Search MintNet
+          <Btn tone="outline" onClick={() => ctx.navigate('https://mixtnet.com/')}>
+            Search MixtNet
           </Btn>
         </div>
       </div>

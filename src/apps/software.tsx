@@ -6,7 +6,7 @@ import { launch, notify } from '../os/bus'
 import type { AppDef, AppProps } from '../os/types'
 
 const REVIEWS: Record<string, number> = {
-  nemo: 4.6, terminal: 4.9, browser: 4.4, mintinstall: 4.2, settings: 4.0, xed: 4.3,
+  nemo: 4.6, terminal: 4.9, browser: 4.4, mixtinstall: 4.2, settings: 4.0, xed: 4.3,
   calculator: 4.1, 'system-monitor': 4.5, mediaplayer: 4.0, imageviewer: 4.2, weather: 4.3,
   archive: 4.1, screenshot: 3.9, game2048: 4.8, help: 4.7, about: 4.4, paint: 4.5, mail: 4.2, news: 4.1,
 }
@@ -53,7 +53,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
         clearInterval(timer)
         setInstalling(null)
         setInstalled(app.id, true)
-        notify('Software Manager', `${app.name} has been installed.\nYou can find it in the Menu under ${app.categories[0]}.`, 'mintinstall')
+        notify('Software Manager', `${app.name} has been installed.\nYou can find it in the Menu under ${app.categories[0]}.`, 'mixtinstall')
       } else {
         setInstalling({ id: app.id, pct })
       }
@@ -62,7 +62,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
 
   function remove(app: AppDef) {
     setInstalled(app.id, false)
-    notify('Software Manager', `${app.name} has been removed.`, 'mintinstall')
+    notify('Software Manager', `${app.name} has been removed.`, 'mixtinstall')
     setSelected(null)
   }
 
@@ -135,7 +135,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
 
       {/* main */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <div className="mint-toolbar">
+        <div className="mixt-toolbar">
           <input className="entry" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the Software Manager…" style={{ flex: 1, maxWidth: 420 }} />
           <div style={{ flex: 1 }} />
           <span style={{ opacity: 0.7, fontSize: 12 }}>{APPS.filter(isInstalled).length} installed · {APPS.length} available</span>
@@ -176,7 +176,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
                     </div>
                   ))}
                 </div>
-                {list.length === 0 && <div style={{ opacity: 0.7, padding: 20 }}>Nothing here. The MintNet is small but tidy.</div>}
+                {list.length === 0 && <div style={{ opacity: 0.7, padding: 20 }}>Nothing here. The MixtNet is small but tidy.</div>}
               </>
             )}
           </div>
@@ -210,7 +210,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
                 </div>
               ) : isInstalled(current) ? (
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn-mint" onClick={() => launch(current.id, {})}>
+                  <button className="btn-mixt" onClick={() => launch(current.id, {})}>
                     <Glyph name="Play" size={14} /> Launch
                   </button>
                   {current.preinstalled === false && (
@@ -220,7 +220,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
                   )}
                 </div>
               ) : (
-                <button className="btn-mint" onClick={() => install(current)}>
+                <button className="btn-mixt" onClick={() => install(current)}>
                   <Glyph name="Download" size={14} /> Install
                 </button>
               )}
@@ -253,7 +253,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
                   “Exactly the application I needed, and I did not even have to compile it.” — tux_fan_92
                 </div>
                 <div style={{ marginTop: 6 }}>
-                  “Five stars. Would install again, and did, after clicking Reset filesystem.” — mintyfresh
+                  “Five stars. Would install again, and did, after clicking Reset filesystem.” — mixtyfresh
                 </div>
               </div>
             </div>
@@ -277,7 +277,7 @@ function UpdatesPanel({
     <div style={{ maxWidth: 640 }}>
       <h2 style={{ marginTop: 0 }}>Updates</h2>
       <p style={{ opacity: 0.8 }}>
-        Your system is up to date. The applications below are optional extras from the Mint repository, and they are
+        Your system is up to date. The applications below are optional extras from the Mixt repository, and they are
         one click away.
       </p>
       {updates.length === 0 && <div style={{ opacity: 0.7 }}>Everything available is already installed. Impressive.</div>}
@@ -293,7 +293,7 @@ function UpdatesPanel({
               </div>
             )}
           </div>
-          <button className="btn-mint" disabled={installing?.id === app.id} onClick={() => onInstall(app)}>
+          <button className="btn-mixt" disabled={installing?.id === app.id} onClick={() => onInstall(app)}>
             {installing?.id === app.id ? 'Installing…' : 'Install'}
           </button>
         </div>

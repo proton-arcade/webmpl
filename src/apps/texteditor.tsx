@@ -152,7 +152,7 @@ export default function TextEditorApp({ win, api }: AppProps) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--wm-window-bg)' }}>
       {/* toolbar */}
-      <div className="mint-toolbar">
+      <div className="mixt-toolbar">
         <button className="btn-ghost" title="New (Ctrl+N)" onClick={newDoc}>
           <Glyph name="File" size={15} />
           <Glyph name="Plus" size={11} />
@@ -222,7 +222,7 @@ export default function TextEditorApp({ win, api }: AppProps) {
 
       {/* find bar */}
       {findOpen && (
-        <div className="mint-toolbar" style={{ gap: 6, paddingTop: 6, paddingBottom: 6 }}>
+        <div className="mixt-toolbar" style={{ gap: 6, paddingTop: 6, paddingBottom: 6 }}>
           <input className="entry" autoFocus placeholder="Find" value={findText} onChange={(e) => setFindText(e.target.value)} />
           <input className="entry" placeholder="Replace with" value={replaceText} onChange={(e) => setReplaceText(e.target.value)} />
           <span style={{ opacity: 0.75, fontSize: 12 }}>{matches} matches</span>
@@ -439,7 +439,7 @@ function OpenDialog({ onClose, onOpen }: { onClose: () => void; onOpen: (path: s
         <button className="btn-ghost" onClick={onClose}>
           Cancel
         </button>
-        <button className="btn-mint" disabled={!selected} onClick={() => selected && onOpen(join(path, selected))}>
+        <button className="btn-mixt" disabled={!selected} onClick={() => selected && onOpen(join(path, selected))}>
           Open
         </button>
       </div>
@@ -477,7 +477,7 @@ function SaveAsDialog({ initialName, onClose, onSave }: { initialName: string; o
         <button className="btn-ghost" onClick={onClose}>
           Cancel
         </button>
-        <button className="btn-mint" onClick={() => onSave(join(path, name))}>
+        <button className="btn-mixt" onClick={() => onSave(join(path, name))}>
           Save
         </button>
       </div>

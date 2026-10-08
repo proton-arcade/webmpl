@@ -3,7 +3,7 @@ import { A, Btn, Card, H, Img, Meta, NotFound, Pill, SiteShell } from '../siteki
 import type { PageCtx, SiteDef } from '../types'
 
 /* ==========================================================================
-   mintbook.com — social network
+   mixtbook.com — social network
    ========================================================================== */
 
 interface Post {
@@ -20,8 +20,8 @@ interface Post {
 const SEED_POSTS: Post[] = [
   {
     id: 'p1',
-    author: 'Minty Fresh',
-    handle: '@mintyfresh',
+    author: 'Mixty Fresh',
+    handle: '@mixtyfresh',
     time: '2 min',
     text: 'Just switched my whole desktop to the web edition. The terminal has neofetch. My life is complete. 🪴',
     likes: 42,
@@ -59,7 +59,7 @@ const SEED_POSTS: Post[] = [
   },
 ]
 
-function MintbookHome({ ctx }: { ctx: PageCtx }) {
+function MixtbookHome({ ctx }: { ctx: PageCtx }) {
   const [posts, setPosts] = React.useState<Post[]>(SEED_POSTS)
   const [draft, setDraft] = React.useState('')
   const [liked, setLiked] = React.useState<string[]>([])
@@ -67,7 +67,7 @@ function MintbookHome({ ctx }: { ctx: PageCtx }) {
   const publish = () => {
     if (!draft.trim()) return
     setPosts((p) => [
-      { id: `p${Date.now()}`, author: 'Mint User', handle: '@mint', time: 'now', text: draft.trim(), likes: 0, comments: [] },
+      { id: `p${Date.now()}`, author: 'Mixt User', handle: '@mixt', time: 'now', text: draft.trim(), likes: 0, comments: [] },
       ...p,
     ])
     setDraft('')
@@ -75,12 +75,12 @@ function MintbookHome({ ctx }: { ctx: PageCtx }) {
 
   return (
     <SiteShell
-      site={MINTBOOK}
+      site={MIXTBOOK}
       ctx={ctx}
       nav={[
-        { label: 'Feed', href: 'https://mintbook.com/' },
-        { label: 'Profile', href: 'https://mintbook.com/profile/mint' },
-        { label: 'Groups', href: 'https://mintbook.com/groups' },
+        { label: 'Feed', href: 'https://mixtbook.com/' },
+        { label: 'Profile', href: 'https://mixtbook.com/profile/mixt' },
+        { label: 'Groups', href: 'https://mixtbook.com/groups' },
       ]}
       maxWidth={720}
     >
@@ -145,10 +145,10 @@ function MintbookHome({ ctx }: { ctx: PageCtx }) {
   )
 }
 
-function MintbookProfile({ ctx, handle }: { ctx: PageCtx; handle: string }) {
+function MixtbookProfile({ ctx, handle }: { ctx: PageCtx; handle: string }) {
   const posts = SEED_POSTS.filter((p) => p.handle === `@${handle}`)
   return (
-    <SiteShell site={MINTBOOK} ctx={ctx} nav={[{ label: 'Feed', href: 'https://mintbook.com/' }]} maxWidth={720}>
+    <SiteShell site={MIXTBOOK} ctx={ctx} nav={[{ label: 'Feed', href: 'https://mixtbook.com/' }]} maxWidth={720}>
       <Card>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <div style={{ width: 66, height: 66, borderRadius: 999, background: 'linear-gradient(135deg,#7cc93f,#2f6b12)', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 26, fontWeight: 700 }}>
@@ -175,7 +175,7 @@ function MintbookProfile({ ctx, handle }: { ctx: PageCtx; handle: string }) {
 }
 
 /* ==========================================================================
-   mintube.com — video
+   mixtube.com — video
    ========================================================================== */
 
 interface Video {
@@ -192,8 +192,8 @@ interface Video {
 const VIDEOS: Video[] = [
   {
     id: 'v1',
-    title: 'Installing Mint Web OS (and why nothing needed installing)',
-    channel: 'Mint Tips',
+    title: 'Installing Mixt Web OS (and why nothing needed installing)',
+    channel: 'Mixt Tips',
     views: '182K views',
     age: '3 days ago',
     length: '12:04',
@@ -228,7 +228,7 @@ const VIDEOS: Video[] = [
   },
   {
     id: 'v4',
-    title: 'Procedural wallpapers: drawing mint leaves with canvas',
+    title: 'Procedural wallpapers: drawing mixt leaves with canvas',
     channel: 'Pixel Garden',
     views: '27K views',
     age: '3 weeks ago',
@@ -253,9 +253,9 @@ function TubeHome({ ctx }: { ctx: PageCtx }) {
   const results = q.trim() ? VIDEOS.filter((v) => (v.title + v.channel + v.description).toLowerCase().includes(q.toLowerCase())) : VIDEOS
   return (
     <SiteShell
-      site={MINTUBE}
+      site={MIXTUBE}
       ctx={ctx}
-      nav={[{ label: 'Home', href: 'https://mintube.com/' }, { label: 'Trending', href: 'https://mintube.com/trending' }]}
+      nav={[{ label: 'Home', href: 'https://mixtube.com/' }, { label: 'Trending', href: 'https://mixtube.com/trending' }]}
       plain
       maxWidth={1100}
     >
@@ -265,7 +265,7 @@ function TubeHome({ ctx }: { ctx: PageCtx }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 16 }}>
         {results.map((v) => (
-          <div key={v.id} style={{ cursor: 'pointer' }} onClick={() => ctx.navigate(`https://mintube.com/watch/${v.id}`)}>
+          <div key={v.id} style={{ cursor: 'pointer' }} onClick={() => ctx.navigate(`https://mixtube.com/watch/${v.id}`)}>
             <div style={{ position: 'relative' }}>
               <Img alt={v.channel} height={140} />
               <span style={{ position: 'absolute', right: 6, bottom: 6, background: 'rgba(0,0,0,0.78)', color: '#fff', fontSize: 11.5, padding: '1px 5px', borderRadius: 4 }}>
@@ -278,7 +278,7 @@ function TubeHome({ ctx }: { ctx: PageCtx }) {
             </Meta>
           </div>
         ))}
-        {results.length === 0 && <p>No videos found. Mintube is small, but it is honest.</p>}
+        {results.length === 0 && <p>No videos found. Mixtube is small, but it is honest.</p>}
       </div>
     </SiteShell>
   )
@@ -296,10 +296,10 @@ function TubeWatch({ ctx, id }: { ctx: PageCtx; id: string }) {
     return () => clearInterval(t)
   }, [playing])
 
-  if (!video) return <NotFound ctx={ctx} site={MINTUBE} />
+  if (!video) return <NotFound ctx={ctx} site={MIXTUBE} />
 
   return (
-    <SiteShell site={MINTUBE} ctx={ctx} nav={[{ label: 'Home', href: 'https://mintube.com/' }]} maxWidth={1000} plain>
+    <SiteShell site={MIXTUBE} ctx={ctx} nav={[{ label: 'Home', href: 'https://mixtube.com/' }]} maxWidth={1000} plain>
       <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 18 }}>
         <div>
           <div style={{ position: 'relative', height: 340, borderRadius: 10, overflow: 'hidden', background: '#0e1113', display: 'grid', placeItems: 'center' }}>
@@ -362,7 +362,7 @@ function TubeWatch({ ctx, id }: { ctx: PageCtx; id: string }) {
         <div>
           <div style={{ fontWeight: 600, marginBottom: 8 }}>Up next</div>
           {VIDEOS.filter((v) => v.id !== id).map((v) => (
-            <div key={v.id} style={{ display: 'flex', gap: 8, marginBottom: 12, cursor: 'pointer' }} onClick={() => ctx.navigate(`https://mintube.com/watch/${v.id}`)}>
+            <div key={v.id} style={{ display: 'flex', gap: 8, marginBottom: 12, cursor: 'pointer' }} onClick={() => ctx.navigate(`https://mixtube.com/watch/${v.id}`)}>
               <Img alt={v.channel} height={62} style={{ width: 110, flex: 'none' }} />
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.3 }}>{v.title}</div>
@@ -386,7 +386,7 @@ function TubeWatch({ ctx, id }: { ctx: PageCtx; id: string }) {
 }
 
 /* ==========================================================================
-   mintgames.com — arcade
+   mixtgames.com — arcade
    ========================================================================== */
 
 function ReactionGame() {
@@ -482,12 +482,12 @@ function GuessGame() {
 function GamesHome({ ctx }: { ctx: PageCtx }) {
   return (
     <SiteShell
-      site={MINTGAMES}
+      site={MIXTGAMES}
       ctx={ctx}
-      nav={[{ label: 'Arcade', href: 'https://mintgames.com/' }, { label: 'Source', href: 'https://mintgames.com/source' }]}
+      nav={[{ label: 'Arcade', href: 'https://mixtgames.com/' }, { label: 'Source', href: 'https://mixtgames.com/source' }]}
       maxWidth={900}
     >
-      <H level={1}>The MintNet arcade</H>
+      <H level={1}>The MixtNet arcade</H>
       <p style={{ color: '#5c665f' }}>
         Three games, no installs. The big tile puzzle also ships as a desktop application — look for <strong>2048</strong> in the Menu.
       </p>
@@ -501,7 +501,7 @@ function GamesHome({ ctx }: { ctx: PageCtx }) {
           </p>
           <Btn
             onClick={() => {
-              window.dispatchEvent(new CustomEvent('webmpl:launch', { detail: { appId: 'game2048' } }))
+              window.dispatchEvent(new CustomEvent('mixt:launch', { detail: { appId: 'game2048' } }))
             }}
           >
             Launch 2048
@@ -522,10 +522,10 @@ function GamesHome({ ctx }: { ctx: PageCtx }) {
    site definitions
    ========================================================================== */
 
-export const MINTBOOK: SiteDef = {
-  domain: 'mintbook.com',
-  aliases: ['facebook.com', 'mintbook.net'],
-  title: 'MintBook',
+export const MIXTBOOK: SiteDef = {
+  domain: 'mixtbook.com',
+  aliases: ['facebook.com', 'mixtbook.net'],
+  title: 'MixtBook',
   glyph: 'Users',
   color: '#3a5fd0',
   color2: '#22347e',
@@ -533,21 +533,21 @@ export const MINTBOOK: SiteDef = {
   tags: ['social', 'friends', 'posts', 'feed'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'MintBook — news feed', keywords: ['social', 'feed', 'friends', 'posts'], snippet: 'Post a status and read what everybody else is doing with their desktop.', render: (ctx) => <MintbookHome ctx={ctx} /> },
+    { path: '/', title: 'MixtBook — news feed', keywords: ['social', 'feed', 'friends', 'posts'], snippet: 'Post a status and read what everybody else is doing with their desktop.', render: (ctx) => <MixtbookHome ctx={ctx} /> },
     {
       path: '/profile',
-      title: 'MintBook — profile',
+      title: 'MixtBook — profile',
       keywords: ['profile', 'user', 'posts'],
       snippet: 'A user profile with their posts.',
-      render: (ctx) => <MintbookProfile ctx={ctx} handle={ctx.path.split('/')[2] ?? 'mint'} />,
+      render: (ctx) => <MixtbookProfile ctx={ctx} handle={ctx.path.split('/')[2] ?? 'mixt'} />,
     },
     {
       path: '/groups',
-      title: 'MintBook — groups',
+      title: 'MixtBook — groups',
       keywords: ['groups', 'communities'],
       snippet: 'Groups you might like.',
       render: (ctx) => (
-        <SiteShell site={MINTBOOK} ctx={ctx} nav={[{ label: 'Feed', href: 'https://mintbook.com/' }]} maxWidth={720}>
+        <SiteShell site={MIXTBOOK} ctx={ctx} nav={[{ label: 'Feed', href: 'https://mixtbook.com/' }]} maxWidth={720}>
           <H level={1}>Groups</H>
           {[
             ['Window Snapping Enthusiasts', '12,402 members', 'We snap. They stick.'],
@@ -566,32 +566,32 @@ export const MINTBOOK: SiteDef = {
     },
   ],
   text: () =>
-    ['MintBook — news feed', '====================', '', ...SEED_POSTS.map((p) => `${p.author} ${p.handle} (${p.time})\n  ${p.text}\n  ♥ ${p.likes} · ${p.comments.length} comments`)].join('\n'),
+    ['MixtBook — news feed', '====================', '', ...SEED_POSTS.map((p) => `${p.author} ${p.handle} (${p.time})\n  ${p.text}\n  ♥ ${p.likes} · ${p.comments.length} comments`)].join('\n'),
 }
 
-export const MINTUBE: SiteDef = {
-  domain: 'mintube.com',
+export const MIXTUBE: SiteDef = {
+  domain: 'mixtube.com',
   aliases: ['youtube.com'],
-  title: 'Mintube',
+  title: 'Mixtube',
   glyph: 'Video',
   color: '#c0392b',
   color2: '#7c1d12',
-  description: 'Video for the MintNet: tutorials, reviews and a suspicious number of terminal demos.',
+  description: 'Video for the MixtNet: tutorials, reviews and a suspicious number of terminal demos.',
   tags: ['video', 'watch', 'tutorials', 'music'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'Mintube — home', keywords: ['video', 'watch', 'stream', 'tutorials'], snippet: 'Browse and search videos on the MintNet video site.', render: (ctx) => <TubeHome ctx={ctx} /> },
-    { path: '/trending', title: 'Mintube — trending', keywords: ['trending', 'popular'], snippet: 'What the MintNet is watching right now.', render: (ctx) => <TubeHome ctx={ctx} /> },
+    { path: '/', title: 'Mixtube — home', keywords: ['video', 'watch', 'stream', 'tutorials'], snippet: 'Browse and search videos on the MixtNet video site.', render: (ctx) => <TubeHome ctx={ctx} /> },
+    { path: '/trending', title: 'Mixtube — trending', keywords: ['trending', 'popular'], snippet: 'What the MixtNet is watching right now.', render: (ctx) => <TubeHome ctx={ctx} /> },
     {
       path: '/watch',
-      title: 'Mintube — watch',
+      title: 'Mixtube — watch',
       keywords: ['player', 'comments', 'watch video'],
       snippet: 'Watch a video with a real (fake) player, likes and comments.',
       render: (ctx) => <TubeWatch ctx={ctx} id={ctx.path.split('/')[2] ?? 'v1'} />,
     },
   ],
   deepEntries: VIDEOS.map((v) => ({
-    url: `https://mintube.com/watch/${v.id}`,
+    url: `https://mixtube.com/watch/${v.id}`,
     title: v.title,
     snippet: v.description,
     keywords: [v.channel, 'video', 'watch', v.length],
@@ -600,13 +600,13 @@ export const MINTUBE: SiteDef = {
     const id = path.split('/')[2]
     const v = VIDEOS.find((x) => x.id === id)
     if (v) return [`${v.title}`, `${v.channel} · ${v.views} · ${v.age}`, '', v.description, '', 'Comments:', ...v.comments.map((c) => `  ${c.who}: ${c.text}`)].join('\n')
-    return ['Mintube — home', '================', ...VIDEOS.map((x) => `${x.title}\n  ${x.channel} · ${x.views} · https://mintube.com/watch/${x.id}`)].join('\n')
+    return ['Mixtube — home', '================', ...VIDEOS.map((x) => `${x.title}\n  ${x.channel} · ${x.views} · https://mixtube.com/watch/${x.id}`)].join('\n')
   },
 }
 
-export const MINTGAMES: SiteDef = {
-  domain: 'mintgames.com',
-  title: 'MintGames',
+export const MIXTGAMES: SiteDef = {
+  domain: 'mixtgames.com',
+  title: 'MixtGames',
   glyph: 'Gamepad2',
   color: '#7c3aed',
   color2: '#4c1d95',
@@ -614,24 +614,24 @@ export const MINTGAMES: SiteDef = {
   tags: ['games', 'play', 'arcade'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'MintGames — arcade', keywords: ['games', 'play', 'arcade', 'reaction', 'guess'], snippet: 'Play the reflex tester and guess-the-number, or launch the 2048 application.', render: (ctx) => <GamesHome ctx={ctx} /> },
+    { path: '/', title: 'MixtGames — arcade', keywords: ['games', 'play', 'arcade', 'reaction', 'guess'], snippet: 'Play the reflex tester and guess-the-number, or launch the 2048 application.', render: (ctx) => <GamesHome ctx={ctx} /> },
     {
       path: '/source',
-      title: 'MintGames — source',
+      title: 'MixtGames — source',
       keywords: ['source code', 'javascript', 'download'],
       snippet: 'Download the little JavaScript file that powers the arcade games.',
       render: (ctx) => (
-        <SiteShell site={MINTGAMES} ctx={ctx} nav={[{ label: 'Arcade', href: 'https://mintgames.com/' }]}>
+        <SiteShell site={MIXTGAMES} ctx={ctx} nav={[{ label: 'Arcade', href: 'https://mixtgames.com/' }]}>
           <H level={1}>Arcade source</H>
           <p>The mini game engine is 12 kB of uninspiring JavaScript. You can have it.</p>
-          <a href="#download-arcade-games.js" style={{ cursor: 'pointer' }} onClick={() => ctx.navigate('https://mintgames.com/download/arcade-games.js')}>
+          <a href="#download-arcade-games.js" style={{ cursor: 'pointer' }} onClick={() => ctx.navigate('https://mixtgames.com/download/arcade-games.js')}>
             Download arcade-games.js
           </a>
         </SiteShell>
       ),
     },
   ],
-  text: () => 'MintGames arcade — open it in the Web Browser to play.',
+  text: () => 'MixtGames arcade — open it in the Web Browser to play.',
 }
 
-export const SOCIAL_SITES = [MINTBOOK, MINTUBE, MINTGAMES]
+export const SOCIAL_SITES = [MIXTBOOK, MIXTUBE, MIXTGAMES]

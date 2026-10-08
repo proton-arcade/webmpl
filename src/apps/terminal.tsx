@@ -44,8 +44,8 @@ const COMMANDS = [
   'lsusb', 'lspci', 'ifconfig', 'ip', 'ping', 'curl', 'wget', 'ssh', 'scp', 'git', 'python3',
   'node', 'npm', 'which', 'whereis', 'man', 'info', 'fortune', 'cowsay', 'sl', 'yes', 'seq',
   'env', 'export', 'alias', 'uname', 'notify-send', 'theme', 'wallpaper', 'lock', 'logout',
-  'reboot', 'shutdown', 'poweroff', 'exit', 'screenshot', 'xrandr', 'battery', 'volume', 'mintupdate',
-  'mintinstall', 'nemo', 'xed', 'firefox', 'top', 'killall', 'chmod', 'chown', 'stat', 'file',
+  'reboot', 'shutdown', 'poweroff', 'exit', 'screenshot', 'xrandr', 'battery', 'volume', 'mixtupdate',
+  'mixtinstall', 'nemo', 'xed', 'firefox', 'top', 'killall', 'chmod', 'chown', 'stat', 'file',
   'basename', 'dirname', 'realpath', 'sleep', 'true', 'false', 'time', 'watch', 'diff', 'tar',
   'zip', 'unzip', 'gzip', 'sha256sum', 'md5sum', 'base64', 'rev', 'tac', 'cut', 'tr', 'echo',
 ]
@@ -58,7 +58,7 @@ const FORTUNES = [
   'Unix is user friendly. It is just picky about its friends.',
   'A clean desk is a sign of a cluttered drawer.',
   'sudo make me a sandwich.',
-  'Mint condition: a computer that has never been rebooted into Windows.',
+  'Mixt condition: a computer that has never been rebooted into Windows.',
   'The best way to accelerate a browser is at 9.8 m/s².',
   'Documentation is like a love letter to your future self.',
   'rm -rf is the fastest way to free disk space and regret.',
@@ -76,7 +76,7 @@ export default function TerminalApp({ win, api }: AppProps) {
   const installed = useOS((s) => s.installed)
   const setInstalled = useOS((s) => s.setInstalled)
   const [lines, setLines] = useState<Line[]>([
-    { id: lineId++, kind: 'dim', text: 'Welcome to Mint Web OS 1.0 (GNU/JavaScript) — type "help" for a list of commands.' },
+    { id: lineId++, kind: 'dim', text: 'Welcome to Mixt Web OS 1.0 (GNU/JavaScript) — type "help" for a list of commands.' },
     { id: lineId++, kind: 'out', text: '' },
   ])
   const [cwd, setCwd] = useState<string>(win.props?.cwd ?? HOME)
@@ -210,10 +210,10 @@ export default function TerminalApp({ win, api }: AppProps) {
     switch (cmd) {
       case 'help': {
         pushMany([
-          ['ok', 'Mint Web OS shell — available commands'],
+          ['ok', 'Mixt Web OS shell — available commands'],
           ['out', '  Files      ls, cd, pwd, cat, tree, find, grep, wc, head, tail, mkdir, touch, rm, mv, cp, du, df, stat, file'],
           ['out', '  System     uname, hostname, date, cal, uptime, free, ps, top, kill, neofetch, inxi, lscpu, lsblk, whoami, id'],
-          ['out', '  Packages   apt search|install|remove|list, dpkg -l, mintinstall, mintupdate'],
+          ['out', '  Packages   apt search|install|remove|list, dpkg -l, mixtinstall, mixtupdate'],
           ['out', '  Network    ping, curl, wget, dig, host, nslookup, getent, nmap, ifconfig, ssh, git'],
           ['out', '  Desktop    open, xed, nano, nemo, theme, wallpaper, notify-send, lock, screenshot, volume'],
           ['out', '  Session    history, clear, fortune, cowsay, exit, reboot, shutdown'],
@@ -453,13 +453,13 @@ export default function TerminalApp({ win, api }: AppProps) {
             'Filesystem      Size  Used Avail Use% Mounted on',
             `localStorage     10G  ${humanSize(nodeSize(vfs.node('/')!)).padStart(4)}  9.5G  ${Math.min(99, Math.round(nodeSize(vfs.node('/')!) / 1e8))}% /`,
             'tmpfs             2G   12M  2.0G   1% /run',
-            'mintnetfs          ∞    0B     ∞    - /media/mintnet',
+            'mixtnetfs          ∞    0B     ∞    - /media/mixtnet',
           ].join('\n'),
         )
       case 'uname':
         return out(
           args.includes('-a')
-            ? `Linux ${settings.hostname} 6.8.0-webmpl #1 SMP PREEMPT_DYNAMIC ${new Date().toDateString()} x86_64 GNU/JavaScript`
+            ? `Linux ${settings.hostname} 6.8.0-mixt #1 SMP PREEMPT_DYNAMIC ${new Date().toDateString()} x86_64 GNU/JavaScript`
             : 'Linux',
         )
       case 'hostname':
@@ -503,7 +503,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         const wins = useOS.getState().windows
         const rows = ['  PID TTY          TIME CMD']
         rows.push(`    1 ?        00:00:01 systemd(web)`)
-        rows.push(`  512 ?        00:00:02 cinnamon(webmpl-shell)`)
+        rows.push(`  512 ?        00:00:02 cinnamon(mixt-shell)`)
         wins.forEach((w, i) => rows.push(`${(900 + i * 7).toString().padStart(5)} pts/0    00:0${i}:0${(i + 1) % 9} ${w.appId}`))
         rows.push('')
         rows.push(`Tasks: ${wins.length + 2} total, 1 running, ${wins.length + 1} sleeping`)
@@ -545,20 +545,20 @@ export default function TerminalApp({ win, api }: AppProps) {
             '├─vda1 254:1    0   512M  0 part /boot/efi',
             '├─vda2 254:2    0    60G  0 part /',
             '└─vda3 254:3    0   3.5G  0 part [SWAP]',
-            `localStorage 0:0 0 10.0G 0 virtual /home/${settings.username} (.webmpl)`,
+            `localStorage 0:0 0 10.0G 0 virtual /home/${settings.username} (.mixt)`,
           ].join('\n'),
         )
       case 'lsusb':
-        return out('Bus 001 Device 001: ID 1d6b:0002 WebMpl Virtual Hub\nBus 001 Device 002: ID 046d:c52b Logitech Virtual Mouse\nBus 001 Device 003: ID 1bcf:0005 WebCam (emulated)')
+        return out('Bus 001 Device 001: ID 1d6b:0002 Mixt Virtual Hub\nBus 001 Device 002: ID 046d:c52b Logitech Virtual Mouse\nBus 001 Device 003: ID 1bcf:0005 WebCam (emulated)')
       case 'lspci':
-        return out('00:00.0 Host bridge: WebMpl JS Bridge\n00:02.0 VGA compatible controller: WebGPU Virtual Display Adapter\n00:1f.3 Audio device: WebAudio HDA Controller\n00:1f.6 Ethernet controller: MintNet Virtual NIC')
+        return out('00:00.0 Host bridge: Mixt JS Bridge\n00:02.0 VGA compatible controller: WebGPU Virtual Display Adapter\n00:1f.3 Audio device: WebAudio HDA Controller\n00:1f.6 Ethernet controller: MixtNet Virtual NIC')
       case 'dig': {
         const flags = args.filter((a) => a.startsWith('-'))
         const isType = (a: string) => /^(A|AAAA|CNAME|MX|TXT|NS|SOA|PTR|ANY)$/i.test(a)
         const positional = args.filter((a) => !a.startsWith('-'))
         const typeArg = positional.find(isType)
         // `dig -t MX example.com` and `dig example.com MX` both work
-        const target = positional.filter((a) => !isType(a)).pop() ?? 'mintnet.com'
+        const target = positional.filter((a) => !isType(a)).pop() ?? 'mixtnet.com'
         const type = (typeArg?.toUpperCase() ?? 'A') as any
         if (flags.includes('-x')) {
           const reverseName = reverseLookup(target)
@@ -575,7 +575,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         }
         if (type === 'MX' || type === 'TXT' || type === 'NS' || type === 'SOA') {
           const records = type === 'SOA' ? [soaRecord()] : zoneRecords().filter((r) => r.type === type)
-          const scoped = target === 'mintnet' || target === 'mintnet.' ? records : records.filter((r) => r.name === target.toLowerCase())
+          const scoped = target === 'mixtnet' || target === 'mixtnet.' ? records : records.filter((r) => r.name === target.toLowerCase())
           if (!scoped.length) return out(renderDig({ ...answer, answers: [] }, type))
           return out(
             renderDig({ ...answer, answers: scoped.map((r) => ({ ...r, name: target })) }, type),
@@ -584,9 +584,9 @@ export default function TerminalApp({ win, api }: AppProps) {
         return out(renderDig(answer, type))
       }
       case 'host':
-        return out(renderHost(resolveHost(args[0] ?? 'mintnet.com', { hosts: readHosts() })))
+        return out(renderHost(resolveHost(args[0] ?? 'mixtnet.com', { hosts: readHosts() })))
       case 'nslookup': {
-        const target = args.find((a) => !a.startsWith('-')) ?? 'mintnet.com'
+        const target = args.find((a) => !a.startsWith('-')) ?? 'mixtnet.com'
         const header = 'Server:\t\t10.0.0.53\nAddress:\t\t10.0.0.53#53'
         if (args.includes('-type=mx')) {
           const mx = zoneRecords().filter((r) => r.type === 'MX' && r.name === target.toLowerCase())
@@ -659,7 +659,7 @@ export default function TerminalApp({ win, api }: AppProps) {
               '        inet 10.0.2.15  netmask 255.255.255.0  broadcast 10.0.2.255',
               '        ether 02:42:0a:00:02:0f  txqueuelen 1000  (Ethernet)',
               `        RX packets ${Math.floor(nodeSize(vfs.node('/')!) / 1000)}  TX packets 8841`,
-              '        status: ' + (settings.wifi ? 'connected (MintNet)' : 'disconnected'),
+              '        status: ' + (settings.wifi ? 'connected (MixtNet)' : 'disconnected'),
               '',
               'lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536',
               '        inet 127.0.0.1  netmask 255.0.0.0',
@@ -680,7 +680,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         )
       }
       case 'ping': {
-        const host = args.find((a) => !a.startsWith('-')) ?? 'mintnet.com'
+        const host = args.find((a) => !a.startsWith('-')) ?? 'mixtnet.com'
         const info = dnsStatus(host)
         if (info.status !== 'NOERROR' || !info.address) {
           return out(`ping: ${host}: Name or service not known`)
@@ -722,7 +722,7 @@ export default function TerminalApp({ win, api }: AppProps) {
       }
       case 'ssh':
         return out(
-          `The authenticity of host '${args[0] ?? 'mintnet.com'}' can't be established.\nED25519 key fingerprint is SHA256:webMpl+VirtualHost+NoRealCrypto.\nThis key is not known by any other names.\nConnection closed by remote host (no real SSH inside a browser sandbox).`,
+          `The authenticity of host '${args[0] ?? 'mixtnet.com'}' can't be established.\nED25519 key fingerprint is SHA256:mixt+VirtualHost+NoRealCrypto.\nThis key is not known by any other names.\nConnection closed by remote host (no real SSH inside a browser sandbox).`,
         )
       case 'git':
         if (args[0] === 'init') {
@@ -732,7 +732,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         } else if (args[0] === 'status') {
           push('out', `On branch main\n\nNo commits yet\n\nnothing to commit (create/copy files and use "git add" to track)`)
         } else if (args[0] === '--version') {
-          return out('git version 2.46.0-webmpl')
+          return out('git version 2.46.0-mixt')
         } else {
           push('dim', 'git: this is a mini implementation — try git init, git status, git --version.')
         }
@@ -742,7 +742,7 @@ export default function TerminalApp({ win, api }: AppProps) {
       case 'npm':
         return out(
           args[0] === '--version' || args[0] === '-v'
-            ? { python3: 'Python 3.12.4 (webmpl)', node: 'v22.0.0-webmpl', npm: '10.9.0' }[cmd]!
+            ? { python3: 'Python 3.12.4 (mixt)', node: 'v22.0.0-mixt', npm: '10.9.0' }[cmd]!
             : `${cmd}: interactive sessions are not available in this shell. Try ${cmd} --version`,
         )
       case 'which':
@@ -754,32 +754,32 @@ export default function TerminalApp({ win, api }: AppProps) {
         const summaries: Record<string, string> = {
           ls: 'list directory contents',
           cd: 'change the working directory',
-          dig: 'DNS lookup utility — queries the MintNet resolver',
+          dig: 'DNS lookup utility — queries the MixtNet resolver',
           host: 'DNS lookup utility (concise form)',
           nslookup: 'query name servers interactively',
           getent: 'get entries from the hosts database (/etc/hosts first)',
           nmap: 'network exploration tool and port scanner',
-          curl: 'transfer a MintNet url and print the plain-text version',
+          curl: 'transfer a MixtNet url and print the plain-text version',
           ping: 'send ICMP ECHO_REQUEST to network hosts',
           ifconfig: 'configure the network interface',
         }
         return out(
           [
             `NAME`,
-            `     ${topic} — ${summaries[topic] ?? 'Mint Web OS command'}`,
+            `     ${topic} — ${summaries[topic] ?? 'Mixt Web OS command'}`,
             '',
             'SYNOPSIS',
             `     ${topic} [OPTION]... [FILE]...`,
             '',
             'DESCRIPTION',
-            '     This is a virtual manual page. Mint Web OS implements a subset of the',
+            '     This is a virtual manual page. Mixt Web OS implements a subset of the',
             '     GNU coreutils inside a browser, backed by the localStorage filesystem.',
             '',
             'SEE ALSO',
-            '     help(1), neofetch(1), mint(1)',
+            '     help(1), neofetch(1), mixt(1)',
             '',
             'RESOLVER',
-            '     Names are resolved from /etc/hosts first, then from MintNet DNS',
+            '     Names are resolved from /etc/hosts first, then from MixtNet DNS',
             '     (10.0.0.53, 10.0.0.54). The zone is built from the machines in',
             '     src/net/internet/servers/ — see about:dns in the Web Browser.',
           ].join('\n'),
@@ -799,18 +799,18 @@ export default function TerminalApp({ win, api }: AppProps) {
         const info = [
           `${settings.username}@${settings.hostname}`,
           '-----------------------------',
-          `OS: Mint Web OS 1.0 x86_64 (GNU/JavaScript)`,
-          `Host: ${navigator.vendor || 'WebMpl'} ${navigator.platform}`,
-          `Kernel: 6.8.0-webmpl`,
+          `OS: Mixt Web OS 1.0 x86_64 (GNU/JavaScript)`,
+          `Host: ${navigator.vendor || 'Mixt'} ${navigator.platform}`,
+          `Kernel: 6.8.0-mixt`,
           `Uptime: ${Math.max(1, Math.round((Date.now() - useOS.getState().bootTime) / 60000))} mins`,
           `Packages: ${APPS.filter((a) => (a.preinstalled !== false ? true : installed[a.id])).length} (dpkg), 4 (snap)`,
           `Shell: bash 5.2.21`,
           `Resolution: ${window.innerWidth}x${window.innerHeight}`,
           `DE: Cinnamon (web edition)`,
-          `WM: Mint Wm (React)`,
+          `WM: mixtwm (React)`,
           `Theme: ${settings.themeName} [GTK3]`,
           `Icons: ${settings.iconTheme} [GTK3]`,
-          `Terminal: mint-terminal`,
+          `Terminal: mixt-terminal`,
           `CPU: JS Virtual Core (${navigator.hardwareConcurrency || 4}) @ 3.2GHz`,
           `GPU: WebGPU Virtual Display`,
           `Memory: ${Math.round(380 + useOS.getState().windows.length * 34)}MiB / 3939MiB`,
@@ -832,7 +832,7 @@ export default function TerminalApp({ win, api }: AppProps) {
           return out(rows.join('\n'))
         }
         if (cmd === 'apt' && (sub === 'update' || sub === 'upgrade')) {
-          push('out', 'Hit:1 http://packages.mintnet.com mint webmpl/stable InRelease')
+          push('out', 'Hit:1 http://packages.mixtnet.com mixt mixt/stable InRelease')
           push('out', 'Reading package lists... Done')
           push('ok', 'All packages are up to date.')
           return
@@ -878,11 +878,11 @@ export default function TerminalApp({ win, api }: AppProps) {
         push('dim', `usage: ${cmd} {update|upgrade|search|install|remove|list}`)
         return
       }
-      case 'mintinstall':
-        launch('mintinstall')
+      case 'mixtinstall':
+        launch('mixtinstall')
         push('dim', 'Opening the Software Manager…')
         return
-      case 'mintupdate':
+      case 'mixtupdate':
         push('out', 'Refreshing package list… done')
         push('ok', 'Your system is up to date. 3 optional applications are available in the Software Manager.')
         return
@@ -890,7 +890,7 @@ export default function TerminalApp({ win, api }: AppProps) {
       case 'xdg-open': {
         const target = args[0]
         if (!target) throw new Error('xdg-open: missing argument')
-        if (/^https?:\/\//.test(target) || /^[\w-]+\.(com|org|net|io|dev|edu|gov|mintnet)/.test(target)) {
+        if (/^https?:\/\//.test(target) || /^[\w-]+\.(com|org|net|io|dev|edu|gov|mixtnet)/.test(target)) {
           launch('browser', { url: target })
           push('dim', `Opening ${target} in the Web Browser…`)
         } else {
@@ -948,7 +948,7 @@ export default function TerminalApp({ win, api }: AppProps) {
       case 'theme': {
         const v = args[0]
         if (v === 'dark' || v === 'light') {
-          setSettings({ scheme: v, themeName: v === 'dark' ? 'Mint-Y-Dark' : 'Mint-Y' })
+          setSettings({ scheme: v, themeName: v === 'dark' ? 'Mixt-Y-Dark' : 'Mixt-Y' })
           push('ok', `Appearance switched to ${v}.`)
         } else push('dim', 'usage: theme {dark|light}')
         return
@@ -990,12 +990,12 @@ export default function TerminalApp({ win, api }: AppProps) {
       case 'reboot':
       case 'shutdown':
       case 'poweroff':
-        window.dispatchEvent(new CustomEvent('webmpl:session', { detail: cmd }))
+        window.dispatchEvent(new CustomEvent('mixt:session', { detail: cmd }))
         return
       case 'fortune':
         return out(FORTUNES[Math.floor(Math.random() * FORTUNES.length)])
       case 'cowsay': {
-        const text = args.join(' ') || 'Mint Web OS is a full computer in your browser'
+        const text = args.join(' ') || 'Mixt Web OS is a full computer in your browser'
         const top = '_'.repeat(text.length + 2)
         return out(
           [
@@ -1187,7 +1187,7 @@ export default function TerminalApp({ win, api }: AppProps) {
   )
 }
 
-/** Renders `user@host:~$` with Mint-Y colours. */
+/** Renders `user@host:~$` with Mixt-Y colours. */
 function PromptLine({ text }: { text: string }) {
   const m = text.match(/^(.*?)(:.*?)([#$])\s?(.*)$/s)
   if (!m) return <span style={{ color: '#eef2ef' }}>{text}</span>
@@ -1201,7 +1201,7 @@ function PromptLine({ text }: { text: string }) {
   )
 }
 
-/** Minimal ANSI SGR colour support so `ls` output can look like Mint's. */
+/** Minimal ANSI SGR colour support so `ls` output can look like Mixt's. */
 const ANSI_COLORS: Record<string, string> = {
   '30': '#6b7280', '31': '#ff8a80', '32': '#9ede6a', '33': '#e8c46a', '34': '#7fb2e8',
   '35': '#d79ae8', '36': '#68d8d0', '37': '#d7dbd8', '90': '#7c8580', '1': 'bold',

@@ -47,7 +47,7 @@ export function openUrl(url: string) {
   launch('browser', { url })
 }
 
-export function openTerminal(cwd = '/home/mint') {
+export function openTerminal(cwd = '/home/mixt') {
   launch('terminal', { cwd })
 }
 

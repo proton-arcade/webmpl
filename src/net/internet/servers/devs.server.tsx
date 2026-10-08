@@ -1,17 +1,17 @@
 import { defineServer } from '../types'
-import { MINTDEV, WEBMPL } from '../../sites/tech'
+import { MIXTDEV, MIXT } from '../../sites/tech'
 
 /** Documentation, protocol specs and the home of this very project. */
 export default defineServer({
   id: 'dev-web-01',
-  hosts: ['mintdev.io', 'webmpl.dev'],
-  aliases: ['docs.mintdev.io', 'api.mintdev.io'],
-  wildcard: ['*.mintdev.io'],
-  operator: 'MintNet Foundation',
+  hosts: ['mixtdev.io', 'mixt.dev'],
+  aliases: ['docs.mixtdev.io', 'api.mixtdev.io'],
+  wildcard: ['*.mixtdev.io'],
+  operator: 'MixtNet Foundation',
   location: 'Helsinki',
   since: '2021-02-02',
-  os: 'MintNetOS 4.2 LTS',
-  software: 'mintdocs 3.1',
+  os: 'MixtNetOS 4.2 LTS',
+  software: 'mixtdocs 3.1',
   ports: [
     { port: 80, service: 'http' },
     { port: 443, service: 'https' },
@@ -19,5 +19,5 @@ export default defineServer({
     { port: 9418, service: 'git', version: 'git daemon' },
   ],
   records: { TXT: ['"v=spf1 -all"', '"you are reading this from inside the project"'] },
-  sites: [MINTDEV, WEBMPL],
+  sites: [MIXTDEV, MIXT],
 })

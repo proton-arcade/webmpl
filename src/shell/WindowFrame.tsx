@@ -126,7 +126,7 @@ export default function WindowFrame({ win, children }: { win: WinState; children
     e.stopPropagation()
     const S = useOS.getState()
     window.dispatchEvent(
-      new CustomEvent('webmpl:windowmenu', {
+      new CustomEvent('mixt:windowmenu', {
         detail: {
           x: e.clientX,
           y: e.clientY,

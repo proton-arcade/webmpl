@@ -1,9 +1,9 @@
-# Mint Web OS
+# Mixt Web OS
 
 A complete desktop computer that runs in your browser — window manager, panel, main menu,
 workspaces, a virtual filesystem, a real terminal, an installable software store, and a
-web browser that renders a whole fictional internet ("MintNet"), all styled after
-**Linux Mint** with the Cinnamon desktop.
+**Mixtsfox** browser that renders a whole fictional internet ("MixtNet"), all
+styled after Linux Mint with the Cinnamon desktop.
 
 Everything is client-side: no backend, no accounts, no network calls. The "operating system"
 is React state.
@@ -18,7 +18,7 @@ npm run dev      # http://localhost:3000
 | `npm run dev` | Vite dev server on port 3000 |
 | `npm run build` | production bundle into `dist/` |
 | `npm run preview` | serve the production bundle |
-| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 94 behaviours (desktop mounting, every app rendering, every MintNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence) |
+| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 94 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence) |
 
 ---
 
@@ -26,7 +26,7 @@ npm run dev      # http://localhost:3000
 
 * **Window manager** — drag, resize from all eight edges/corners, minimise, maximise,
   restore, snap to left/right/top/bottom halves, per-workspace window lists, z-order focus,
-  shadows and the Mint-Y title bar (`WindowFrame.tsx`).
+  shadows and the Mixt-Y title bar (`WindowFrame.tsx`).
 * **Panel** — bottom bar (movable to top/left/right and resizable, with optional autohide)
   holding the menu button, quick-launch icons, a **window list** with per-window actions,
   the workspace switcher, a system tray (network/volume/battery), a clock and a
@@ -38,12 +38,12 @@ npm run dev      # http://localhost:3000
   desktop/taskbar menus, and a boot → lock → login → desktop session flow
   (`Desktop.tsx`, `os/bootstrap.tsx`).
 * **Notifications** stack with timeout and a persisted history drawer.
-* **Theming** — six Mint-Y accents, three bundled wallpapers, light/dark/auto, font scale —
+* **Theming** — six Mixt-Y accents, three bundled wallpapers, light/dark/auto, font scale —
   all driven through CSS custom properties (`os/theme.ts`, `index.css`).
 
 ## Applications (19)
 
-Preinstalled: Files (Nemo), Terminal, Web Browser, Software Manager, System Settings,
+Preinstalled: Files, Terminal, Mixtsfox (web browser), Software Manager, System Settings,
 Text Editor (Xed), Calculator, System Monitor, Media Player, Image Viewer, Weather,
 Archive Manager, Screenshot, 2048, Help, About This Computer.
 Installable from the **Software Manager** with a simulated download: Drawing (a paint
@@ -51,12 +51,12 @@ program), Mail (a working email client), News Reader.
 
 Highlights:
 
-* **Terminal** — `ls cd pwd cat echo mkdir touch rm cp mv tree find grep head tail wc sort uniq date whoami hostname uname df free ps top neofetch clear history man help exit sudo apt`, plus `curl`/`wget` (which render MintNet pages as text), `wallpaper`, `theme`, `notify`, `open`, pipes (`|` — `wc`, `grep`, `sort`, `head`, `tail`, `uniq`), redirection (`>` and `>>`), and command chaining (`&&`, `||`, `;`) with up/down history and tab completion.
+* **Terminal** — `ls cd pwd cat echo mkdir touch rm cp mv tree find grep head tail wc sort uniq date whoami hostname uname df free ps top neofetch clear history man help exit sudo apt`, plus `curl`/`wget` (which render MixtNet pages as text), `wallpaper`, `theme`, `notify`, `open`, pipes (`|` — `wc`, `grep`, `sort`, `head`, `tail`, `uniq`), redirection (`>` and `>>`), and command chaining (`&&`, `||`, `;`) with up/down history and tab completion.
 * **Files** — sidebar bookmarks, breadcrumbs, list/grid views, sort, search, create folder/file,
   rename, cut/copy/paste, delete → Trash, restore, empty trash, mount a generated "archive"
   and browse inside it, open files with the right application.
-* **Browser** — tabs, bookmarks, history, downloads shelf, `about:` pages, back/forward with a
-  per-tab stack, and a URL bar that resolves `mintnet://`, MintNet domains and search queries.
+* **Mixtsfox** — tabs, bookmarks, history, downloads shelf, `about:` pages, back/forward with a
+  per-tab stack, and a URL bar that resolves `mixtnet://`, MixtNet domains and search queries.
   Unknown external domains get an honest "this sandbox cannot reach the real internet"
   page rather than a blank frame.
 * **System Settings** — 14 panels: appearance, backgrounds, themes, panel, desktop, display,
@@ -69,27 +69,27 @@ Highlights:
   virtual filesystem, Drawing saves PNGs, Screenshot captures a wallpaper composition (the
   sandbox blocks `getDisplayMedia`), and 2048 is 2048.
 
-## MintNet — an internet built in
+## MixtNet — an internet built in
 
 The browser is backed by a small site framework (`src/net/`). Each site is a real page tree
 with its own CSS-free styling, and the browser resolves URLs to it:
 
 | domain | what it is |
 | --- | --- |
-| `mintnet.com` | the portal: search, news headlines, directory of sites |
-| `mintpedia.org` | encyclopaedia with ~20 full articles on Linux Mint, Cinnamon, filesystems, the web… |
-| `mintnews.com` | a newspaper with front page, sections and articles |
-| `mintbook.com` / `mintube.com` / `mintgames.com` | social feed, video site, and a games arcade that can launch 2048 from the desktop |
-| `mintcart.com` | shop with products, a cart, and checkout that writes a receipt into `~/Documents` |
-| `mintmail.com` | webmail that composes real messages |
-| `mintmaps.com` | a canvas-drawn map with places and directions |
-| `linuxmint.com`, `mintdev.io`, `webmpl.dev` | documentation sites, including this project's own |
-| `mintnet://search?q=…` | the built-in search engine (also reachable from the terminal with `curl`) |
-| `pastemint.com` | a pastebin that lives entirely in one server file — create pastes, and `curl https://pastemint.com/raw/hello1` |
+| `mixtnet.com` | the portal: search, news headlines, directory of sites |
+| `mixtpedia.org` | encyclopaedia with ~20 full articles on Mixt OS, Cinnamon, filesystems, the web… |
+| `mixtnews.com` | a newspaper with front page, sections and articles |
+| `mixtbook.com` / `mixtube.com` / `mixtgames.com` | social feed, video site, and a games arcade that can launch 2048 from the desktop |
+| `mixtcart.com` | shop with products, a cart, and checkout that writes a receipt into `~/Documents` |
+| `mixtmail.com` | webmail that composes real messages |
+| `mixtmaps.com` | a canvas-drawn map with places and directions |
+| `mixtos.com`, `mixtdev.io`, `mixt.dev` | documentation sites, including this project's own |
+| `mixtnet://search?q=…` | **Mixtsfox Search** — the built-in search engine (also reachable from the terminal with `curl`) |
+| `pastemixt.com` | a pastebin that lives entirely in one server file — create pastes, and `curl https://pastemixt.com/raw/hello1` |
 
 ## The Internet directory and its DNS
 
-MintNet is not a hard-coded list of sites: it is a folder of machines plus a
+MixtNet is not a hard-coded list of sites: it is a folder of machines plus a
 resolver.
 
 ```
@@ -102,17 +102,17 @@ Each `*.server.tsx` file default-exports a machine — hostnames, aliases,
 wildcards, open ports, DNS records, operator flavour, and the `SiteDef`s it
 serves. `import.meta.glob` picks the files up automatically, so **adding a site
 means adding a file**, and nothing else: `src/net/internet/README.md` documents
-the format, and `servers/pastemint.server.tsx` is a complete worked example (a
+the format, and `servers/pastemixt.server.tsx` is a complete worked example (a
 working pastebin in a single file).
 
-Every machine gets a stable fake address in the MintNet block (`10.64.0.0/10`),
+Every machine gets a stable fake address in the MixtNet block (`10.64.0.0/10`),
 a PTR record back to its name, `www.` CNAMEs for its sites, and — where declared
 — MX/TXT/NS records and a port list. The address bar shows what the resolver
 said (`10.83.17.204 · 6 ms`), and:
 
 * `dig`, `host`, `nslookup`, `getent`, `nmap`, `ping` all query the real
   resolver, including `NXDOMAIN` and reverse lookups (`dig -x <ip>`)
-* **`about:dns`** is the MintNet Registry — every machine, the whole zone file,
+* **`about:dns`** is the MixtNet Registry — every machine, the whole zone file,
   and your `/etc/hosts`, live
 * unknown names get a proper **"Server not found"** page that prints the DNS
   answer and offers the closest match
@@ -121,8 +121,8 @@ said (`10.83.17.204 · 6 ms`), and:
 * navigating by address works too: `https://10.83.17.204/` reverse-resolves and
   loads the right site
 
-Cross-app plumbing is done with `window` events (`webmpl:launch`, `webmpl:cart`,
-`webmpl:file`, `webmpl:notify`, `webmpl:session`) and the small helper API in `src/os/bus.ts`,
+Cross-app plumbing is done with `window` events (`mixt:launch`, `mixt:cart`,
+`mixt:file`, `mixt:notify`, `mixt:session`) and the small helper API in `src/os/bus.ts`,
 so a web page can open the drawing program, add to a shop cart, or leave a file behind.
 
 ## The virtual computer
@@ -143,7 +143,7 @@ notifications and the session/lock state; `src/os/bootstrap.tsx` runs the boot s
 ```
 src/
   main.tsx            entry — mounts Desktop + boot
-  index.css           Mint-Y theme, window/panel/menu styling
+  index.css           Mixt-Y theme, window/panel/menu styling
   os/                 types, zustand store, vfs, theme, bus, boot bootstrap
   shell/              Desktop, Panel, MainMenu, WindowFrame, AppIcon, ContextMenu, Notifications
   apps/               registry.tsx + one module per application (19)
@@ -158,7 +158,7 @@ public/               logo + wallpapers
 ## Honest limitations
 
 * The **real** internet is not reachable from the sandbox: domains that are not part of
-  MintNet fall back to an explanatory page. The browser is fully functional; the network
+  MixtNet fall back to an explanatory page. The browser is fully functional; the network
   it browses is the one built into the app.
 * Screen capture uses `getDisplayMedia` when the host allows it and otherwise composes a
   wallpaper shot — the preview iframe blocks the former.

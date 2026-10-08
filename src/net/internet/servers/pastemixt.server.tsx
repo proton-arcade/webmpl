@@ -2,10 +2,10 @@
  *
  * Everything about it lives in this one file: the machine's DNS records, its
  * open ports, and the website it serves. Drop a copy of this file in, change
- * the hostnames and the content, reload, and you have a new site on MintNet.
+ * the hostnames and the content, reload, and you have a new site on MixtNet.
  *
  * The site is a working pastebin: create a paste, it is stored locally, and
- * every paste is reachable at https://pastemint.com/p/<id> — including from
+ * every paste is reachable at https://pastemixt.com/p/<id> — including from
  * the terminal, where `curl` gets the raw text back.
  */
 import React from 'react'
@@ -22,7 +22,7 @@ interface Paste {
   views: number
 }
 
-const KEY = 'webmpl.pastemint.pastes'
+const KEY = 'mixt.pastemixt.pastes'
 const ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'
 
 function load(): Paste[] {
@@ -61,8 +61,8 @@ function ago(time: number) {
 const SEED: Paste[] = [
   {
     id: 'hello1',
-    title: 'welcome to pastemint',
-    body: 'Paste anything here — code, notes, a whole website.\n\nThis service runs on a single machine in the MintNet registry.\nTry: curl https://pastemint.com/raw/hello1',
+    title: 'welcome to pastemixt',
+    body: 'Paste anything here — code, notes, a whole website.\n\nThis service runs on a single machine in the MixtNet registry.\nTry: curl https://pastemixt.com/raw/hello1',
     language: 'text',
     created: Date.now() - 1000 * 60 * 42,
     views: 12,
@@ -89,10 +89,10 @@ function all(): Paste[] {
 function Nav({ ctx }: { ctx: PageCtx }) {
   return (
     <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 18, fontSize: 13.5 }}>
-      <a onClick={() => ctx.navigate('https://pastemint.com/')}>recent</a>
-      <a onClick={() => ctx.navigate('https://pastemint.com/new')}>new paste</a>
-      <a onClick={() => ctx.navigate('https://pastemint.com/api')}>api</a>
-      <a onClick={() => ctx.navigate('https://mintnet.com/')}>mintnet.com</a>
+      <a onClick={() => ctx.navigate('https://pastemixt.com/')}>recent</a>
+      <a onClick={() => ctx.navigate('https://pastemixt.com/new')}>new paste</a>
+      <a onClick={() => ctx.navigate('https://pastemixt.com/api')}>api</a>
+      <a onClick={() => ctx.navigate('https://mixtnet.com/')}>mixtnet.com</a>
     </div>
   )
 }
@@ -100,7 +100,7 @@ function Nav({ ctx }: { ctx: PageCtx }) {
 function Home({ ctx }: { ctx: PageCtx }) {
   const pastes = all()
   return (
-    <SiteShell site={PASTEMINT} ctx={ctx} maxWidth={780}>
+    <SiteShell site={PASTEMIXT} ctx={ctx} maxWidth={780}>
       <Nav ctx={ctx} />
       <H>Recent pastes</H>
       <p style={{ color: '#5c665f', marginTop: -4 }}>
@@ -109,7 +109,7 @@ function Home({ ctx }: { ctx: PageCtx }) {
       {pastes.map((paste) => (
         <div
           key={paste.id}
-          onClick={() => ctx.navigate(`https://pastemint.com/p/${paste.id}`)}
+          onClick={() => ctx.navigate(`https://pastemixt.com/p/${paste.id}`)}
           style={{
             border: '1px solid #e0e4dd',
             borderLeft: '3px solid #7fbf3f',
@@ -132,7 +132,7 @@ function Home({ ctx }: { ctx: PageCtx }) {
           </div>
         </div>
       ))}
-      <Btn onClick={() => ctx.navigate('https://pastemint.com/new')} style={{ marginTop: 10 }}>
+      <Btn onClick={() => ctx.navigate('https://pastemixt.com/new')} style={{ marginTop: 10 }}>
         Create a paste
       </Btn>
     </SiteShell>
@@ -144,7 +144,7 @@ function NewPaste({ ctx }: { ctx: PageCtx }) {
   const [language, setLanguage] = React.useState('text')
   const [body, setBody] = React.useState('')
   return (
-    <SiteShell site={PASTEMINT} ctx={ctx} maxWidth={780}>
+    <SiteShell site={PASTEMIXT} ctx={ctx} maxWidth={780}>
       <Nav ctx={ctx} />
       <H>New paste</H>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
@@ -192,7 +192,7 @@ function NewPaste({ ctx }: { ctx: PageCtx }) {
               views: 0,
             }
             save([paste, ...all()])
-            ctx.navigate(`https://pastemint.com/p/${paste.id}`)
+            ctx.navigate(`https://pastemixt.com/p/${paste.id}`)
           }}
         >
           Paste it
@@ -208,20 +208,20 @@ function ViewPaste({ ctx, id }: { ctx: PageCtx; id: string }) {
   const paste = pastes.find((p) => p.id === id)
   if (!paste) {
     return (
-      <SiteShell site={PASTEMINT} ctx={ctx} maxWidth={780}>
+      <SiteShell site={PASTEMIXT} ctx={ctx} maxWidth={780}>
         <Nav ctx={ctx} />
         <H>404 — no such paste</H>
         <p>
           There is nothing at <code>/p/{id}</code>. It may have expired, or the link may be wrong.
         </p>
-        <Btn tone="grey" onClick={() => ctx.navigate('https://pastemint.com/')}>
+        <Btn tone="grey" onClick={() => ctx.navigate('https://pastemixt.com/')}>
           Back to recent pastes
         </Btn>
       </SiteShell>
     )
   }
   return (
-    <SiteShell site={PASTEMINT} ctx={ctx} maxWidth={780}>
+    <SiteShell site={PASTEMIXT} ctx={ctx} maxWidth={780}>
       <Nav ctx={ctx} />
       <H>{paste.title}</H>
       <Meta>
@@ -243,14 +243,14 @@ function ViewPaste({ ctx, id }: { ctx: PageCtx; id: string }) {
         {paste.body || '(empty paste)'}
       </pre>
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <Btn tone="grey" onClick={() => ctx.openTab(`https://pastemint.com/raw/${paste.id}`)}>
+        <Btn tone="grey" onClick={() => ctx.openTab(`https://pastemixt.com/raw/${paste.id}`)}>
           Open raw
         </Btn>
         <Btn
           tone="outline"
           onClick={() => {
             save(all().filter((p) => p.id !== paste.id))
-            ctx.navigate('https://pastemint.com/')
+            ctx.navigate('https://pastemixt.com/')
           }}
         >
           Delete
@@ -263,7 +263,7 @@ function ViewPaste({ ctx, id }: { ctx: PageCtx; id: string }) {
 function RawPaste({ ctx, id }: { ctx: PageCtx; id: string }) {
   const paste = all().find((p) => p.id === id)
   return (
-    <SiteShell site={PASTEMINT} ctx={ctx} plain maxWidth={780}>
+    <SiteShell site={PASTEMIXT} ctx={ctx} plain maxWidth={780}>
       <pre style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, whiteSpace: 'pre-wrap' }}>
         {paste ? paste.body : `404: no paste ${id}`}
       </pre>
@@ -273,9 +273,9 @@ function RawPaste({ ctx, id }: { ctx: PageCtx; id: string }) {
 
 function ApiPage({ ctx }: { ctx: PageCtx }) {
   return (
-    <SiteShell site={PASTEMINT} ctx={ctx} maxWidth={780}>
+    <SiteShell site={PASTEMIXT} ctx={ctx} maxWidth={780}>
       <Nav ctx={ctx} />
-      <H>The pastemint API</H>
+      <H>The pastemixt API</H>
       <p>
         Three endpoints, no keys, no rate limits, no servers outside your browser.
       </p>
@@ -287,13 +287,13 @@ GET  /new           the create form`}
       </pre>
       <H level={2}>From the terminal</H>
       <pre style={{ background: '#20262b', color: '#e6efe0', padding: 12, borderRadius: 8, fontSize: 12.5 }}>
-        {`mint@mint-web:~$ curl https://pastemint.com/raw/hello1
-mint@mint-web:~$ dig pastemint.com
-mint@mint-web:~$ nmap pastemint.com`}
+        {`mixt@mixt-web:~$ curl https://pastemixt.com/raw/hello1
+mixt@mixt-web:~$ dig pastemixt.com
+mixt@mixt-web:~$ nmap pastemixt.com`}
       </pre>
       <p style={{ color: '#5c665f' }}>
         This machine is registered in the Internet directory at{' '}
-        <code>src/net/internet/servers/pastemint.server.tsx</code>.
+        <code>src/net/internet/servers/pastemixt.server.tsx</code>.
       </p>
     </SiteShell>
   )
@@ -301,9 +301,9 @@ mint@mint-web:~$ nmap pastemint.com`}
 
 /* --------------------------------- site ----------------------------------- */
 
-export const PASTEMINT: SiteDef = {
-  domain: 'pastemint.com',
-  title: 'pastemint',
+export const PASTEMIXT: SiteDef = {
+  domain: 'pastemixt.com',
+  title: 'pastemixt',
   glyph: 'Clipboard',
   color: '#6f7d86',
   color2: '#46525a',
@@ -311,23 +311,23 @@ export const PASTEMINT: SiteDef = {
   tags: ['pastebin', 'code', 'text', 'share'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'pastemint — recent pastes', keywords: ['paste', 'pastebin'], render: (ctx) => <Home ctx={ctx} /> },
-    { path: '/new', title: 'New paste — pastemint', render: (ctx) => <NewPaste ctx={ctx} /> },
-    { path: '/p/:id', title: 'Paste — pastemint', render: (ctx) => <ViewPaste ctx={ctx} id={ctx.path.split('/')[2] ?? ''} /> },
-    { path: '/raw/:id', title: 'Raw paste — pastemint', render: (ctx) => <RawPaste ctx={ctx} id={ctx.path.split('/')[2] ?? ''} /> },
-    { path: '/api', title: 'API — pastemint', keywords: ['api', 'curl'], render: (ctx) => <ApiPage ctx={ctx} /> },
+    { path: '/', title: 'pastemixt — recent pastes', keywords: ['paste', 'pastebin'], render: (ctx) => <Home ctx={ctx} /> },
+    { path: '/new', title: 'New paste — pastemixt', render: (ctx) => <NewPaste ctx={ctx} /> },
+    { path: '/p/:id', title: 'Paste — pastemixt', render: (ctx) => <ViewPaste ctx={ctx} id={ctx.path.split('/')[2] ?? ''} /> },
+    { path: '/raw/:id', title: 'Raw paste — pastemixt', render: (ctx) => <RawPaste ctx={ctx} id={ctx.path.split('/')[2] ?? ''} /> },
+    { path: '/api', title: 'API — pastemixt', keywords: ['api', 'curl'], render: (ctx) => <ApiPage ctx={ctx} /> },
   ],
   text: (path) => {
     const seg = path.split('/').filter(Boolean)
     const pastes = all()
     if (seg[0] === 'raw' || seg[0] === 'p') {
       const paste = pastes.find((p) => p.id === seg[1])
-      if (!paste) return `404: no paste "${seg[1]}" on pastemint.com`
+      if (!paste) return `404: no paste "${seg[1]}" on pastemixt.com`
       return seg[0] === 'raw' ? paste.body : `# ${paste.title}\n${paste.body}`
     }
     if (seg[0] === 'api') {
       return [
-        'pastemint API',
+        'pastemixt API',
         '=============',
         'GET /            recent pastes',
         'GET /p/<id>      rendered paste',
@@ -336,11 +336,11 @@ export const PASTEMINT: SiteDef = {
       ].join('\n')
     }
     return [
-      'pastemint — recent pastes',
+      'pastemixt — recent pastes',
       '=========================',
       ...pastes.map((p) => `${p.id}  ${p.title}  (${p.body.length} bytes, ${ago(p.created)})`),
       '',
-      'Try: curl https://pastemint.com/raw/hello1',
+      'Try: curl https://pastemixt.com/raw/hello1',
     ].join('\n')
   },
 }
@@ -348,20 +348,20 @@ export const PASTEMINT: SiteDef = {
 /** The machine itself — DNS records, ports, operator, everything. */
 export default defineServer({
   id: 'paste-01',
-  hosts: ['pastemint.com'],
-  aliases: ['raw.pastemint.com'],
+  hosts: ['pastemixt.com'],
+  aliases: ['raw.pastemixt.com'],
   operator: 'a drop-in server (see README.md in this folder)',
   location: 'your browser',
   since: 'just now',
-  os: 'MintNetOS 4.2 LTS',
-  software: 'pastemintd 1.0',
-  banner: 'pastemintd/1.0 — 60 pastes max, no database',
+  os: 'MixtNetOS 4.2 LTS',
+  software: 'pastemixtd 1.0',
+  banner: 'pastemixtd/1.0 — 60 pastes max, no database',
   ports: [
     { port: 80, service: 'http' },
     { port: 443, service: 'https' },
     { port: 22, service: 'ssh' },
   ],
   records: { TXT: ['"v=spf1 -all"', '"drop a file in servers/ and you get one of these"'] },
-  sites: [PASTEMINT],
+  sites: [PASTEMIXT],
   notes: 'Self-contained example: delete this file and the domain stops resolving.',
 })

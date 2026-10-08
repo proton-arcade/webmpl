@@ -19,18 +19,18 @@ interface Message {
   labels: string[]
 }
 
-const STORE = '/home/mint/.config/mintmail/messages.json'
+const STORE = '/home/mixt/.config/mixtmail/messages.json'
 
 const SEED: Message[] = [
   {
     id: 'm1',
-    from: 'updates@mintnet.com',
-    fromName: 'Mint Update Manager',
-    to: 'you@mintmail.com',
+    from: 'updates@mixtnet.com',
+    fromName: 'Mixt Update Manager',
+    to: 'you@mixtmail.com',
     subject: '3 optional applications are available',
     date: Date.now() - 3 * 3600_000,
     body:
-      'Hello Mint User,\n\nThree applications can be installed from the Software Manager: Drawing, Mail and News Reader.\n\nThey are small, they are green-adjacent, and they will not break anything. Open the Software Manager and look at the Updates tab.\n\nKind regards,\nThe Update Manager',
+      'Hello Mixt User,\n\nThree applications can be installed from the Software Manager: Drawing, Mail and News Reader.\n\nThey are small, they are green-adjacent, and they will not break anything. Open the Software Manager and look at the Updates tab.\n\nKind regards,\nThe Update Manager',
     folder: 'Inbox',
     read: false,
     starred: true,
@@ -40,7 +40,7 @@ const SEED: Message[] = [
     id: 'm2',
     from: 'hello@cinnamon.dev',
     fromName: 'Cinnamon Team',
-    to: 'you@mintmail.com',
+    to: 'you@mixtmail.com',
     subject: 'Your window snapped correctly',
     date: Date.now() - 26 * 3600_000,
     body:
@@ -52,13 +52,13 @@ const SEED: Message[] = [
   },
   {
     id: 'm3',
-    from: 'orders@mintcart.com',
-    fromName: 'MintCart',
-    to: 'you@mintmail.com',
+    from: 'orders@mixtcart.com',
+    fromName: 'MixtCart',
+    to: 'you@mixtmail.com',
     subject: 'Your digital downloads are ready',
     date: Date.now() - 2 * 86400_000,
     body:
-      'Thanks for your order!\n\nYour wallpapers can be downloaded directly from the product pages. They will be saved to ~/Downloads, where they will sit quietly until you open the Files application.\n\nMintCart',
+      'Thanks for your order!\n\nYour wallpapers can be downloaded directly from the product pages. They will be saved to ~/Downloads, where they will sit quietly until you open the Files application.\n\nMixtCart',
     folder: 'Inbox',
     read: true,
     starred: false,
@@ -66,13 +66,13 @@ const SEED: Message[] = [
   },
   {
     id: 'm4',
-    from: 'petra@mintnews.com',
+    from: 'petra@mixtnews.com',
     fromName: 'Petra Lindgren',
-    to: 'you@mintmail.com',
+    to: 'you@mixtmail.com',
     subject: 'Re: desktop feature ideas',
     date: Date.now() - 4 * 86400_000,
     body:
-      'Hi!\n\nLove the four workspaces. One request: can the panel clock show seconds? I time my tea with it.\n\n— Petra\nMintNews, Desktop desk',
+      'Hi!\n\nLove the four workspaces. One request: can the panel clock show seconds? I time my tea with it.\n\n— Petra\nMixtNews, Desktop desk',
     folder: 'Inbox',
     read: false,
     starred: false,
@@ -80,10 +80,10 @@ const SEED: Message[] = [
   },
   {
     id: 'm5',
-    from: 'dev@webmpl.dev',
-    fromName: 'webmpl.dev',
-    to: 'you@mintmail.com',
-    subject: 'Welcome to Mint Web OS',
+    from: 'dev@mixt.dev',
+    fromName: 'mixt.dev',
+    to: 'you@mixtmail.com',
+    subject: 'Welcome to Mixt Web OS',
     date: Date.now() - 6 * 86400_000,
     body:
       'You are reading mail inside an operating system inside a browser tab.\n\nSome suggestions:\n\n  1. Open the terminal and run neofetch\n  2. Install Drawing from the Software Manager\n  3. Write a website inside the browser and visit it\n\nRegards,\nThe project',
@@ -94,9 +94,9 @@ const SEED: Message[] = [
   },
   {
     id: 'm6',
-    from: 'editor@mintnews.com',
-    fromName: 'MintNews Editor',
-    to: 'you@mintmail.com',
+    from: 'editor@mixtnews.com',
+    fromName: 'MixtNews Editor',
+    to: 'you@mixtmail.com',
     subject: 'Pitch accepted: “Why the browser is the new OS”',
     date: Date.now() - 8 * 86400_000,
     body: 'We loved the piece. It runs on the opinion page this week.\n\nPlease do not write another one about localStorage. One was enough.',
@@ -107,12 +107,12 @@ const SEED: Message[] = [
   },
   {
     id: 'm7',
-    from: 'you@mintmail.com',
+    from: 'you@mixtmail.com',
     fromName: 'You',
-    to: 'petra@mintnews.com',
+    to: 'petra@mixtnews.com',
     subject: 'Re: desktop feature ideas',
     date: Date.now() - 4 * 86400_000,
-    body: 'Petra,\n\nRight-click the clock, choose preferences, tick “Show seconds”. Enjoy the tea.\n\n— Mint',
+    body: 'Petra,\n\nRight-click the clock, choose preferences, tick “Show seconds”. Enjoy the tea.\n\n— Mixt',
     folder: 'Sent',
     read: true,
     starred: false,
@@ -133,7 +133,7 @@ function load(): Message[] {
 }
 
 function persist(messages: Message[]) {
-  vfs.mkdirp('/home/mint/.config/mintmail')
+  vfs.mkdirp('/home/mixt/.config/mixtmail')
   vfs.write(STORE, JSON.stringify(messages, null, 2), 'application/json')
 }
 
@@ -181,7 +181,7 @@ export default function MailApp({ api }: AppProps) {
     if (!composing || !composing.to.trim()) return
     const msg: Message = {
       id: `m${Date.now()}`,
-      from: 'you@mintmail.com',
+      from: 'you@mixtmail.com',
       fromName: 'You',
       to: composing.to,
       subject: composing.subject || '(no subject)',
@@ -201,7 +201,7 @@ export default function MailApp({ api }: AppProps) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--wm-window-bg)' }}>
-      <div className="mint-toolbar">
+      <div className="mixt-toolbar">
         <button className="btn-ghost" onClick={() => setComposing({ to: '', subject: '', body: `\n\n--\n${settings.fullName}\n${settings.username}@${settings.hostname}` })}>
           <Glyph name="Plus" size={15} /> Compose
         </button>
@@ -239,7 +239,7 @@ export default function MailApp({ api }: AppProps) {
             <AppIcon glyph="Mail" color="#4a6fe0" color2="#26409c" size={28} />
             <div>
               <div style={{ fontWeight: 600 }}>Mail</div>
-              <div style={{ fontSize: 11, opacity: 0.7 }}>you@mintmail.com</div>
+              <div style={{ fontSize: 11, opacity: 0.7 }}>you@mixtmail.com</div>
             </div>
           </div>
           {(['Inbox', 'Sent', 'Drafts', 'Junk', 'Trash'] as const).map((f) => (
@@ -261,14 +261,14 @@ export default function MailApp({ api }: AppProps) {
             </div>
           ))}
           <div className="menu-sep" />
-          <div className="menu-item" onClick={() => openUrl('https://mintmail.com/')}>
-            <Glyph name="Globe" size={14} /> Open webmail on the MintNet
+          <div className="menu-item" onClick={() => openUrl('https://mixtmail.com/')}>
+            <Glyph name="Globe" size={14} /> Open webmail on the MixtNet
           </div>
-          <div className="menu-item" onClick={() => useOS.getState().notify({ title: 'Mail', body: 'No new mail. The MintNet is quiet today.' })}>
+          <div className="menu-item" onClick={() => useOS.getState().notify({ title: 'Mail', body: 'No new mail. The MixtNet is quiet today.' })}>
             <Glyph name="RefreshCw" size={14} /> Check for new mail
           </div>
           <div style={{ padding: '10px 8px 0', fontSize: 11.5, opacity: 0.65, lineHeight: 1.5 }}>
-            Your mailbox is stored in ~/.config/mintmail and survives reloads.
+            Your mailbox is stored in ~/.config/mixtmail and survives reloads.
           </div>
         </div>
 
@@ -317,10 +317,10 @@ export default function MailApp({ api }: AppProps) {
               <input className="entry" placeholder="Subject" value={composing.subject} onChange={(e) => setComposing({ ...composing, subject: e.target.value })} style={{ width: '100%', marginBottom: 8 }} />
               <textarea className="entry" value={composing.body} onChange={(e) => setComposing({ ...composing, body: e.target.value })} style={{ width: '100%', height: 260 }} />
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button className="btn-mint" onClick={send}>
+                <button className="btn-mixt" onClick={send}>
                   <Glyph name="Upload" size={14} /> Send
                 </button>
-                <button className="btn-ghost" onClick={() => { setMessages((all) => [...all, { ...composing, id: `m${Date.now()}`, from: 'you@mintmail.com', fromName: 'You', date: Date.now(), folder: 'Drafts', read: true, starred: false, labels: [] } as Message]); setComposing(null); setFolder('Drafts') }}>
+                <button className="btn-ghost" onClick={() => { setMessages((all) => [...all, { ...composing, id: `m${Date.now()}`, from: 'you@mixtmail.com', fromName: 'You', date: Date.now(), folder: 'Drafts', read: true, starred: false, labels: [] } as Message]); setComposing(null); setFolder('Drafts') }}>
                   Save to Drafts
                 </button>
                 <button className="btn-ghost" onClick={() => setComposing(null)}>

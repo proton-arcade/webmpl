@@ -241,7 +241,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
 
             {/* bottom bar */}
             <div style={{ display: 'flex', gap: 4, padding: 8, borderTop: '1px solid rgba(0,0,0,0.14)', background: 'color-mix(in srgb, var(--wm-menu-bg) 92%, #808890)' }}>
-              <button className="btn-ghost" onClick={() => { launch('mintinstall', {}); onClose() }}>
+              <button className="btn-ghost" onClick={() => { launch('mixtinstall', {}); onClose() }}>
                 <Glyph name="ShoppingBag" size={15} /> Software Manager
               </button>
               <div style={{ flex: 1 }} />
@@ -253,7 +253,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
                 title="Log out"
                 onClick={() => {
                   onClose()
-                  window.dispatchEvent(new CustomEvent('webmpl:session', { detail: 'logout' }))
+                  window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'logout' }))
                 }}
               >
                 <Glyph name="LogOut" size={15} />
@@ -263,7 +263,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
                 title="Restart"
                 onClick={() => {
                   onClose()
-                  window.dispatchEvent(new CustomEvent('webmpl:session', { detail: 'reboot' }))
+                  window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'reboot' }))
                 }}
               >
                 <Glyph name="RefreshCw" size={15} />
@@ -273,7 +273,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
                 title="Shut down"
                 onClick={() => {
                   onClose()
-                  window.dispatchEvent(new CustomEvent('webmpl:session', { detail: 'shutdown' }))
+                  window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'shutdown' }))
                 }}
               >
                 <Glyph name="Power" size={15} />
@@ -321,7 +321,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
           <div
             className="menu-item"
             onClick={() => {
-              launch('mintinstall', { focus: context.app.id })
+              launch('mixtinstall', { focus: context.app.id })
               onClose()
             }}
           >

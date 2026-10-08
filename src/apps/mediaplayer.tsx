@@ -221,7 +221,7 @@ export default function MediaPlayerApp({ win, api }: AppProps) {
       const H = (canvas.height = canvas.clientHeight)
       ctx.fillStyle = '#0d1013'
       ctx.fillRect(0, 0, W, H)
-      // mint leaf animation
+      // mixt leaf animation
       const cx = W / 2 + Math.sin(t * 0.7) * W * 0.16
       const cy = H / 2 + Math.cos(t * 0.5) * H * 0.1
       ctx.save()
@@ -282,7 +282,7 @@ export default function MediaPlayerApp({ win, api }: AppProps) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--wm-window-bg)' }}>
-      <div className="mint-toolbar">
+      <div className="mixt-toolbar">
         <button className="btn-ghost" data-active={tab === 'music'} onClick={() => setTab('music')}>
           <Glyph name="Music" size={15} /> Music
         </button>
@@ -351,7 +351,7 @@ export default function MediaPlayerApp({ win, api }: AppProps) {
                   <Glyph name="SkipBack" size={16} />
                 </button>
                 <button
-                  className="btn-mint"
+                  className="btn-mixt"
                   onClick={() => {
                     ensureAudio()
                     setPlaying((p) => !p)
@@ -387,7 +387,7 @@ export default function MediaPlayerApp({ win, api }: AppProps) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <canvas ref={canvasRef} style={{ flex: 1, minHeight: 200, width: '100%' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12 }}>
-            <button className="btn-mint" onClick={() => setVideoPlaying((p) => !p)}>
+            <button className="btn-mixt" onClick={() => setVideoPlaying((p) => !p)}>
               <Glyph name={videoPlaying ? 'Pause' : 'Play'} size={16} /> {videoPlaying ? 'Pause' : 'Play'}
             </button>
             <button className="btn-ghost" onClick={() => { setVideoTime(0) }}>

@@ -5,7 +5,7 @@ import { notify } from '../os/bus'
 import type { AppProps } from '../os/types'
 
 const CITIES: { name: string; country: string; lat: number; lon: number; offset: number }[] = [
-  { name: 'Mintville', country: 'MintNet', lat: 51.5, lon: -0.1, offset: 0 },
+  { name: 'Mixtville', country: 'MixtNet', lat: 51.5, lon: -0.1, offset: 0 },
   { name: 'London', country: 'United Kingdom', lat: 51.5, lon: -0.12, offset: 0 },
   { name: 'Berlin', country: 'Germany', lat: 52.52, lon: 13.4, offset: 1 },
   { name: 'New York', country: 'United States', lat: 40.71, lon: -74.0, offset: -5 },
@@ -194,7 +194,7 @@ export default function WeatherApp({ win, api }: AppProps) {
           <button
             className="btn-ghost"
             onClick={() =>
-              notify('Weather', `${city.name}: ${data.now.condition.label}, ${conv(data.now.high)}.\nForecast delivered by the MintNet weather service.`)
+              notify('Weather', `${city.name}: ${data.now.condition.label}, ${conv(data.now.high)}.\nForecast delivered by the MixtNet weather service.`)
             }
           >
             <Glyph name="Bell" size={14} /> Send to notification
@@ -205,7 +205,7 @@ export default function WeatherApp({ win, api }: AppProps) {
         </div>
         <div style={{ marginTop: 12, opacity: 0.6, fontSize: 11.5 }}>
           Data is generated deterministically from the city name and the date, so the forecast is stable, plausible and
-          entirely fictional. The MintNet has no satellites.
+          entirely fictional. The MixtNet has no satellites.
         </div>
       </div>
     </div>

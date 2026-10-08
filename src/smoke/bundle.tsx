@@ -1,6 +1,6 @@
 /* Smoke test bundle — built with `vite build --ssr` and executed inside jsdom
    by scripts/smoke.mjs. It mounts the real desktop and renders every
-   application and every MintNet page, so a broken import or a bad hook shows
+   application and every MixtNet page, so a broken import or a bad hook shows
    up as a test failure instead of a blank screen. */
 import React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -18,7 +18,7 @@ import {
   renderDig,
   renderHost,
   renderNslookup,
-  searchMintNet,
+  searchMixtNet,
   fetchAsText,
   buildIndex,
   readHosts,
@@ -30,6 +30,7 @@ import {
 } from '../net'
 import { useOS } from '../os/store'
 import { vfs, useVFS } from '../os/vfs'
+import { migrateBranding } from '../os/migrate'
 import type { PageCtx } from '../net/types'
 import type { WinState } from '../os/types'
 
@@ -58,7 +59,7 @@ function assert(cond: any, message: string) {
 const ctx: PageCtx = {
   path: '/',
   query: '',
-  url: 'https://example.mintnet/',
+  url: 'https://example.mixtnet/',
   tabId: 'smoke',
   navigate: () => {},
   openTab: () => {},
@@ -126,7 +127,7 @@ export async function runSmoke() {
 
   await check('panel and desktop render', () => {
     assert(document.querySelector('.panel'), 'no .panel element found')
-    assert(document.body.textContent?.includes('Mint Web OS') || document.body.textContent?.length > 50, 'desktop looks empty')
+    assert(document.body.textContent?.includes('Mixt Web OS') || document.body.textContent?.length > 50, 'desktop looks empty')
   })
 
   await check('main menu opens', () => {
@@ -137,26 +138,74 @@ export async function runSmoke() {
   await new Promise((r) => setTimeout(r, 120))
   await check('menu lists applications', () => {
     const text = document.body.textContent ?? ''
-    for (const name of ['Files', 'Terminal', 'Web Browser', 'Software Manager', 'Help']) {
+    for (const name of ['Files', 'Terminal', 'Mixtsfox', 'Software Manager', 'Help']) {
       assert(text.includes(name), `menu is missing ${name}`)
     }
   })
 
+  await check('no previous branding survives anywhere', () => {
+    const haystack = [
+      document.body.textContent ?? '',
+      APPS.map((a) => `${a.name} ${a.generic} ${a.comment} ${(a.keywords ?? []).join(' ')}`).join(' '),
+      SITES.map((s) => `${s.title} ${s.domain} ${(s.aliases ?? []).join(' ')} ${s.description}`).join(' '),
+      SERVERS.map((s) => `${s.id} ${s.hosts.join(' ')} ${s.os ?? ''} ${s.software ?? ''}`).join(' '),
+      vfs.read('/etc/os-release') ?? '',
+      vfs.read('/etc/hosts') ?? '',
+      vfs.read('/etc/resolv.conf') ?? '',
+      ...SITES.map((site) => (site.text ? site.text(site.defaultPath, '') : '')),
+    ].join('\n')
+    const found = haystack.match(/mint|webmpl/i)
+    assert(!found, `old branding still rendered: "${found?.[0]}"`)
+    assert(haystack.includes('Mixt'), 'the new name is not rendered anywhere')
+  })
+
+  await check('old browser state is migrated to the new name', () => {
+    const vfsKey = 'mixt.vfs.v2'
+    const savedVfs = localStorage.getItem(vfsKey)
+    const savedSettings = localStorage.getItem('mixt.settings.v2')
+    try {
+      localStorage.removeItem('mixt.settings.v2')
+      localStorage.setItem('webmpl.settings.v2', JSON.stringify({ accent: '#61ad2b' }))
+      localStorage.setItem(
+        'webmpl.vfs.v2',
+        JSON.stringify({
+          type: 'dir',
+          name: '/',
+          children: { home: { type: 'dir', name: 'home', children: { mint: { type: 'dir', name: 'mint', children: {} } } } },
+        }),
+      )
+      migrateBranding()
+      assert(localStorage.getItem('mixt.settings.v2')?.includes('61ad2b'), 'settings were not migrated')
+      assert(localStorage.getItem('webmpl.settings.v2') === null, 'the old settings key was left behind')
+      const tree = localStorage.getItem(vfsKey) ?? ''
+      assert(tree.includes('"mixt"'), 'the home directory was not renamed')
+      assert(!tree.includes('"mint"'), 'the old home directory name is still in the tree')
+      assert(localStorage.getItem('webmpl.vfs.v2') === null, 'the old filesystem key was left behind')
+    } finally {
+      localStorage.removeItem('webmpl.settings.v2')
+      localStorage.removeItem('webmpl.vfs.v2')
+      if (savedSettings === null) localStorage.removeItem('mixt.settings.v2')
+      else localStorage.setItem('mixt.settings.v2', savedSettings)
+      if (savedVfs === null) localStorage.removeItem(vfsKey)
+      else localStorage.setItem(vfsKey, savedVfs)
+    }
+  })
+
   await check('filesystem seeds and reads/writes', () => {
-    assert(vfs.exists('/home/mint/Documents/welcome.md'), 'welcome.md missing')
-    vfs.write('/home/mint/Documents/smoke.txt', 'hello from the smoke test')
-    assert(vfs.read('/home/mint/Documents/smoke.txt') === 'hello from the smoke test', 'write/read mismatch')
-    assert(Array.isArray(vfs.list('/home/mint')), 'listing home failed')
-    vfs.mkdir('/home/mint/smoke-dir')
-    assert(vfs.node('/home/mint/smoke-dir')?.type === 'dir', 'mkdir failed')
-    vfs.trash('/home/mint/Documents/smoke.txt')
-    assert(!vfs.exists('/home/mint/Documents/smoke.txt'), 'trash did not remove the file')
-    vfs.rm('/home/mint/smoke-dir')
+    assert(vfs.exists('/home/mixt/Documents/welcome.md'), 'welcome.md missing')
+    vfs.write('/home/mixt/Documents/smoke.txt', 'hello from the smoke test')
+    assert(vfs.read('/home/mixt/Documents/smoke.txt') === 'hello from the smoke test', 'write/read mismatch')
+    assert(Array.isArray(vfs.list('/home/mixt')), 'listing home failed')
+    vfs.mkdir('/home/mixt/smoke-dir')
+    assert(vfs.node('/home/mixt/smoke-dir')?.type === 'dir', 'mkdir failed')
+    vfs.trash('/home/mixt/Documents/smoke.txt')
+    assert(!vfs.exists('/home/mixt/Documents/smoke.txt'), 'trash did not remove the file')
+    vfs.rm('/home/mixt/smoke-dir')
   })
 
   await check('url resolution', () => {
-    assert(resolveUrl('mintnews.com').kind === 'site', 'mintnews.com should resolve to a site')
-    assert(resolveUrl('https://mintpedia.org/article/linux-mint').path === '/article/linux-mint', 'path parsing failed')
+    assert(resolveUrl('mixtnews.com').kind === 'site', 'mixtnews.com should resolve to a site')
+    assert(resolveUrl('https://mixtpedia.org/article/mixt-os').path === '/article/mixt-os', 'path parsing failed')
     assert(resolveUrl('how do browsers work').kind === 'search', 'plain words should search')
     assert(resolveUrl('about:blank').kind === 'about', 'about: pages should resolve')
     assert(resolveUrl('example.com').kind === 'real', 'a foreign domain should be treated as the real web')
@@ -171,8 +220,8 @@ export async function runSmoke() {
     assert(new Set(ids).size === ids.length, 'two machines share an id')
   })
 
-  await check('names resolve to addresses in the MintNet block', () => {
-    for (const name of ['mintnet.com', 'mintpedia.org', 'mintnews.com', 'mintmail.com', 'pastemint.com', 'example.mintnet']) {
+  await check('names resolve to addresses in the MixtNet block', () => {
+    for (const name of ['mixtnet.com', 'mixtpedia.org', 'mixtnews.com', 'mixtmail.com', 'pastemixt.com', 'example.mixtnet']) {
       const answer = resolveHost(name)
       assert(answer.status === 'NOERROR', `${name} did not resolve (${answer.status})`)
       const a = answer.answers.find((r) => r.type === 'A')
@@ -183,32 +232,32 @@ export async function runSmoke() {
   })
 
   await check('aliases and wildcards are CNAMEs', () => {
-    const www = resolveHost('www.mintpedia.org')
-    assert(www.status === 'NOERROR', 'www.mintpedia.org did not resolve')
-    assert(www.cname === 'mintpedia.org', `www CNAME points at ${www.cname}`)
-    const sub = resolveHost('en.mintpedia.org')
-    assert(sub.status === 'NOERROR', 'the wildcard zone did not answer for en.mintpedia.org')
+    const www = resolveHost('www.mixtpedia.org')
+    assert(www.status === 'NOERROR', 'www.mixtpedia.org did not resolve')
+    assert(www.cname === 'mixtpedia.org', `www CNAME points at ${www.cname}`)
+    const sub = resolveHost('en.mixtpedia.org')
+    assert(sub.status === 'NOERROR', 'the wildcard zone did not answer for en.mixtpedia.org')
     assert(sub.server?.id === 'pedia-web-02', 'wildcard resolved to the wrong machine')
-    const search = resolveHost('search.mintnet.com')
-    assert(search.site?.domain === 'mintnet.com', 'the search alias should land on the portal')
+    const search = resolveHost('search.mixtnet.com')
+    assert(search.site?.domain === 'mixtnet.com', 'the search alias should land on the portal')
   })
 
   await check('unknown names are NXDOMAIN, and the browser explains why', () => {
-    assert(resolveHost('nope.mintnet').status === 'NXDOMAIN', 'a fake name resolved')
-    assert(resolveHost('mintpedia.org.invalid-tld').status === 'NXDOMAIN', 'an absurd name resolved')
-    const resolved = resolveUrl('https://nope.mintnet/')
-    assert(resolved.kind === 'notfound', `nope.mintnet should be notfound, got ${resolved.kind}`)
+    assert(resolveHost('nope.mixtnet').status === 'NXDOMAIN', 'a fake name resolved')
+    assert(resolveHost('mixtpedia.org.invalid-tld').status === 'NXDOMAIN', 'an absurd name resolved')
+    const resolved = resolveUrl('https://nope.mixtnet/')
+    assert(resolved.kind === 'notfound', `nope.mixtnet should be notfound, got ${resolved.kind}`)
     assert(!!resolved.notFoundReason, 'no explanation attached to the failure')
     assert(resolveUrl('example.com').kind === 'real', 'real-world domains should still be honest')
   })
 
   await check('reverse lookup and by-address navigation', () => {
-    const ip = addressOf('mintnews.com')!
-    assert(reverseLookup(ip) === 'mintnews.com', `PTR for ${ip} said ${reverseLookup(ip)}`)
+    const ip = addressOf('mixtnews.com')!
+    assert(reverseLookup(ip) === 'mixtnews.com', `PTR for ${ip} said ${reverseLookup(ip)}`)
     const byIp = resolveHost(ip)
-    assert(byIp.status === 'NOERROR' && byIp.site?.domain === 'mintnews.com', 'navigating by address did not find the site')
+    assert(byIp.status === 'NOERROR' && byIp.site?.domain === 'mixtnews.com', 'navigating by address did not find the site')
     const resolved = resolveUrl(`https://${ip}/`)
-    assert(resolved.kind === 'site' && resolved.domain === 'mintnews.com', 'the browser cannot open addresses by IP')
+    assert(resolved.kind === 'site' && resolved.domain === 'mixtnews.com', 'the browser cannot open addresses by IP')
   })
 
   await check('/etc/hosts overrides the zone', () => {
@@ -225,21 +274,21 @@ export async function runSmoke() {
 
   await check('resolver configuration is real and complete', () => {
     const resolv = readResolvConf()
-    assert(resolv.nameservers.includes('10.0.0.53'), 'resolv.conf has no MintNet nameserver')
-    assert(resolv.search.includes('mintnet'), 'resolv.conf has no search domain')
+    assert(resolv.nameservers.includes('10.0.0.53'), 'resolv.conf has no MixtNet nameserver')
+    assert(resolv.search.includes('mixtnet'), 'resolv.conf has no search domain')
     assert(vfs.read('/etc/hosts')?.includes('localhost'), '/etc/hosts is missing')
     assert(zoneRecords().length > 20, `only ${zoneRecords().length} records in the zone`)
   })
 
   await check('dig/host/nslookup render like the real tools', () => {
-    const dig = renderDig(resolveHost('mintpedia.org'))
+    const dig = renderDig(resolveHost('mixtpedia.org'))
     assert(dig.includes('status: NOERROR'), 'dig did not report NOERROR')
     assert(/10\.\d+\.\d+\.\d+/.test(dig), 'dig printed no address')
-    assert(dig.includes('ns1.mintnet.com'), 'dig printed no authority')
-    const nx = renderDig(resolveHost('nope.mintnet'))
+    assert(dig.includes('ns1.mixtnet.com'), 'dig printed no authority')
+    const nx = renderDig(resolveHost('nope.mixtnet'))
     assert(nx.includes('status: NXDOMAIN'), 'dig did not report NXDOMAIN')
-    assert(renderHost(resolveHost('mintube.com')).includes('has address'), 'host printed nothing useful')
-    assert(renderNslookup(resolveHost('mintnet.com')).includes('Non-authoritative answer'), 'nslookup output is wrong')
+    assert(renderHost(resolveHost('mixtube.com')).includes('has address'), 'host printed nothing useful')
+    assert(renderNslookup(resolveHost('mixtnet.com')).includes('Non-authoritative answer'), 'nslookup output is wrong')
   })
 
   await check('server addresses are unique and stable', () => {
@@ -258,16 +307,16 @@ export async function runSmoke() {
   await check('search index finds articles', () => {
     const index = buildIndex()
     assert(index.length > 30, `index too small: ${index.length}`)
-    const hits = searchMintNet('cinnamon desktop')
+    const hits = searchMixtNet('cinnamon desktop')
     assert(hits.length > 0, 'no results for "cinnamon desktop"')
-    const linux = searchMintNet('linux mint')
-    assert(linux.some((h) => h.url.includes('linux-mint')), 'expected the Linux Mint article in the results')
+    const linux = searchMixtNet('mixt os')
+    assert(linux.some((h) => h.url.includes('mixt-os')), 'expected the Mixt OS article in the results')
   })
 
   await check('plain-text rendering works for the terminal', async () => {
-    const text = await fetchAsText('https://mintpedia.org/article/linux-mint')
-    assert(text.includes('Linux Mint'), 'curl text output looks wrong')
-    const news = await fetchAsText('https://mintnews.com/')
+    const text = await fetchAsText('https://mixtpedia.org/article/mixt-os')
+    assert(text.includes('Mixt OS'), 'curl text output looks wrong')
+    const news = await fetchAsText('https://mixtnews.com/')
     assert(news.length > 100, 'news text output too short')
   })
 
@@ -286,7 +335,7 @@ export async function runSmoke() {
         minimized: false,
         maximized: false,
         workspace: 0,
-        props: app.id === 'xed' ? { path: '/home/mint/Documents/welcome.md' } : {},
+        props: app.id === 'xed' ? { path: '/home/mixt/Documents/welcome.md' } : {},
         createdAt: Date.now(),
       }
       const api = {
@@ -301,7 +350,7 @@ export async function runSmoke() {
     })
   }
 
-  /* every MintNet page renders */
+  /* every MixtNet page renders */
   for (const site of SITES) {
     for (const page of site.pages) {
       await check(`site page renders: ${site.domain}${page.path}`, () => {
@@ -323,89 +372,89 @@ export async function runSmoke() {
     await runTerminal(term.host, 'echo hello-from-the-smoke-test')
     assert(term.text().includes('hello-from-the-smoke-test'), 'echo produced no output')
     await runTerminal(term.host, 'pwd')
-    assert(term.text().includes('/home/mint'), 'pwd output missing')
+    assert(term.text().includes('/home/mixt'), 'pwd output missing')
     await runTerminal(term.host, 'mkdir smoke-terminal-dir')
     await runTerminal(term.host, 'ls')
     assert(term.text().includes('smoke-terminal-dir'), 'ls did not show the new directory')
     await runTerminal(term.host, 'echo write-me > ~/Documents/terminal-write.txt && cat ~/Documents/terminal-write.txt')
     await new Promise((r) => setTimeout(r, 200))
-    assert(vfs.read('/home/mint/Documents/terminal-write.txt')?.includes('write-me'), 'redirection did not write the file')
+    assert(vfs.read('/home/mixt/Documents/terminal-write.txt')?.includes('write-me'), 'redirection did not write the file')
     await runTerminal(term.host, 'neofetch')
-    assert(term.text().includes('Mint Web OS'), 'neofetch output missing OS line')
+    assert(term.text().includes('Mixt Web OS'), 'neofetch output missing OS line')
     await runTerminal(term.host, 'apt search game')
     assert(term.text().includes('2048'), 'apt search did not find the game')
-    await runTerminal(term.host, 'curl https://mintpedia.org/article/linux-mint')
+    await runTerminal(term.host, 'curl https://mixtpedia.org/article/mixt-os')
     await new Promise((r) => setTimeout(r, 300))
-    assert(term.text().includes('Linux Mint'), 'curl did not render the MintNet page as text')
+    assert(term.text().includes('Mixt OS'), 'curl did not render the MixtNet page as text')
     await runTerminal(term.host, 'wallpaper 2')
-    assert(useOS.getState().settings.wallpaper.includes('mint-facets'), 'wallpaper command did not change the background')
+    assert(useOS.getState().settings.wallpaper.includes('mixt-facets'), 'wallpaper command did not change the background')
     await runTerminal(term.host, 'ls | wc -l')
-    await runTerminal(term.host, 'dig mintpedia.org')
+    await runTerminal(term.host, 'dig mixtpedia.org')
     const afterDig = term.text()
-    assert(afterDig.includes('status: NOERROR'), 'dig did not resolve mintpedia.org')
+    assert(afterDig.includes('status: NOERROR'), 'dig did not resolve mixtpedia.org')
     assert(/10\.\d+\.\d+\.\d+/.test(afterDig), 'dig printed no address')
-    await runTerminal(term.host, 'dig nope.mintnet')
+    await runTerminal(term.host, 'dig nope.mixtnet')
     assert(term.text().includes('NXDOMAIN'), 'dig did not report NXDOMAIN for an unknown name')
-    await runTerminal(term.host, 'nslookup mintnews.com')
+    await runTerminal(term.host, 'nslookup mixtnews.com')
     assert(term.text().includes('Non-authoritative answer'), 'nslookup printed nothing')
-    await runTerminal(term.host, 'host mintcart.com')
+    await runTerminal(term.host, 'host mixtcart.com')
     assert(term.text().includes('has address'), 'host printed nothing')
-    await runTerminal(term.host, 'getent hosts ns1.mintnet.com')
+    await runTerminal(term.host, 'getent hosts ns1.mixtnet.com')
     assert(term.text().includes('10.0.0.53'), 'getent did not read /etc/hosts')
-    await runTerminal(term.host, 'nmap mintcart.com')
+    await runTerminal(term.host, 'nmap mixtcart.com')
     const afterNmap = term.text()
     assert(afterNmap.includes('PORT'), 'nmap printed no port table')
     assert(afterNmap.includes('https'), 'nmap lost the https port')
-    await runTerminal(term.host, 'ping mintube.com')
+    await runTerminal(term.host, 'ping mixtube.com')
     assert(term.text().includes('0% packet loss'), 'ping failed on a resolvable name')
-    await runTerminal(term.host, 'ping nope.mintnet')
+    await runTerminal(term.host, 'ping nope.mixtnet')
     assert(term.text().includes('Name or service not known'), 'ping should fail on NXDOMAIN')
     await runTerminal(term.host, 'cat /etc/resolv.conf')
     assert(term.text().includes('10.0.0.53'), 'resolv.conf is not readable from the shell')
-    await runTerminal(term.host, 'curl https://pastemint.com/')
+    await runTerminal(term.host, 'curl https://pastemixt.com/')
     await new Promise((r) => setTimeout(r, 260))
     assert(term.text().includes('hello1'), 'curl could not list the dropped-in server')
-    await runTerminal(term.host, 'curl https://pastemint.com/raw/hello1')
+    await runTerminal(term.host, 'curl https://pastemixt.com/raw/hello1')
     await new Promise((r) => setTimeout(r, 260))
     assert(term.text().includes('Paste anything here'), 'curl could not read a raw paste')
-    await runTerminal(term.host, 'curl https://pastemint.com/raw/nothing-here')
+    await runTerminal(term.host, 'curl https://pastemixt.com/raw/nothing-here')
     await new Promise((r) => setTimeout(r, 260))
     assert(term.text().includes('404: no paste'), 'the pastebin 404 is missing')
     assert(term.title().includes('@'), 'terminal title is not the prompt')
-    vfs.rm('/home/mint/smoke-terminal-dir')
-    vfs.rm('/home/mint/Documents/terminal-write.txt')
+    vfs.rm('/home/mixt/smoke-terminal-dir')
+    vfs.rm('/home/mixt/Documents/terminal-write.txt')
     term.unmount()
   })
 
   await check('files app lists and navigates', async () => {
-    const files = await mountApp('nemo', { path: '/home/mint' })
+    const files = await mountApp('nemo', { path: '/home/mixt' })
     assert(files.text().includes('Documents'), 'home listing is missing Documents')
     assert(files.text().includes('Downloads'), 'home listing is missing Downloads')
-    assert(files.title().includes('mint') || files.title().includes('home'), 'files window title looks wrong')
+    assert(files.title().includes('mixt') || files.title().includes('home'), 'files window title looks wrong')
     files.unmount()
   })
 
-  await check('browser renders a MintNet site and follows links', async () => {
-    const browser = await mountApp('browser', { url: 'https://mintnews.com/' })
+  await check('browser renders a MixtNet site and follows links', async () => {
+    const browser = await mountApp('browser', { url: 'https://mixtnews.com/' })
     await new Promise((r) => setTimeout(r, 700))
     const text = browser.text()
     assert(text.includes('Cinnamon 6.4'), `front page did not render (saw: ${text.slice(0, 120)})`)
-    assert(text.includes('MintNews'), 'site chrome missing')
+    assert(text.includes('MixtNews'), 'site chrome missing')
     browser.unmount()
   })
 
-  await check('browser shows the MintNet registry', async () => {
+  await check('browser shows the MixtNet registry', async () => {
     const browser = await mountApp('browser', { url: 'about:dns' })
     await new Promise((r) => setTimeout(r, 800))
     const text = browser.text()
-    assert(text.includes('MintNet Registry'), 'about:dns did not render')
+    assert(text.includes('MixtNet Registry'), 'about:dns did not render')
     assert(text.includes('pedia-web-02'), 'the registry lists no machines')
-    assert(text.includes('pastemint.com'), 'the registry does not show dropped-in servers')
+    assert(text.includes('pastemixt.com'), 'the registry does not show dropped-in servers')
     browser.unmount()
   })
 
   await check('browser renders the DNS failure page', async () => {
-    const browser = await mountApp('browser', { url: 'https://nope.mintnet/' })
+    const browser = await mountApp('browser', { url: 'https://nope.mixtnet/' })
     await new Promise((r) => setTimeout(r, 800))
     const text = browser.text()
     assert(text.includes('Server not found'), `no DNS error page (saw: ${text.slice(0, 120)})`)
@@ -414,21 +463,21 @@ export async function runSmoke() {
   })
 
   await check('browser resolves a subdomain of a wildcard zone', async () => {
-    const browser = await mountApp('browser', { url: 'https://en.mintpedia.org/' })
+    const browser = await mountApp('browser', { url: 'https://en.mixtpedia.org/' })
     await new Promise((r) => setTimeout(r, 900))
-    assert(browser.text().includes('MintPedia'), 'the wildcard host did not load the encyclopaedia')
+    assert(browser.text().includes('MixtPedia'), 'the wildcard host did not load the encyclopaedia')
     browser.unmount()
   })
 
   await check('browser search page works', async () => {
-    const browser = await mountApp('browser', { url: 'mintnet://search?q=virtual+file+system' })
+    const browser = await mountApp('browser', { url: 'mixtnet://search?q=virtual+file+system' })
     await new Promise((r) => setTimeout(r, 700))
     assert(browser.text().includes('Virtual file system'), 'search results did not include the encyclopaedia article')
     browser.unmount()
   })
 
   await check('browser refuses to render unknown pages gracefully', async () => {
-    const browser = await mountApp('browser', { url: 'https://mintpedia.org/article/not-a-real-slug' })
+    const browser = await mountApp('browser', { url: 'https://mixtpedia.org/article/not-a-real-slug' })
     await new Promise((r) => setTimeout(r, 800))
     assert(browser.text().includes('404') || browser.text().includes('could not find'), 'missing 404 page')
     browser.unmount()
@@ -475,7 +524,7 @@ export async function runSmoke() {
 
   await new Promise((r) => setTimeout(r, 700))
   await check('filesystem persists to localStorage', () => {
-    const raw = localStorage.getItem('webmpl.vfs.v2')
+    const raw = localStorage.getItem('mixt.vfs.v2')
     assert(raw && raw.length > 100, 'vfs was never written to localStorage')
   })
 

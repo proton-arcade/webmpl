@@ -4,7 +4,7 @@ import { FILES } from '../downloads'
 import type { PageCtx, SiteDef } from '../types'
 
 /* ==========================================================================
-   mintcart.com — the shop
+   mixtcart.com — the shop
    ========================================================================== */
 
 interface Product {
@@ -19,14 +19,14 @@ interface Product {
 
 const PRODUCTS: Product[] = [
   { id: 'tux-plush', name: 'Tux plush toy', price: 19.5, category: 'Toys', blurb: 'Seventeen centimetres of unstoppable penguin. Embroidered beak, weighted base.', stars: 5, fileId: 'tux-plush' },
-  { id: 'mint-mug', name: 'Mint leaf mug', price: 11.0, category: 'Kitchen', blurb: '350 ml of tea capacity, dishwasher safe, faintly smug about its own colour.', stars: 4 },
+  { id: 'mixt-mug', name: 'Mixt leaf mug', price: 11.0, category: 'Kitchen', blurb: '350 ml of tea capacity, dishwasher safe, faintly smug about its own colour.', stars: 4 },
   { id: 'keyboard', name: 'Mechanical keyboard, 87 keys', price: 84.9, category: 'Hardware', blurb: 'Tactile brown switches, PBT caps, a volume knob that actually turns.', stars: 5 },
-  { id: 'wallpaper-pack', name: 'Wallpaper pack (3 images)', price: 0, category: 'Digital', blurb: 'The wave, the facets and the leaf. Yours to download and immediately re-download.', stars: 5, fileId: 'photo-mint-wave' },
+  { id: 'wallpaper-pack', name: 'Wallpaper pack (3 images)', price: 0, category: 'Digital', blurb: 'The wave, the facets and the leaf. Yours to download and immediately re-download.', stars: 5, fileId: 'photo-mixt-wave' },
   { id: 'stickers', name: 'Sticker sheet', price: 4.25, category: 'Stationery', blurb: 'Twelve vinyl stickers: terminals, leaves, a cheerful monitor.', stars: 4 },
   { id: 'ssd', name: '1 TB NVMe SSD', price: 79.0, category: 'Hardware', blurb: 'Nobody has ever regretted more storage. Boots in nine seconds, sleeps in none.', stars: 5 },
   { id: 'cable', name: 'USB-C cable, 2 m braided', price: 9.99, category: 'Hardware', blurb: 'Charges at 100 W and does not tangle in a bag, allegedly.', stars: 3 },
   { id: 'notebook', name: 'Dot grid notebook', price: 7.5, category: 'Stationery', blurb: 'For drawing window layouts before you implement them badly.', stars: 4 },
-  { id: 'cheatsheet', name: 'Shell cheat sheet (PDF)', price: 0, category: 'Digital', blurb: 'Pipes, redirects and the commands you always look up.', stars: 5, fileId: 'mint-cheatsheet' },
+  { id: 'cheatsheet', name: 'Shell cheat sheet (PDF)', price: 0, category: 'Digital', blurb: 'Pipes, redirects and the commands you always look up.', stars: 5, fileId: 'mixt-cheatsheet' },
 ]
 
 interface CartLine {
@@ -41,8 +41,8 @@ function money(n: number) {
 function CartContext(ctx: PageCtx) {
   // the cart lives one level up in a module-level object keyed by tab, so it
   // survives navigation between pages of the shop
-  const key = `mintcart.${ctx.tabId}`
-  const store = ((window as any).__mintcart ??= {} as Record<string, CartLine[]>)
+  const key = `mixtcart.${ctx.tabId}`
+  const store = ((window as any).__mixtcart ??= {} as Record<string, CartLine[]>)
   const lines: CartLine[] = (store[key] ??= [])
   return { lines, key }
 }
@@ -57,7 +57,7 @@ function ShopHome({ ctx }: { ctx: PageCtx }) {
     else lines.push({ product: p, qty: 1 })
     force((n) => n + 1)
     window.dispatchEvent(
-      new CustomEvent('webmpl:cart', { detail: { count: lines.reduce((a, l) => a + l.qty, 0) } }),
+      new CustomEvent('mixt:cart', { detail: { count: lines.reduce((a, l) => a + l.qty, 0) } }),
     )
   }
   const list = q ? PRODUCTS.filter((p) => (p.name + p.category + p.blurb).toLowerCase().includes(q.toLowerCase())) : PRODUCTS
@@ -65,21 +65,21 @@ function ShopHome({ ctx }: { ctx: PageCtx }) {
 
   return (
     <SiteShell
-      site={MINTCART}
+      site={MIXTCART}
       ctx={ctx}
-      nav={[{ label: 'Shop', href: 'https://mintcart.com/' }, { label: 'Digital', href: 'https://mintcart.com/category/digital' }, { label: 'Hardware', href: 'https://mintcart.com/category/hardware' }]}
+      nav={[{ label: 'Shop', href: 'https://mixtcart.com/' }, { label: 'Digital', href: 'https://mixtcart.com/category/digital' }, { label: 'Hardware', href: 'https://mixtcart.com/category/hardware' }]}
     >
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
         <input className="entry" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…" style={{ width: 320 }} />
         <span style={{ flex: 1 }} />
-        <Btn tone="grey" onClick={() => ctx.navigate('https://mintcart.com/cart')}>
+        <Btn tone="grey" onClick={() => ctx.navigate('https://mixtcart.com/cart')}>
           🛒 Cart ({count})
         </Btn>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))', gap: 14 }}>
         {list.map((p) => (
           <Card key={p.id}>
-            <div style={{ cursor: 'pointer' }} onClick={() => ctx.navigate(`https://mintcart.com/product/${p.id}`)}>
+            <div style={{ cursor: 'pointer' }} onClick={() => ctx.navigate(`https://mixtcart.com/product/${p.id}`)}>
               <Img alt={p.category} height={110} />
               <div style={{ marginTop: 8, fontWeight: 600, fontSize: 14 }}>{p.name}</div>
               <Meta>
@@ -105,18 +105,18 @@ function ProductPage({ ctx, id }: { ctx: PageCtx; id: string }) {
   const [, force] = React.useState(0)
   const { lines } = CartContext(ctx)
   const [qty, setQty] = React.useState(1)
-  if (!product) return <NotFound ctx={ctx} site={MINTCART} />
+  if (!product) return <NotFound ctx={ctx} site={MIXTCART} />
 
   const add = () => {
     const line = lines.find((l) => l.product.id === product.id)
     if (line) line.qty += qty
     else lines.push({ product, qty })
     force((n) => n + 1)
-    ctx.navigate('https://mintcart.com/cart')
+    ctx.navigate('https://mixtcart.com/cart')
   }
 
   return (
-    <SiteShell site={MINTCART} ctx={ctx} nav={[{ label: 'Shop', href: 'https://mintcart.com/' }]}>
+    <SiteShell site={MIXTCART} ctx={ctx} nav={[{ label: 'Shop', href: 'https://mixtcart.com/' }]}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 22 }}>
         <Img alt={product.category} height={260} />
         <div>
@@ -139,7 +139,7 @@ function ProductPage({ ctx, id }: { ctx: PageCtx; id: string }) {
             />
             <Btn onClick={add}>Add to cart</Btn>
             {product.fileId && (
-              <Btn tone="outline" onClick={() => ctx.navigate(`https://mintcart.com/download/${FILES.find((f) => f.id === product.fileId)!.filename}`)}>
+              <Btn tone="outline" onClick={() => ctx.navigate(`https://mixtcart.com/download/${FILES.find((f) => f.id === product.fileId)!.filename}`)}>
                 Download now
               </Btn>
             )}
@@ -163,30 +163,30 @@ function CartPage({ ctx }: { ctx: PageCtx }) {
   const total = lines.reduce((a, l) => a + l.product.price * l.qty, 0)
 
   const checkout = () => {
-    const orderId = `MINT-${Math.floor(100000 + Math.random() * 899999)}`
+    const orderId = `MIXT-${Math.floor(100000 + Math.random() * 899999)}`
     setPlaced(orderId)
     // write a receipt straight into the user's Documents folder
     const receipt = [
-      `MintCart order ${orderId}`,
+      `MixtCart order ${orderId}`,
       `Date: ${new Date().toLocaleString()}`,
       '',
       ...lines.map((l) => `${l.qty} × ${l.product.name.padEnd(34)} ${money(l.product.price * l.qty)}`),
       '',
       `Total: ${money(total)}`,
       '',
-      'Thank you for shopping on the MintNet.',
+      'Thank you for shopping on the MixtNet.',
       'Digital items can be downloaded again from your order confirmation page.',
     ].join('\n')
-    window.dispatchEvent(new CustomEvent('webmpl:file', { detail: { path: `/home/mint/Documents/mintcart-order-${orderId}.txt`, content: receipt, mime: 'text/plain' } }))
+    window.dispatchEvent(new CustomEvent('mixt:file', { detail: { path: `/home/mixt/Documents/mixtcart-order-${orderId}.txt`, content: receipt, mime: 'text/plain' } }))
     window.dispatchEvent(
-      new CustomEvent('webmpl:notify', { detail: { title: 'MintCart', body: `Order ${orderId} confirmed. Receipt saved to Documents.`, appId: 'mintcart' } }),
+      new CustomEvent('mixt:notify', { detail: { title: 'MixtCart', body: `Order ${orderId} confirmed. Receipt saved to Documents.`, appId: 'mixtcart' } }),
     )
     lines.length = 0
     force((n) => n + 1)
   }
 
   return (
-    <SiteShell site={MINTCART} ctx={ctx} nav={[{ label: 'Shop', href: 'https://mintcart.com/' }]}>
+    <SiteShell site={MIXTCART} ctx={ctx} nav={[{ label: 'Shop', href: 'https://mixtcart.com/' }]}>
       <H level={1}>Your cart</H>
       {placed ? (
         <Card style={{ background: '#f2fbe9', border: '1px solid #b6e88a' }}>
@@ -194,12 +194,12 @@ function CartPage({ ctx }: { ctx: PageCtx }) {
           <p>
             Order <strong>{placed}</strong> has been placed. A receipt was written to <code>~/Documents</code> — open the Files application to see it.
           </p>
-          <Btn onClick={() => ctx.navigate('https://mintcart.com/')}>Keep shopping</Btn>
+          <Btn onClick={() => ctx.navigate('https://mixtcart.com/')}>Keep shopping</Btn>
         </Card>
       ) : lines.length === 0 ? (
         <Card>
           <p>Your cart is empty. It is a very tidy cart.</p>
-          <Btn onClick={() => ctx.navigate('https://mintcart.com/')}>Browse products</Btn>
+          <Btn onClick={() => ctx.navigate('https://mixtcart.com/')}>Browse products</Btn>
         </Card>
       ) : (
         <>
@@ -237,7 +237,7 @@ function CartPage({ ctx }: { ctx: PageCtx }) {
 }
 
 /* ==========================================================================
-   mintmail.com — webmail
+   mixtmail.com — webmail
    ========================================================================== */
 
 interface Mail {
@@ -253,12 +253,12 @@ interface Mail {
 const SEED_MAIL: Mail[] = [
   {
     id: 'm1',
-    from: 'Mint Update Manager <updates@mintnet.com>',
+    from: 'Mixt Update Manager <updates@mixtnet.com>',
     subject: '3 optional applications are available',
     time: '09:12',
     folder: 'inbox',
     body: [
-      'Hello Mint User,',
+      'Hello Mixt User,',
       '',
       'Three applications can be installed from the Software Manager: Drawing, Mail and News Reader.',
       'They are small, they are green-adjacent, and they will not break anything.',
@@ -280,7 +280,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm3',
-    from: 'MintCart <orders@mintcart.com>',
+    from: 'MixtCart <orders@mixtcart.com>',
     subject: 'Your digital downloads are ready',
     time: 'Yesterday, 11:02',
     folder: 'inbox',
@@ -292,7 +292,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm4',
-    from: 'Petra Lindgren <petra@mintnews.com>',
+    from: 'Petra Lindgren <petra@mixtnews.com>',
     subject: 'Re: desktop feature ideas',
     time: 'Monday',
     folder: 'inbox',
@@ -306,11 +306,11 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm5',
-    from: 'you@mintmail.com',
+    from: 'you@mixtmail.com',
     subject: 'Re: desktop feature ideas',
     time: 'Monday',
     folder: 'sent',
-    body: ['Petra,', '', 'Right-click the clock, choose preferences, tick "Show seconds". Enjoy the tea.', '', '— Mint'],
+    body: ['Petra,', '', 'Right-click the clock, choose preferences, tick "Show seconds". Enjoy the tea.', '', '— Mixt'],
   },
 ]
 
@@ -331,7 +331,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
     if (!to.trim()) return
     const mail: Mail = {
       id: `m${Date.now()}`,
-      from: 'you@mintmail.com',
+      from: 'you@mixtmail.com',
       subject: subject || '(no subject)',
       time: 'now',
       body: body.split('\n'),
@@ -345,11 +345,11 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
     setBody('')
     setFolder('sent')
     setSelected(mail.id)
-    window.dispatchEvent(new CustomEvent('webmpl:notify', { detail: { title: 'Mail', body: `Your message to ${to} was sent.` } }))
+    window.dispatchEvent(new CustomEvent('mixt:notify', { detail: { title: 'Mail', body: `Your message to ${to} was sent.` } }))
   }
 
   return (
-    <SiteShell site={MINTMAIL} ctx={ctx} plain maxWidth={1000}>
+    <SiteShell site={MIXTMAIL} ctx={ctx} plain maxWidth={1000}>
       <div style={{ display: 'flex', height: 470, border: '1px solid #e3e6e1', borderRadius: 10, overflow: 'hidden', background: '#fff' }}>
         <div style={{ width: 160, background: '#f6f8f4', borderRight: '1px solid #e3e6e1', padding: 10 }}>
           <Btn onClick={() => setWriting(true)} style={{ width: '100%', justifyContent: 'center' }}>
@@ -367,7 +367,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
             ))}
           </div>
           <Meta>
-            you@mintmail.com
+            you@mixtmail.com
             <br />
             1.0 GB of 1.0 GB free
           </Meta>
@@ -438,11 +438,11 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
 }
 
 /* ==========================================================================
-   mintmaps.com — maps
+   mixtmaps.com — maps
    ========================================================================== */
 
 const PLACES: { name: string; kind: string; x: number; y: number; info: string }[] = [
-  { name: 'Mintville Centre', kind: 'Town', x: 0.5, y: 0.5, info: 'The greenest roundabout on the MintNet.' },
+  { name: 'Mixtville Centre', kind: 'Town', x: 0.5, y: 0.5, info: 'The greenest roundabout on the MixtNet.' },
   { name: 'Cinnamon Park', kind: 'Park', x: 0.22, y: 0.3, info: 'Trees, benches and one extremely relaxed duck.' },
   { name: 'Kernel Street', kind: 'Road', x: 0.62, y: 0.36, info: 'Runs north to south, never blocks.' },
   { name: 'Daemon Docks', kind: 'Harbour', x: 0.76, y: 0.72, info: 'Ships in the night, cleaned up by systemd.' },
@@ -603,7 +603,7 @@ function MapsHome({ ctx }: { ctx: PageCtx }) {
   const steps = route
     ? [
         `Leave ${route.from} heading towards the main road (north-east).`,
-        'At the Mintville roundabout take the second exit onto Kernel Street.',
+        'At the Mixtville roundabout take the second exit onto Kernel Street.',
         'Continue straight for about 900 m — you will pass Cinnamon Park on your left.',
         route.to.includes('Docks') ? 'Turn right at the harbour sign and follow the quay.' : `Arrive at ${route.to} on your right.`,
       ]
@@ -611,9 +611,9 @@ function MapsHome({ ctx }: { ctx: PageCtx }) {
 
   return (
     <SiteShell
-      site={MINTMAPS}
+      site={MIXTMAPS}
       ctx={ctx}
-      nav={[{ label: 'Maps', href: 'https://mintmaps.com/' }, { label: 'Directions', href: 'https://mintmaps.com/directions' }]}
+      nav={[{ label: 'Maps', href: 'https://mixtmaps.com/' }, { label: 'Directions', href: 'https://mixtmaps.com/directions' }]}
     >
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <input
@@ -656,7 +656,7 @@ function MapsHome({ ctx }: { ctx: PageCtx }) {
               <div style={{ fontWeight: 600, marginBottom: 6 }}>Results</div>
               {found.slice(0, 6).map((p) => (
                 <div key={p.name} style={{ padding: '4px 0', cursor: 'pointer' }} onClick={() => { setFocus({ x: p.x, y: p.y }); setSelected(p) }}>
-                  <A ctx={ctx} href={`https://mintmaps.com/place/${encodeURIComponent(p.name)}`} style={{ textDecoration: 'none' }}>
+                  <A ctx={ctx} href={`https://mixtmaps.com/place/${encodeURIComponent(p.name)}`} style={{ textDecoration: 'none' }}>
                     {p.name}
                   </A>{' '}
                   <span style={{ color: '#8a938d', fontSize: 11.5 }}>{p.kind}</span>
@@ -710,46 +710,46 @@ function MapsHome({ ctx }: { ctx: PageCtx }) {
    site definitions
    ========================================================================== */
 
-export const MINTCART: SiteDef = {
-  domain: 'mintcart.com',
-  aliases: ['amazon.com', 'shop.mint.com'],
-  title: 'MintCart',
+export const MIXTCART: SiteDef = {
+  domain: 'mixtcart.com',
+  aliases: ['amazon.com', 'shop.mixt.com'],
+  title: 'MixtCart',
   glyph: 'ShoppingBag',
   color: '#2f9e8f',
   color2: '#14705f',
-  description: 'An online shop for minty merchandise, keyboards and digital downloads that really download.',
+  description: 'An online shop for mixty merchandise, keyboards and digital downloads that really download.',
   tags: ['shop', 'store', 'products', 'cart', 'buy'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'MintCart — shop', keywords: ['shop', 'store', 'products', 'buy', 'price'], snippet: 'Browse keyboards, mugs, plush penguins and free digital downloads.', render: (ctx) => <ShopHome ctx={ctx} /> },
+    { path: '/', title: 'MixtCart — shop', keywords: ['shop', 'store', 'products', 'buy', 'price'], snippet: 'Browse keyboards, mugs, plush penguins and free digital downloads.', render: (ctx) => <ShopHome ctx={ctx} /> },
     {
       path: '/product',
-      title: 'MintCart — product',
+      title: 'MixtCart — product',
       keywords: ['product', 'item', 'price', 'keyboard', 'mug', 'wallpaper'],
       snippet: 'Product details with quantity and add to cart.',
       render: (ctx) => <ProductPage ctx={ctx} id={ctx.path.split('/')[2] ?? ''} />,
     },
     {
       path: '/cart',
-      title: 'MintCart — cart & checkout',
+      title: 'MixtCart — cart & checkout',
       keywords: ['cart', 'checkout', 'order', 'bag'],
       snippet: 'Review your cart and place an order — the receipt lands in your Documents folder.',
       render: (ctx) => <CartPage ctx={ctx} />,
     },
     {
       path: '/category',
-      title: 'MintCart — category',
+      title: 'MixtCart — category',
       keywords: ['category', 'digital', 'hardware'],
       snippet: 'Products in one category.',
       render: (ctx) => <ShopHome ctx={ctx} />,
     },
     {
       path: '/download',
-      title: 'MintCart — download',
+      title: 'MixtCart — download',
       keywords: ['download', 'file'],
       snippet: 'Download a digital purchase to ~/Downloads.',
       render: (ctx) => (
-        <SiteShell site={MINTCART} ctx={ctx} nav={[{ label: 'Shop', href: 'https://mintcart.com/' }]}>
+        <SiteShell site={MIXTCART} ctx={ctx} nav={[{ label: 'Shop', href: 'https://mixtcart.com/' }]}>
           <H level={1}>Download ready</H>
           <p>The file browser should have started the download. If not, open the Files application and look in ~/Downloads.</p>
         </SiteShell>
@@ -757,18 +757,18 @@ export const MINTCART: SiteDef = {
     },
   ],
   deepEntries: PRODUCTS.map((p) => ({
-    url: `https://mintcart.com/product/${p.id}`,
+    url: `https://mixtcart.com/product/${p.id}`,
     title: p.name,
     snippet: p.blurb,
     keywords: [p.category, 'shop', 'buy', money(p.price)],
   })),
-  text: () => ['MintCart — products', '===================', ...PRODUCTS.map((p) => `${p.name.padEnd(36)} ${money(p.price)}  https://mintcart.com/product/${p.id}`)].join('\n'),
+  text: () => ['MixtCart — products', '===================', ...PRODUCTS.map((p) => `${p.name.padEnd(36)} ${money(p.price)}  https://mixtcart.com/product/${p.id}`)].join('\n'),
 }
 
-export const MINTMAIL: SiteDef = {
-  domain: 'mintmail.com',
-  aliases: ['mail.mint.com', 'gmail.com'],
-  title: 'MintMail',
+export const MIXTMAIL: SiteDef = {
+  domain: 'mixtmail.com',
+  aliases: ['mail.mixt.com', 'gmail.com'],
+  title: 'MixtMail',
   glyph: 'Mail',
   color: '#3f6fd8',
   color2: '#25428f',
@@ -776,36 +776,36 @@ export const MINTMAIL: SiteDef = {
   tags: ['mail', 'email', 'inbox', 'compose'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'MintMail — inbox', keywords: ['email', 'inbox', 'messages', 'compose', 'send'], snippet: 'Read your inbox, compose and send messages.', render: (ctx) => <MailApp ctx={ctx} /> },
-    { path: '/compose', title: 'MintMail — compose', keywords: ['compose', 'new message', 'write'], snippet: 'Write a new message.', render: (ctx) => <MailApp ctx={ctx} /> },
+    { path: '/', title: 'MixtMail — inbox', keywords: ['email', 'inbox', 'messages', 'compose', 'send'], snippet: 'Read your inbox, compose and send messages.', render: (ctx) => <MailApp ctx={ctx} /> },
+    { path: '/compose', title: 'MixtMail — compose', keywords: ['compose', 'new message', 'write'], snippet: 'Write a new message.', render: (ctx) => <MailApp ctx={ctx} /> },
   ],
-  text: () => ['MintMail — inbox', '================', '1. 3 optional applications are available        — updates@mintnet.com', '2. Your window snapped correctly                 — hello@cinnamon.dev', '3. Your digital downloads are ready              — orders@mintcart.com', '', 'Open https://mintmail.com/ in the browser to read them.'].join('\n'),
+  text: () => ['MixtMail — inbox', '================', '1. 3 optional applications are available        — updates@mixtnet.com', '2. Your window snapped correctly                 — hello@cinnamon.dev', '3. Your digital downloads are ready              — orders@mixtcart.com', '', 'Open https://mixtmail.com/ in the browser to read them.'].join('\n'),
 }
 
-export const MINTMAPS: SiteDef = {
-  domain: 'mintmaps.com',
+export const MIXTMAPS: SiteDef = {
+  domain: 'mixtmaps.com',
   aliases: ['maps.google.com', 'openstreetmap.org'],
-  title: 'MintMaps',
+  title: 'MixtMaps',
   glyph: 'Map',
   color: '#4a8f3f',
   color2: '#2c5f24',
-  description: 'A procedurally drawn map of Mintville with panning, zooming, place search and directions.',
+  description: 'A procedurally drawn map of Mixtville with panning, zooming, place search and directions.',
   tags: ['maps', 'directions', 'places', 'navigation'],
   defaultPath: '/',
   pages: [
-    { path: '/', title: 'MintMaps — map of Mintville', keywords: ['map', 'directions', 'places', 'search places', 'route'], snippet: 'Pan and zoom a procedurally drawn map, search places and get directions.', render: (ctx) => <MapsHome ctx={ctx} /> },
-    { path: '/directions', title: 'MintMaps — directions', keywords: ['directions', 'route', 'navigate'], snippet: 'Turn-by-turn directions that are accurate to within a metre of fiction.', render: (ctx) => <MapsHome ctx={ctx} /> },
+    { path: '/', title: 'MixtMaps — map of Mixtville', keywords: ['map', 'directions', 'places', 'search places', 'route'], snippet: 'Pan and zoom a procedurally drawn map, search places and get directions.', render: (ctx) => <MapsHome ctx={ctx} /> },
+    { path: '/directions', title: 'MixtMaps — directions', keywords: ['directions', 'route', 'navigate'], snippet: 'Turn-by-turn directions that are accurate to within a metre of fiction.', render: (ctx) => <MapsHome ctx={ctx} /> },
     {
       path: '/place',
-      title: 'MintMaps — place',
+      title: 'MixtMaps — place',
       keywords: ['place', 'cinnamon park', 'kernel street'],
-      snippet: 'Information about a place in Mintville.',
+      snippet: 'Information about a place in Mixtville.',
       render: (ctx) => {
         const name = decodeURIComponent(ctx.path.split('/')[2] ?? '')
         const place = PLACES.find((p) => p.name === name)
-        if (!place) return <NotFound ctx={ctx} site={MINTMAPS} />
+        if (!place) return <NotFound ctx={ctx} site={MIXTMAPS} />
         return (
-          <SiteShell site={MINTMAPS} ctx={ctx} nav={[{ label: 'Map', href: 'https://mintmaps.com/' }]}>
+          <SiteShell site={MIXTMAPS} ctx={ctx} nav={[{ label: 'Map', href: 'https://mixtmaps.com/' }]}>
             <H level={1}>{place.name}</H>
             <Meta>{place.kind}</Meta>
             <p style={{ lineHeight: 1.7 }}>{place.info}</p>
@@ -816,12 +816,12 @@ export const MINTMAPS: SiteDef = {
     },
   ],
   deepEntries: PLACES.map((p) => ({
-    url: `https://mintmaps.com/place/${encodeURIComponent(p.name)}`,
+    url: `https://mixtmaps.com/place/${encodeURIComponent(p.name)}`,
     title: p.name,
     snippet: p.info,
     keywords: [p.kind, 'map', 'directions', 'place'],
   })),
-  text: () => ['MintMaps', '========', 'Places:', ...PLACES.map((p) => `  ${p.name} (${p.kind}) — ${p.info}`), '', 'Open in the browser to pan the map.'].join('\n'),
+  text: () => ['MixtMaps', '========', 'Places:', ...PLACES.map((p) => `  ${p.name} (${p.kind}) — ${p.info}`), '', 'Open in the browser to pan the map.'].join('\n'),
 }
 
-export const SERVICE_SITES = [MINTCART, MINTMAIL, MINTMAPS]
+export const SERVICE_SITES = [MIXTCART, MIXTMAIL, MIXTMAPS]
