@@ -18,7 +18,7 @@ npm run dev      # http://localhost:3000
 | `npm run dev` | Vite dev server on port 3000 |
 | `npm run build` | production bundle into `dist/` |
 | `npm run preview` | serve the production bundle |
-| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 75 behaviours (desktop mounting, every app rendering, every MintNet page rendering, real terminal commands, window management, persistence) |
+| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 94 behaviours (desktop mounting, every app rendering, every MintNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence) |
 
 ---
 
@@ -85,6 +85,41 @@ with its own CSS-free styling, and the browser resolves URLs to it:
 | `mintmaps.com` | a canvas-drawn map with places and directions |
 | `linuxmint.com`, `mintdev.io`, `webmpl.dev` | documentation sites, including this project's own |
 | `mintnet://search?q=…` | the built-in search engine (also reachable from the terminal with `curl`) |
+| `pastemint.com` | a pastebin that lives entirely in one server file — create pastes, and `curl https://pastemint.com/raw/hello1` |
+
+## The Internet directory and its DNS
+
+MintNet is not a hard-coded list of sites: it is a folder of machines plus a
+resolver.
+
+```
+src/net/internet/servers/*.server.tsx   ← drop a file in, the domain resolves
+src/net/dns.ts                          ← the zone: A/AAAA/CNAME/MX/TXT/NS/PTR
+src/net/internet/hosts.ts               ← /etc/hosts + /etc/resolv.conf (real VFS files)
+```
+
+Each `*.server.tsx` file default-exports a machine — hostnames, aliases,
+wildcards, open ports, DNS records, operator flavour, and the `SiteDef`s it
+serves. `import.meta.glob` picks the files up automatically, so **adding a site
+means adding a file**, and nothing else: `src/net/internet/README.md` documents
+the format, and `servers/pastemint.server.tsx` is a complete worked example (a
+working pastebin in a single file).
+
+Every machine gets a stable fake address in the MintNet block (`10.64.0.0/10`),
+a PTR record back to its name, `www.` CNAMEs for its sites, and — where declared
+— MX/TXT/NS records and a port list. The address bar shows what the resolver
+said (`10.83.17.204 · 6 ms`), and:
+
+* `dig`, `host`, `nslookup`, `getent`, `nmap`, `ping` all query the real
+  resolver, including `NXDOMAIN` and reverse lookups (`dig -x <ip>`)
+* **`about:dns`** is the MintNet Registry — every machine, the whole zone file,
+  and your `/etc/hosts`, live
+* unknown names get a proper **"Server not found"** page that prints the DNS
+  answer and offers the closest match
+* any name can be overridden from `/etc/hosts` (`10.9.9.9 smoke.local`) — no
+  code change, and the override wins, exactly like a real resolver
+* navigating by address works too: `https://10.83.17.204/` reverse-resolves and
+  loads the right site
 
 Cross-app plumbing is done with `window` events (`webmpl:launch`, `webmpl:cart`,
 `webmpl:file`, `webmpl:notify`, `webmpl:session`) and the small helper API in `src/os/bus.ts`,
@@ -112,7 +147,8 @@ src/
   os/                 types, zustand store, vfs, theme, bus, boot bootstrap
   shell/              Desktop, Panel, MainMenu, WindowFrame, AppIcon, ContextMenu, Notifications
   apps/               registry.tsx + one module per application (19)
-  net/                types, index (URL resolution + search), sitekit, storage, downloads
+  net/                types, index (URL resolution + search), dns, sitekit, storage, downloads
+    internet/         the directory: manifest + servers/*.server.tsx + /etc/hosts helpers
     sites/            portal, tech, services, social page trees
   smoke/              bundle.tsx — the jsdom smoke harness driven by scripts/smoke.mjs
 scripts/smoke.mjs     runner (esbuild via Vite SSR build → jsdom → assertions)

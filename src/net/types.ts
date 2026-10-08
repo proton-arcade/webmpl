@@ -49,7 +49,7 @@ export interface SearchResult {
   domain: string
 }
 
-export type UrlKind = 'site' | 'search' | 'about' | 'real' | 'invalid'
+export type UrlKind = 'site' | 'search' | 'about' | 'real' | 'notfound' | 'invalid'
 
 export interface ResolvedUrl {
   kind: UrlKind
@@ -59,6 +59,8 @@ export interface ResolvedUrl {
   query: string
   searchQuery?: string
   aboutPage?: string
+  /** why a name does not resolve, shown on the browser's error page */
+  notFoundReason?: string
 }
 
 export interface DownloadableFile {

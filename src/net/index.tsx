@@ -2,13 +2,15 @@
    A client-side "web": sites are React components, search is an inverted index,
    and anything that is not part of MintNet can still be opened as a real site
    through an embedded frame when the remote server allows it. */
-import { PORTAL_SITES } from './sites/portal'
-import { TECH_SITES } from './sites/tech'
-import { SERVICE_SITES } from './sites/services'
-import { SOCIAL_SITES } from './sites/social'
+import { SERVERS, REJECTED, webServers } from './internet/manifest'
+import { readHosts } from './internet/hosts'
+import { resolveHost, addressOf } from './dns'
 import type { ResolvedUrl, SearchResult, SiteDef } from './types'
 
-export const SITES: SiteDef[] = [...PORTAL_SITES, ...TECH_SITES, ...SERVICE_SITES, ...SOCIAL_SITES]
+/* Sites are what the machines in ./internet/servers/ publish. Drop a server
+   file in that directory and its hostnames and pages appear here. */
+export const SITES: SiteDef[] = webServers().flatMap((server) => server.sites ?? [])
+export { SERVERS, REJECTED, webServers }
 
 export const HOME_URL = 'https://mintnet.com/'
 
@@ -20,8 +22,39 @@ export function stripWww(host: string) {
 }
 
 export function findSite(domain: string): SiteDef | undefined {
+  // DNS decides: aliases, www CNAMEs, wildcard zones and /etc/hosts all work here
+  const answer = resolveHost(domain, { hosts: readHosts() })
+  if (answer.status === 'NOERROR' && answer.site) return answer.site
   const d = stripWww(domain)
   return SITES.find((s) => stripWww(s.domain) === d || (s.aliases ?? []).some((a) => stripWww(a) === d))
+}
+
+/** The machine that answers for a hostname. */
+export function findServer(domain: string) {
+  const answer = resolveHost(domain, { hosts: readHosts() })
+  return answer.status === 'NOERROR' ? answer.server : undefined
+}
+
+/** tlds that exist only inside MintNet, so a failed lookup is an NXDOMAIN page */
+const MINT_TLDS = /^(\.?)(mintnet|mint|webmpl|test|local|lan|internal|lab|home)$/i
+
+export function looksInternal(host: string) {
+  const bare = stripWww(host)
+  if (!bare.includes('.')) return true
+  return MINT_TLDS.test(`.${bare.split('.').pop()}`)
+}
+
+/** What the resolver thinks of an address, for the browser's status bar. */
+export function dnsStatus(host: string) {
+  const answer = resolveHost(host, { hosts: readHosts() })
+  return {
+    status: answer.status,
+    address: answer.answers.find((r) => r.type === 'A')?.value,
+    source: answer.source,
+    cname: answer.cname,
+    server: answer.server,
+    rtt: answer.rtt,
+  }
 }
 
 export function resolveUrl(input: string, baseUrl = HOME_URL): ResolvedUrl {
@@ -69,13 +102,44 @@ export function resolveUrl(input: string, baseUrl = HOME_URL): ResolvedUrl {
     return searchUrl(raw)
   }
 
-  const site = findSite(host)
-  if (site) {
-    return { kind: 'site', href: `https://${site.domain}${path}${query ? `?${query}` : ''}`, domain: site.domain, path: path || '/', query }
-  }
   if (stripWww(host) === 'search.mintnet.com' || stripWww(host) === 'search') {
     const q = new URLSearchParams(query).get('q') ?? ''
     return { kind: 'search', href: `mintnet://search?q=${encodeURIComponent(q)}`, domain: 'search', path: '/', query, searchQuery: q }
+  }
+
+  // ask the resolver — this is where www, aliases, wildcards and /etc/hosts land
+  const answer = resolveHost(host, { hosts: readHosts() })
+  if (answer.status === 'NOERROR' && answer.site) {
+    const site = answer.site
+    return {
+      kind: 'site',
+      href: `https://${site.domain}${path}${query ? `?${query}` : ''}`,
+      domain: site.domain,
+      path: path || '/',
+      query,
+    }
+  }
+  if (answer.status === 'NOERROR' && answer.server && !answer.site) {
+    // a machine with no website: mail servers, nameservers, the arcade box
+    return {
+      kind: 'notfound',
+      href: `https://${host}${path}`,
+      domain: host,
+      path,
+      query,
+      notFoundReason: `${host} resolves to ${answer.server.id} (${answer.server.software ?? 'a MintNet machine'}) but that machine does not serve a website on port 443.`,
+    }
+  }
+  const internal = looksInternal(host)
+  if (internal) {
+    return {
+      kind: 'notfound',
+      href: `https://${host}${path}`,
+      domain: host,
+      path,
+      query,
+      notFoundReason: `MintNet DNS has no record for ${host}.`,
+    }
   }
   if (REAL_TLDS.test(`.${host.split('.').pop()}`) || host.includes('.')) {
     return { kind: 'real', href: `https://${host}${path}${query ? `?${query}` : ''}`, domain: host, path, query }
@@ -191,8 +255,65 @@ export async function fetchAsText(input: string): Promise<string> {
   if (r.kind === 'about') {
     return `about:${r.aboutPage} — internal browser page. Open the Web Browser to view it.`
   }
+  if (r.kind === 'notfound') {
+    const host = r.domain
+    const answer = resolveHost(host, { hosts: readHosts() })
+    const internal = looksInternal(host)
+    return [
+      internal
+        ? `curl: (6) Could not resolve host: ${host}`
+        : `curl: could not reach ${r.href}`,
+      '',
+      internal
+        ? `MintNet DNS: NXDOMAIN for ${host} (asked 10.0.0.53, ${answer.rtt} msec)`
+        : 'This sandbox cannot reach the real internet — only MintNet names resolve.',
+      internal ? 'Browse the directory at https://mintnet.com/ to see every machine on the network.' : '',
+      internal ? 'Tip: add a name to /etc/hosts, or drop a server into src/net/internet/servers/.' : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
   return `curl: cannot reach ${r.href}\nThis sandbox only allows MintNet pages and package mirrors to be fetched.\nTry: curl https://mintnews.com/  or  curl https://mintpedia.org/article/linux-mint`
 }
 
 export * from './types'
 export { FILES as DOWNLOADABLE_FILES, downloadableUrls, findFile } from './downloads'
+
+/* the resolver, the machines, and the local hosts file */
+export {
+  NAMESERVERS,
+  ROOT_ZONE,
+  addressFor,
+  addressOf,
+  hashString,
+  ipv6For,
+  isIpAddress,
+  latencyFor,
+  renderDig,
+  renderHost,
+  renderNslookup,
+  resolveHost,
+  resolveSite,
+  reverseLookup,
+  serverAddress,
+  serverById,
+  servers,
+  soaRecord,
+  zoneRecords,
+} from './dns'
+export type { DnsAnswer, DnsRecord, DnsStatus, RecordType } from './dns'
+export {
+  DEFAULT_HOSTS,
+  DEFAULT_RESOLV_CONF,
+  HOSTS_PATH,
+  RESOLV_CONF_PATH,
+  addHostEntry,
+  ensureNetworkFiles,
+  parseHosts,
+  readHosts,
+  readHostsFile,
+  readResolvConf,
+  removeHostEntry,
+  writeHostsFile,
+} from './internet/hosts'
+export type { ServerDef, ServerPort } from './internet/types'

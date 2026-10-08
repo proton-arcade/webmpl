@@ -132,9 +132,27 @@ mint@mint-web:~$ curl https://mintnews.com/`}</Pre>
           Search boxes on MintNet sites feed a real inverted index over titles and keywords. Try searching for
           “cinnamon desktop” or “virtual filesystem”.
         </Para>
+        <h3 style={{ margin: '18px 0 6px', fontSize: 14.5 }}>The MintNet has a real DNS</h3>
+        <Para>
+          Every site is a machine in the Internet directory, and names are resolved by a fake resolver with a zone,
+          CNAMEs, wildcard subdomains, MX/TXT records and reverse lookups. Ask it yourself:
+        </Para>
+        <Pre>{`dig mintpedia.org          # A record + authority
+dig -x 10.83.17.204        # reverse lookup
+host mintgames.com         # the short form
+nmap mintcart.com          # open ports
+ping nope.mintnet          # NXDOMAIN, honestly`}</Pre>
+        <Para>
+          The directory is the folder <Code>src/net/internet/servers/</Code> — one file per machine. Drop a new
+          <Code>*.server.tsx</Code> file in, reload, and its domain resolves: a website, DNS records and open ports
+          included. The folder has its own README and a worked example (a working pastebin in a single file). You can
+          also point any name anywhere from <Code>/etc/hosts</Code>, which overrides the zone — open it in the Text
+          Editor.
+        </Para>
         <Actions
           items={[
             ['Open the MintNet portal', () => launch('browser', { url: 'https://mintnet.com/' })],
+            ['Open the MintNet Registry', () => launch('browser', { url: 'about:dns' })],
             ['Search for “linux mint”', () => launch('browser', { url: 'mintnet://search?q=linux%20mint' })],
           ]}
         />

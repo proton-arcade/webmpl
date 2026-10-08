@@ -1,6 +1,7 @@
 import { applyThemeVars } from '../os/theme'
 import { useOS } from '../os/store'
 import { useVFS } from '../os/vfs'
+import { ensureNetworkFiles } from '../net/internet/hosts'
 
 /** One-time session boot: theme, seed notifications, housekeeping. */
 export function bootstrap() {
@@ -23,6 +24,9 @@ export function bootstrap() {
   ]) {
     if (!vfs.exists(dir)) vfs.mkdir(dir)
   }
+
+  // /etc/hosts and /etc/resolv.conf — the local resolver's configuration
+  ensureNetworkFiles()
 
   const uptimeKey = 'webmpl.boot.cycle'
   const cycles = Number(sessionStorage.getItem(uptimeKey) ?? '0') + 1

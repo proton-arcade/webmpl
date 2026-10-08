@@ -2,7 +2,24 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../os/store'
 import { HOME, join, splitPath, normalizePath, vfs, humanSize, countNodes, nodeSize } from '../os/vfs'
 import { APPS, getApp } from './registry'
-import { fetchAsText } from '../net'
+import {
+  addressFor,
+  dnsStatus,
+  hashString,
+  soaRecord,
+  fetchAsText,
+  latencyFor,
+  readHosts,
+  readResolvConf,
+  renderDig,
+  renderHost,
+  renderNslookup,
+  resolveHost,
+  reverseLookup,
+  servers,
+  serverAddress,
+  zoneRecords,
+} from '../net'
 import { launch } from '../os/bus'
 import type { AppProps } from '../os/types'
 
@@ -14,6 +31,11 @@ interface Line {
 
 let lineId = 0
 const COMMANDS = [
+  'dig',
+  'host',
+  'nslookup',
+  'getent',
+  'nmap',
   'help', 'ls', 'll', 'cd', 'pwd', 'cat', 'echo', 'mkdir', 'touch', 'rm', 'rmdir', 'mv', 'cp',
   'ln', 'tree', 'find', 'grep', 'wc', 'head', 'tail', 'sort', 'uniq', 'sed', 'awk', 'less',
   'more', 'nano', 'vim', 'xed', 'open', 'xdg-open', 'clear', 'history', 'whoami', 'id', 'groups',
@@ -192,7 +214,7 @@ export default function TerminalApp({ win, api }: AppProps) {
           ['out', '  Files      ls, cd, pwd, cat, tree, find, grep, wc, head, tail, mkdir, touch, rm, mv, cp, du, df, stat, file'],
           ['out', '  System     uname, hostname, date, cal, uptime, free, ps, top, kill, neofetch, inxi, lscpu, lsblk, whoami, id'],
           ['out', '  Packages   apt search|install|remove|list, dpkg -l, mintinstall, mintupdate'],
-          ['out', '  Network    ping, curl, wget, ifconfig, ssh, git'],
+          ['out', '  Network    ping, curl, wget, dig, host, nslookup, getent, nmap, ifconfig, ssh, git'],
           ['out', '  Desktop    open, xed, nano, nemo, theme, wallpaper, notify-send, lock, screenshot, volume'],
           ['out', '  Session    history, clear, fortune, cowsay, exit, reboot, shutdown'],
           ['out', ''],
@@ -530,27 +552,157 @@ export default function TerminalApp({ win, api }: AppProps) {
         return out('Bus 001 Device 001: ID 1d6b:0002 WebMpl Virtual Hub\nBus 001 Device 002: ID 046d:c52b Logitech Virtual Mouse\nBus 001 Device 003: ID 1bcf:0005 WebCam (emulated)')
       case 'lspci':
         return out('00:00.0 Host bridge: WebMpl JS Bridge\n00:02.0 VGA compatible controller: WebGPU Virtual Display Adapter\n00:1f.3 Audio device: WebAudio HDA Controller\n00:1f.6 Ethernet controller: MintNet Virtual NIC')
+      case 'dig': {
+        const flags = args.filter((a) => a.startsWith('-'))
+        const isType = (a: string) => /^(A|AAAA|CNAME|MX|TXT|NS|SOA|PTR|ANY)$/i.test(a)
+        const positional = args.filter((a) => !a.startsWith('-'))
+        const typeArg = positional.find(isType)
+        // `dig -t MX example.com` and `dig example.com MX` both work
+        const target = positional.filter((a) => !isType(a)).pop() ?? 'mintnet.com'
+        const type = (typeArg?.toUpperCase() ?? 'A') as any
+        if (flags.includes('-x')) {
+          const reverseName = reverseLookup(target)
+          if (!reverseName) throw new Error(`${cmd}: no PTR record for ${target}`)
+          return out(renderDig(resolveHost(target), 'PTR'))
+        }
+        const answer = resolveHost(target, { hosts: readHosts() })
+        if (type === 'ANY') {
+          const extra = zoneRecords().filter((r) => r.name === target.toLowerCase())
+          return out(
+            renderDig(answer, 'ANY') +
+              (extra.length ? `\n;; matches in the zone file:\n${extra.map((r) => `;;   ${r.type} ${r.value}`).join('\n')}` : ''),
+          )
+        }
+        if (type === 'MX' || type === 'TXT' || type === 'NS' || type === 'SOA') {
+          const records = type === 'SOA' ? [soaRecord()] : zoneRecords().filter((r) => r.type === type)
+          const scoped = target === 'mintnet' || target === 'mintnet.' ? records : records.filter((r) => r.name === target.toLowerCase())
+          if (!scoped.length) return out(renderDig({ ...answer, answers: [] }, type))
+          return out(
+            renderDig({ ...answer, answers: scoped.map((r) => ({ ...r, name: target })) }, type),
+          )
+        }
+        return out(renderDig(answer, type))
+      }
+      case 'host':
+        return out(renderHost(resolveHost(args[0] ?? 'mintnet.com', { hosts: readHosts() })))
+      case 'nslookup': {
+        const target = args.find((a) => !a.startsWith('-')) ?? 'mintnet.com'
+        const header = 'Server:\t\t10.0.0.53\nAddress:\t\t10.0.0.53#53'
+        if (args.includes('-type=mx')) {
+          const mx = zoneRecords().filter((r) => r.type === 'MX' && r.name === target.toLowerCase())
+          return out(
+            [header, '', `Non-authoritative answer:`, ...mx.map((r) => `${r.name}\tmail exchanger = ${r.value}`)].join('\n'),
+          )
+        }
+        return out(renderNslookup(resolveHost(target, { hosts: readHosts() })))
+      }
+      case 'getent': {
+        // getent hosts <name> — the glibc way, and it reads /etc/hosts first
+        const target = args[args.length - 1] ?? 'localhost'
+        const hosts = readHosts()
+        const fromHosts = hosts.get(target.toLowerCase())
+        const answer = resolveHost(target, { hosts })
+        const ip = fromHosts ?? answer.answers.find((r) => r.type === 'A')?.value
+        if (!ip) return out('')
+        return out(`${ip}  ${target}${fromHosts ? '   (from /etc/hosts)' : ''}`)
+      }
+      case 'nmap': {
+        const host = args.find((a) => !a.startsWith('-')) ?? 'localhost'
+        const answer = resolveHost(host, { hosts: readHosts() })
+        if (answer.status !== 'NOERROR' || !answer.server) {
+          return out(
+            [
+              `Starting Nmap 7.94 ( https://nmap.org ) at ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+              `Failed to resolve "${host}".`,
+              '',
+              'Nmap done: 0 IP addresses (0 hosts up) scanned in 0.31 seconds',
+            ].join('\n'),
+          )
+        }
+        const server = answer.server
+        const rows = [
+          `Starting Nmap 7.94 ( https://nmap.org ) at ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+          `Nmap scan report for ${host} (${serverAddress(server)})`,
+          'Host is up (0.00' + answer.rtt + 's latency).',
+          'Not shown: 995 closed tcp ports (reset)',
+          'PORT     STATE SERVICE     VERSION',
+        ]
+        for (const port of server.ports ?? []) {
+          rows.push(
+            `${String(port.port).padEnd(4)}/tcp ${'open'.padEnd(5)} ${port.service.padEnd(11)} ${port.version ?? server.software ?? ''}`.trimEnd(),
+          )
+        }
+        if (server.banner) rows.push('', `Service Info: ${server.banner}`)
+        rows.push(
+          '',
+          `Nmap done: 1 IP address (1 host up) scanned in ${(0.4 + answer.rtt / 100).toFixed(2)} seconds`,
+        )
+        return out(rows.join('\n'))
+      }
       case 'ifconfig':
-      case 'ip':
+      case 'ip': {
+        const resolv = readResolvConf()
+        const hostsFile = readHosts()
+        if (args[0] === 'route' || args[1] === 'route') {
+          return out(
+            [
+              'default via 10.0.2.2 dev wlan0 proto dhcp src 10.0.2.15 metric 100',
+              '10.0.2.0/24 dev wlan0 proto kernel scope link src 10.0.2.15',
+              '10.0.0.0/8 via 10.0.2.2 dev wlan0',
+            ].join('\n'),
+          )
+        }
+        if (args[0] === 'addr' || args[0] === 'a' || cmd === 'ifconfig') {
+          return out(
+            [
+              'wlan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500',
+              '        inet 10.0.2.15  netmask 255.255.255.0  broadcast 10.0.2.255',
+              '        ether 02:42:0a:00:02:0f  txqueuelen 1000  (Ethernet)',
+              `        RX packets ${Math.floor(nodeSize(vfs.node('/')!) / 1000)}  TX packets 8841`,
+              '        status: ' + (settings.wifi ? 'connected (MintNet)' : 'disconnected'),
+              '',
+              'lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536',
+              '        inet 127.0.0.1  netmask 255.0.0.0',
+              '',
+              `resolv.conf: ${resolv.nameservers.join(', ') || 'none'}  search ${resolv.search.join(' ') || '—'}`,
+              `hosts file: ${hostsFile.size} entries`,
+            ].join('\n'),
+          )
+        }
         return out(
           [
-            'wlan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500',
-            '        inet 10.0.2.15  netmask 255.255.255.0  broadcast 10.0.2.255',
-            '        ether 02:42:0a:00:02:0f  txqueuelen 1000  (Ethernet)',
-            `        RX packets ${Math.floor(nodeSize(vfs.node('/')!) / 1000)}  TX packets 8841`,
-            '        status: ' + (settings.wifi ? 'connected (MintNet)' : 'disconnected'),
-            '',
-            'lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536',
-            '        inet 127.0.0.1  netmask 255.0.0.0',
+            '1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536',
+            '    inet 127.0.0.1/8 scope host lo',
+            '2: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500',
+            '    inet 10.0.2.15/24 brd 10.0.2.255 scope global wlan0',
+            '    link/ether 02:42:0a:00:02:0f brd ff:ff:ff:ff:ff:ff',
           ].join('\n'),
         )
+      }
       case 'ping': {
-        const host = args[0] ?? 'mintnet.com'
-        const rows = [`PING ${host} (10.0.2.15) 56(84) bytes of data.`]
-        for (let i = 0; i < 4; i++) {
-          rows.push(`64 bytes from ${host}: icmp_seq=${i + 1} ttl=58 time=${(12 + Math.random() * 14).toFixed(1)} ms`)
+        const host = args.find((a) => !a.startsWith('-')) ?? 'mintnet.com'
+        const info = dnsStatus(host)
+        if (info.status !== 'NOERROR' || !info.address) {
+          return out(`ping: ${host}: Name or service not known`)
         }
-        rows.push('', `--- ${host} ping statistics ---`, '4 packets transmitted, 4 received, 0% packet loss')
+        const ttl = 52 + (hashString(host) % 12)
+        const rows = [`PING ${host} (${info.address}) 56(84) bytes of data.`]
+        let total = 0
+        for (let i = 0; i < 4; i++) {
+          const time = latencyFor(`${host}${i}`)
+          total += time
+          rows.push(`64 bytes from ${host} (${info.address}): icmp_seq=${i + 1} ttl=${ttl} time=${time}.${i} ms`)
+        }
+        rows.push(
+          '',
+          `--- ${host} ping statistics ---`,
+          '4 packets transmitted, 4 received, 0% packet loss, time ' + (total + 12) + 'ms',
+          `rtt min/avg/max/mdev = ${Math.min(...[1, 2, 3, 4].map((i) => latencyFor(`${host}${i - 1}`)))}/${(
+            total / 4
+          ).toFixed(3)}/${Math.max(...[1, 2, 3, 4].map((i) => latencyFor(`${host}${i - 1}`)))}/${(
+            total / 12
+          ).toFixed(3)} ms`,
+        )
         return out(rows.join('\n'))
       }
       case 'curl':
@@ -599,10 +751,22 @@ export default function TerminalApp({ win, api }: AppProps) {
       case 'man': {
         const topic = args[0]
         if (!topic) throw new Error('What manual page do you want?')
+        const summaries: Record<string, string> = {
+          ls: 'list directory contents',
+          cd: 'change the working directory',
+          dig: 'DNS lookup utility — queries the MintNet resolver',
+          host: 'DNS lookup utility (concise form)',
+          nslookup: 'query name servers interactively',
+          getent: 'get entries from the hosts database (/etc/hosts first)',
+          nmap: 'network exploration tool and port scanner',
+          curl: 'transfer a MintNet url and print the plain-text version',
+          ping: 'send ICMP ECHO_REQUEST to network hosts',
+          ifconfig: 'configure the network interface',
+        }
         return out(
           [
             `NAME`,
-            `     ${topic} — ${topic === 'ls' ? 'list directory contents' : topic === 'cd' ? 'change the working directory' : 'Mint Web OS command'}`,
+            `     ${topic} — ${summaries[topic] ?? 'Mint Web OS command'}`,
             '',
             'SYNOPSIS',
             `     ${topic} [OPTION]... [FILE]...`,
@@ -613,6 +777,11 @@ export default function TerminalApp({ win, api }: AppProps) {
             '',
             'SEE ALSO',
             '     help(1), neofetch(1), mint(1)',
+            '',
+            'RESOLVER',
+            '     Names are resolved from /etc/hosts first, then from MintNet DNS',
+            '     (10.0.0.53, 10.0.0.54). The zone is built from the machines in',
+            '     src/net/internet/servers/ — see about:dns in the Web Browser.',
           ].join('\n'),
         )
       }

@@ -3,7 +3,28 @@ import { useOS } from '../os/store'
 import { vfs, baseName, join } from '../os/vfs'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { Popup, type MenuItem } from '../shell/ContextMenu'
-import { HOME_URL, SITES, findSite, resolveUrl, searchMintNet, fetchAsText } from '../net'
+import {
+  HOME_URL,
+  SITES,
+  SERVERS,
+  REJECTED,
+  addressFor,
+  dnsStatus,
+  findSite,
+  findServer,
+  ipv6For,
+  latencyFor,
+  readHosts,
+  renderDig,
+  resolveHost,
+  resolveUrl,
+  reverseLookup,
+  searchMintNet,
+  fetchAsText,
+  serverAddress,
+  zoneRecords,
+} from '../net'
+import { Btn } from '../net/sitekit'
 import { FILES } from '../net/downloads'
 import { loadBookmarks, loadHistory, pushHistory, saveBookmarks, clearHistory, type Bookmark } from '../net/storage'
 import type { PageCtx, ResolvedUrl, SiteDef } from '../net/types'
@@ -166,6 +187,9 @@ export default function BrowserApp({ win, api }: AppProps) {
     } else if (r.kind === 'about') {
       title = `about:${r.aboutPage}`
       favicon = { glyph: 'Info', color: '#7d8a95' }
+    } else if (r.kind === 'notfound') {
+      title = `Server not found — ${r.domain}`
+      favicon = { glyph: 'WifiOff', color: '#b8532f' }
     } else if (r.kind === 'real') {
       title = `${r.domain} (real website)`
       favicon = { glyph: 'Globe', color: '#4a7fe8' }
@@ -309,6 +333,8 @@ export default function BrowserApp({ win, api }: AppProps) {
         )
       case 'about':
         return renderAbout(resolved.aboutPage ?? 'home', navigate, bookmarks, downloads, historyTick)
+      case 'notfound':
+        return <DnsErrorPage resolved={resolved} navigate={navigate} />
       case 'real':
         return <RealWebPage url={active.url} ctx={pageCtx} navigate={navigate} />
       default:
@@ -500,6 +526,7 @@ export default function BrowserApp({ win, api }: AppProps) {
           {status || (active.loading ? 'Contacting MintNet…' : `${resolved.href}`)}
         </span>
         {activeDownload && <span>Downloading {activeDownload.filename}…</span>}
+        {resolved.kind !== 'about' && <DnsBadge host={resolved.domain} />}
         <span>zoom {(active.zoom * 100).toFixed(0)}%</span>
       </div>
 
@@ -640,6 +667,246 @@ function ErrorPage({ msg }: { msg: string }) {
       <div style={{ textAlign: 'center', color: '#5c665f' }}>
         <div style={{ fontSize: 22, fontWeight: 600, color: '#b8532f' }}>{msg}</div>
         <p>The address could not be understood. Try “mintnet.com” or a search phrase.</p>
+      </div>
+    </div>
+  )
+}
+
+/** Small "resolved by DNS" readout in the status bar. */
+function DnsBadge({ host }: { host: string }) {
+  if (!host || host === 'search') return null
+  const info = dnsStatus(host)
+  const text =
+    info.status === 'NOERROR'
+      ? `${info.address ?? '—'}${info.source === 'hosts' ? ' (hosts file)' : ''} · ${info.rtt} ms`
+      : 'NXDOMAIN'
+  return (
+    <span
+      title={`MintNet DNS: ${host} → ${info.status}${info.server ? ` (${info.server.id})` : ''}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        fontFamily: 'var(--font-mono)',
+        fontSize: 11,
+        color: info.status === 'NOERROR' ? '#3f6b25' : '#a4462a',
+      }}
+    >
+      <Glyph name={info.status === 'NOERROR' ? 'Network' : 'WifiOff'} size={12} />
+      {text}
+    </span>
+  )
+}
+
+/** The page you get when a name does not resolve. */
+function DnsErrorPage({ resolved, navigate }: { resolved: ResolvedUrl; navigate: (u: string) => void }) {
+  const host = resolved.domain
+  const answer = resolveHost(host, { hosts: readHosts() })
+  const suggestions = SITES.filter((s) => s.domain.split('.')[0].slice(0, 3) === host.split('.')[0].slice(0, 3)).slice(0, 3)
+  return (
+    <div style={{ minHeight: '100%', background: '#f6f7f4', padding: '54px 22px' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <AppIcon glyph="WifiOff" color="#c0572f" color2="#8d3a1c" size={44} />
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#2f3730' }}>Server not found</div>
+            <div style={{ color: '#5c665f', fontSize: 13.5 }}>{resolved.notFoundReason ?? `DNS has no record for ${host}.`}</div>
+          </div>
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e3e6e1', borderRadius: 10, padding: 16, marginTop: 20 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13.5 }}>What the resolver said</div>
+          <pre style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: 12, color: '#37402c', whiteSpace: 'pre-wrap' }}>
+            {`; <<>> dig ${host}
+;; status: ${answer.status}, query time: ${answer.rtt} msec
+;; SERVER: 10.0.0.53#53(ns1.mintnet.com)
+${answer.answers.map((r) => `;; ${r.name}. ${r.ttl} IN ${r.type} ${r.value}`).join('\n') || ';; (no answer)'}`}
+          </pre>
+        </div>
+
+        <div style={{ marginTop: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Btn tone="grey" onClick={() => navigate('about:dns')}>
+            Open the MintNet Registry
+          </Btn>
+          <Btn tone="grey" onClick={() => navigate('https://mintnet.com/')}>
+            Go to mintnet.com
+          </Btn>
+        </div>
+
+        <p style={{ color: '#77807a', fontSize: 12.5, marginTop: 16 }}>
+          MintNet has {SITES.length} sites on {SERVERS.length} machines. You can add your own: drop a file into{' '}
+          <code>src/net/internet/servers/</code>, or map a name in <code>/etc/hosts</code> (open it in the Text Editor).
+        </p>
+
+        {suggestions.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>Did you mean</div>
+            {suggestions.map((s) => (
+              <div key={s.domain} style={{ padding: '4px 0' }}>
+                <a onClick={() => navigate(`https://${s.domain}/`)} style={{ cursor: 'pointer' }}>
+                  {s.domain}
+                </a>{' '}
+                <span style={{ color: '#8a938c', fontSize: 12 }}>{s.description.slice(0, 60)}…</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** about:dns — the MintNet Registry: every machine, every record, live. */
+function DnsRegistryPage({ navigate }: { navigate: (u: string) => void }) {
+  const [filter, setFilter] = React.useState('')
+  const [tab, setTab] = React.useState<'servers' | 'records' | 'hosts'>('servers')
+  const records = zoneRecords()
+  const hosts = [...readHosts().entries()]
+  const q = filter.trim().toLowerCase()
+  const servers = SERVERS.filter(
+    (s) => !q || s.id.includes(q) || s.hosts.some((h) => h.includes(q)) || (s.operator ?? '').toLowerCase().includes(q),
+  )
+  return (
+    <div style={{ minHeight: '100%', background: '#f6f7f4', padding: 22 }}>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <AppIcon glyph="Network" color="#4a7fe8" color2="#2b4f9e" size={40} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>MintNet Registry</div>
+            <div style={{ color: '#5c665f', fontSize: 13 }}>
+              {SERVERS.length} machines · {SITES.length} sites · {records.length} DNS records · resolvers 10.0.0.53,
+              10.0.0.54
+            </div>
+          </div>
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="filter machines…"
+            style={{ padding: '7px 10px', border: '1px solid #d8dcd5', borderRadius: 6, width: 200 }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, margin: '16px 0 12px' }}>
+          {(['servers', 'records', 'hosts'] as const).map((name) => (
+            <Btn key={name} tone={tab === name ? 'mint' : 'grey'} onClick={() => setTab(name)}>
+              {name === 'servers' ? 'Machines' : name === 'records' ? 'Zone file' : '/etc/hosts'}
+            </Btn>
+          ))}
+        </div>
+
+        {tab === 'servers' &&
+          servers.map((server) => (
+            <div
+              key={server.id}
+              style={{ background: '#fff', border: '1px solid #e3e6e1', borderRadius: 10, padding: 14, marginBottom: 10 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14.5 }}>
+                    {server.id}
+                    {server.sites?.length ? (
+                      <span style={{ fontWeight: 400, color: '#5c665f', fontSize: 13 }}>
+                        {' '}
+                        · {server.sites.map((s) => s.domain).join(', ')}
+                      </span>
+                    ) : (
+                      <span style={{ fontWeight: 400, color: '#8a938c', fontSize: 13 }}> · infrastructure</span>
+                    )}
+                  </div>
+                  <div style={{ color: '#77807a', fontSize: 12.5, marginTop: 2 }}>
+                    {server.operator} · {server.location} · since {server.since} · {server.os}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>
+                  <div>{serverAddress(server)}</div>
+                  <div style={{ color: '#8a938c' }}>{ipv6For(server.hosts[0])}</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                {server.hosts.map((h) => (
+                  <span
+                    key={h}
+                    onClick={() => navigate(`https://${h}/`)}
+                    style={{
+                      cursor: 'pointer',
+                      background: '#eef4e8',
+                      color: '#2c6b12',
+                      borderRadius: 999,
+                      padding: '3px 10px',
+                      fontSize: 12,
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    {h}
+                  </span>
+                ))}
+                {(server.aliases ?? []).map((a) => (
+                  <span key={a} style={{ background: '#f2f3f1', color: '#5c665f', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                    {a} ↦ CNAME
+                  </span>
+                ))}
+                {(server.wildcard ?? []).map((w) => (
+                  <span key={w} style={{ background: '#eef2f7', color: '#2b4f9e', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                    {w}
+                  </span>
+                ))}
+              </div>
+
+              <div style={{ color: '#77807a', fontSize: 12, marginTop: 8, fontFamily: 'var(--font-mono)' }}>
+                {(server.ports ?? []).map((p) => `${p.port}/${p.service}${p.version ? ` (${p.version})` : ''}`).join(' · ') ||
+                  'no open ports'}
+              </div>
+              {server.notes && <div style={{ color: '#5c665f', fontSize: 12.5, marginTop: 6 }}>{server.notes}</div>}
+            </div>
+          ))}
+
+        {tab === 'records' && (
+          <div style={{ background: '#20262b', color: '#dbe6d3', borderRadius: 10, padding: 14, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+            <div style={{ color: '#8fb573' }}>; MintNet zone — {records.length} records, TTL in seconds</div>
+            {records.map((r, i) => (
+              <div key={i}>
+                {r.name.padEnd(28)} {String(r.ttl).padStart(6)} IN {r.type.padEnd(7)} {r.value}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'hosts' && (
+          <div style={{ background: '#fff', border: '1px solid #e3e6e1', borderRadius: 10, padding: 14 }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>/etc/hosts</div>
+            <div style={{ color: '#5c665f', fontSize: 13, marginBottom: 10 }}>
+              These entries are checked before MintNet DNS. Edit the file in the Text Editor or in the Terminal to change
+              what a name resolves to.
+            </div>
+            {hosts.map(([name, ip]) => (
+              <div key={name} style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, padding: '3px 0' }}>
+                {ip.padEnd(16)} {name}
+                {reverseLookup(ip) ? <span style={{ color: '#8a938c' }}> — also in the zone</span> : null}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {REJECTED.length > 0 && (
+          <div style={{ marginTop: 14, background: '#fdf3ee', border: '1px solid #f0d4c6', borderRadius: 10, padding: 12 }}>
+            <div style={{ fontWeight: 600, color: '#a4462a', fontSize: 13 }}>Rejected server files</div>
+            {REJECTED.map((bad) => (
+              <div key={bad.file} style={{ fontSize: 12.5, color: '#7a4a35' }}>
+                {bad.file} — {bad.reason}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p style={{ color: '#77807a', fontSize: 12.5, marginTop: 16 }}>
+          Add a machine: drop a <code>*.server.tsx</code> file into <code>src/net/internet/servers/</code>. Try{' '}
+          <code>dig</code>, <code>host</code> or <code>nslookup</code> in the Terminal, or open{' '}
+          <a onClick={() => navigate('https://mintdev.io/')} style={{ cursor: 'pointer' }}>
+            the developer docs
+          </a>
+          .
+        </p>
       </div>
     </div>
   )
@@ -825,6 +1092,7 @@ function renderAbout(
       </div>
     )
   }
+  if (page === 'dns') return <DnsRegistryPage navigate={navigate} />
   if (page === 'version') {
     return (
       <div style={{ padding: 24, fontFamily: 'var(--font-mono)' }}>
@@ -847,6 +1115,12 @@ Real web: embedded frames where permitted`}</pre>
           <AppIcon glyph="Compass" color="#61ad2b" color2="#2f6b12" size={54} />
           <div style={{ fontSize: 30, fontWeight: 800, color: '#3b6f18', marginTop: 10 }}>MintNet Explorer</div>
           <div style={{ color: '#5c665f' }}>Type an address or search the MintNet</div>
+          <div style={{ marginTop: 8, fontSize: 12.5 }}>
+            <a onClick={() => navigate('about:dns')} style={{ cursor: 'pointer' }}>
+              MintNet Registry
+            </a>
+            <span style={{ color: '#9aa39c' }}> — every machine on the network, live from DNS</span>
+          </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 12, marginBottom: 26 }}>
           {SITES.map((s) => (

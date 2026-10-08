@@ -7,7 +7,27 @@ import { createRoot, type Root } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import Desktop from '../shell/Desktop'
 import { APPS } from '../apps/registry'
-import { SITES, resolveUrl, searchMintNet, fetchAsText, buildIndex } from '../net'
+import {
+  SITES,
+  SERVERS,
+  REJECTED,
+  addressOf,
+  resolveHost,
+  reverseLookup,
+  resolveUrl,
+  renderDig,
+  renderHost,
+  renderNslookup,
+  searchMintNet,
+  fetchAsText,
+  buildIndex,
+  readHosts,
+  addHostEntry,
+  removeHostEntry,
+  readResolvConf,
+  serverAddress,
+  zoneRecords,
+} from '../net'
 import { useOS } from '../os/store'
 import { vfs, useVFS } from '../os/vfs'
 import type { PageCtx } from '../net/types'
@@ -142,6 +162,99 @@ export async function runSmoke() {
     assert(resolveUrl('example.com').kind === 'real', 'a foreign domain should be treated as the real web')
   })
 
+  /* ------------------------------- DNS ------------------------------- */
+
+  await check('every server file loads', () => {
+    assert(REJECTED.length === 0, `rejected server files: ${REJECTED.map((r) => `${r.file} (${r.reason})`).join(', ')}`)
+    assert(SERVERS.length >= 13, `only ${SERVERS.length} machines registered`)
+    const ids = SERVERS.map((s) => s.id)
+    assert(new Set(ids).size === ids.length, 'two machines share an id')
+  })
+
+  await check('names resolve to addresses in the MintNet block', () => {
+    for (const name of ['mintnet.com', 'mintpedia.org', 'mintnews.com', 'mintmail.com', 'pastemint.com', 'example.mintnet']) {
+      const answer = resolveHost(name)
+      assert(answer.status === 'NOERROR', `${name} did not resolve (${answer.status})`)
+      const a = answer.answers.find((r) => r.type === 'A')
+      assert(a, `${name} has no A record`)
+      const [first, second] = a!.value.split('.').map(Number)
+      assert(first === 10 && second >= 64 && second <= 127, `${name} resolved outside the block: ${a!.value}`)
+    }
+  })
+
+  await check('aliases and wildcards are CNAMEs', () => {
+    const www = resolveHost('www.mintpedia.org')
+    assert(www.status === 'NOERROR', 'www.mintpedia.org did not resolve')
+    assert(www.cname === 'mintpedia.org', `www CNAME points at ${www.cname}`)
+    const sub = resolveHost('en.mintpedia.org')
+    assert(sub.status === 'NOERROR', 'the wildcard zone did not answer for en.mintpedia.org')
+    assert(sub.server?.id === 'pedia-web-02', 'wildcard resolved to the wrong machine')
+    const search = resolveHost('search.mintnet.com')
+    assert(search.site?.domain === 'mintnet.com', 'the search alias should land on the portal')
+  })
+
+  await check('unknown names are NXDOMAIN, and the browser explains why', () => {
+    assert(resolveHost('nope.mintnet').status === 'NXDOMAIN', 'a fake name resolved')
+    assert(resolveHost('mintpedia.org.invalid-tld').status === 'NXDOMAIN', 'an absurd name resolved')
+    const resolved = resolveUrl('https://nope.mintnet/')
+    assert(resolved.kind === 'notfound', `nope.mintnet should be notfound, got ${resolved.kind}`)
+    assert(!!resolved.notFoundReason, 'no explanation attached to the failure')
+    assert(resolveUrl('example.com').kind === 'real', 'real-world domains should still be honest')
+  })
+
+  await check('reverse lookup and by-address navigation', () => {
+    const ip = addressOf('mintnews.com')!
+    assert(reverseLookup(ip) === 'mintnews.com', `PTR for ${ip} said ${reverseLookup(ip)}`)
+    const byIp = resolveHost(ip)
+    assert(byIp.status === 'NOERROR' && byIp.site?.domain === 'mintnews.com', 'navigating by address did not find the site')
+    const resolved = resolveUrl(`https://${ip}/`)
+    assert(resolved.kind === 'site' && resolved.domain === 'mintnews.com', 'the browser cannot open addresses by IP')
+  })
+
+  await check('/etc/hosts overrides the zone', () => {
+    const before = readHosts().get('smoke.local')
+    assert(!before, 'the test name already existed')
+    addHostEntry('smoke.local', '10.9.9.9')
+    const answer = resolveHost('smoke.local', { hosts: readHosts() })
+    assert(answer.status === 'NOERROR', 'a name from /etc/hosts did not resolve')
+    assert(answer.source === 'hosts', `resolution source was ${answer.source}`)
+    assert(answer.answers[0].value === '10.9.9.9', 'the hosts file address was ignored')
+    removeHostEntry('smoke.local')
+    assert(resolveHost('smoke.local', { hosts: readHosts() }).status === 'NXDOMAIN', 'removing the entry had no effect')
+  })
+
+  await check('resolver configuration is real and complete', () => {
+    const resolv = readResolvConf()
+    assert(resolv.nameservers.includes('10.0.0.53'), 'resolv.conf has no MintNet nameserver')
+    assert(resolv.search.includes('mintnet'), 'resolv.conf has no search domain')
+    assert(vfs.read('/etc/hosts')?.includes('localhost'), '/etc/hosts is missing')
+    assert(zoneRecords().length > 20, `only ${zoneRecords().length} records in the zone`)
+  })
+
+  await check('dig/host/nslookup render like the real tools', () => {
+    const dig = renderDig(resolveHost('mintpedia.org'))
+    assert(dig.includes('status: NOERROR'), 'dig did not report NOERROR')
+    assert(/10\.\d+\.\d+\.\d+/.test(dig), 'dig printed no address')
+    assert(dig.includes('ns1.mintnet.com'), 'dig printed no authority')
+    const nx = renderDig(resolveHost('nope.mintnet'))
+    assert(nx.includes('status: NXDOMAIN'), 'dig did not report NXDOMAIN')
+    assert(renderHost(resolveHost('mintube.com')).includes('has address'), 'host printed nothing useful')
+    assert(renderNslookup(resolveHost('mintnet.com')).includes('Non-authoritative answer'), 'nslookup output is wrong')
+  })
+
+  await check('server addresses are unique and stable', () => {
+    const seen = new Map<string, string>()
+    for (const server of SERVERS) {
+      const ip = serverAddress(server)
+      assert(!seen.has(ip), `${server.id} and ${seen.get(ip)} share the address ${ip}`)
+      seen.set(ip, server.id)
+      assert(serverAddress(server) === ip, `${server.id} changed address between calls`)
+      for (const host of server.hosts) {
+        assert(addressOf(host) === ip, `${host} resolved to ${addressOf(host)} instead of ${ip}`)
+      }
+    }
+  })
+
   await check('search index finds articles', () => {
     const index = buildIndex()
     assert(index.length > 30, `index too small: ${index.length}`)
@@ -227,6 +340,37 @@ export async function runSmoke() {
     await runTerminal(term.host, 'wallpaper 2')
     assert(useOS.getState().settings.wallpaper.includes('mint-facets'), 'wallpaper command did not change the background')
     await runTerminal(term.host, 'ls | wc -l')
+    await runTerminal(term.host, 'dig mintpedia.org')
+    const afterDig = term.text()
+    assert(afterDig.includes('status: NOERROR'), 'dig did not resolve mintpedia.org')
+    assert(/10\.\d+\.\d+\.\d+/.test(afterDig), 'dig printed no address')
+    await runTerminal(term.host, 'dig nope.mintnet')
+    assert(term.text().includes('NXDOMAIN'), 'dig did not report NXDOMAIN for an unknown name')
+    await runTerminal(term.host, 'nslookup mintnews.com')
+    assert(term.text().includes('Non-authoritative answer'), 'nslookup printed nothing')
+    await runTerminal(term.host, 'host mintcart.com')
+    assert(term.text().includes('has address'), 'host printed nothing')
+    await runTerminal(term.host, 'getent hosts ns1.mintnet.com')
+    assert(term.text().includes('10.0.0.53'), 'getent did not read /etc/hosts')
+    await runTerminal(term.host, 'nmap mintcart.com')
+    const afterNmap = term.text()
+    assert(afterNmap.includes('PORT'), 'nmap printed no port table')
+    assert(afterNmap.includes('https'), 'nmap lost the https port')
+    await runTerminal(term.host, 'ping mintube.com')
+    assert(term.text().includes('0% packet loss'), 'ping failed on a resolvable name')
+    await runTerminal(term.host, 'ping nope.mintnet')
+    assert(term.text().includes('Name or service not known'), 'ping should fail on NXDOMAIN')
+    await runTerminal(term.host, 'cat /etc/resolv.conf')
+    assert(term.text().includes('10.0.0.53'), 'resolv.conf is not readable from the shell')
+    await runTerminal(term.host, 'curl https://pastemint.com/')
+    await new Promise((r) => setTimeout(r, 260))
+    assert(term.text().includes('hello1'), 'curl could not list the dropped-in server')
+    await runTerminal(term.host, 'curl https://pastemint.com/raw/hello1')
+    await new Promise((r) => setTimeout(r, 260))
+    assert(term.text().includes('Paste anything here'), 'curl could not read a raw paste')
+    await runTerminal(term.host, 'curl https://pastemint.com/raw/nothing-here')
+    await new Promise((r) => setTimeout(r, 260))
+    assert(term.text().includes('404: no paste'), 'the pastebin 404 is missing')
     assert(term.title().includes('@'), 'terminal title is not the prompt')
     vfs.rm('/home/mint/smoke-terminal-dir')
     vfs.rm('/home/mint/Documents/terminal-write.txt')
@@ -247,6 +391,32 @@ export async function runSmoke() {
     const text = browser.text()
     assert(text.includes('Cinnamon 6.4'), `front page did not render (saw: ${text.slice(0, 120)})`)
     assert(text.includes('MintNews'), 'site chrome missing')
+    browser.unmount()
+  })
+
+  await check('browser shows the MintNet registry', async () => {
+    const browser = await mountApp('browser', { url: 'about:dns' })
+    await new Promise((r) => setTimeout(r, 800))
+    const text = browser.text()
+    assert(text.includes('MintNet Registry'), 'about:dns did not render')
+    assert(text.includes('pedia-web-02'), 'the registry lists no machines')
+    assert(text.includes('pastemint.com'), 'the registry does not show dropped-in servers')
+    browser.unmount()
+  })
+
+  await check('browser renders the DNS failure page', async () => {
+    const browser = await mountApp('browser', { url: 'https://nope.mintnet/' })
+    await new Promise((r) => setTimeout(r, 800))
+    const text = browser.text()
+    assert(text.includes('Server not found'), `no DNS error page (saw: ${text.slice(0, 120)})`)
+    assert(text.includes('NXDOMAIN'), 'the error page does not show the resolver answer')
+    browser.unmount()
+  })
+
+  await check('browser resolves a subdomain of a wildcard zone', async () => {
+    const browser = await mountApp('browser', { url: 'https://en.mintpedia.org/' })
+    await new Promise((r) => setTimeout(r, 900))
+    assert(browser.text().includes('MintPedia'), 'the wildcard host did not load the encyclopaedia')
     browser.unmount()
   })
 
