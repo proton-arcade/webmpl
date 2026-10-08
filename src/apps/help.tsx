@@ -145,7 +145,8 @@ ping nope.mixtnet          # NXDOMAIN, honestly`}</Pre>
         <Para>
           The directory is the folder <Code>src/net/internet/servers/</Code> — one file per machine. Drop a new
           <Code>*.server.tsx</Code> file in, reload, and its domain resolves: a website, DNS records and open ports
-          included. The folder has its own README and a worked example (a working pastebin in a single file). You can
+          included. The folder has its own README, a step-by-step guide
+          (<Code>src/net/internet/HOWTO.md</Code>) and a worked example (a working pastebin in a single file). You can
           also point any name anywhere from <Code>/etc/hosts</Code>, which overrides the zone — open it in the Text
           Editor.
         </Para>

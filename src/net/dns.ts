@@ -355,8 +355,13 @@ function wildcardFor(name: string): { entry: ZoneEntry; canonical?: string } | u
   for (const wild of [...WILDCARDS].sort((a, b) => b.suffix.length - a.suffix.length)) {
     if (name.endsWith(`.${wild.suffix}`) && name !== wild.suffix) {
       const canonical = cleanHost(wild.server.hosts[0] ?? wild.suffix)
+      // A subdomain of a wildcard zone is served by the site that owns the zone
+      // (en.mixtpedia.org → mixtpedia.org), unless the machine has a site whose
+      // domain matches the subdomain exactly. Doing it here rather than relying
+      // on the memoised alias in resolveHost() keeps the FIRST lookup correct too.
+      const site = siteFor(wild.server, name) ?? siteFor(wild.server, wild.suffix)
       return {
-        entry: { server: wild.server, site: siteFor(wild.server, name), ttl: wild.ttl },
+        entry: { server: wild.server, site, ttl: wild.ttl },
         canonical,
       }
     }

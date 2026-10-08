@@ -1,5 +1,8 @@
 # The Internet directory
 
+> **New here?** [HOWTO.md](./HOWTO.md) is the step-by-step walkthrough: add a machine, add a website,
+> verify it, and fix it when a file is rejected. This file is the field-by-field reference.
+
 This folder is the network. Every `*.server.tsx` file in `servers/` is a machine:
 it claims hostnames, gets an address in the MixtNet block (`10.64.0.0/10`), and
 serves whatever websites it declares.

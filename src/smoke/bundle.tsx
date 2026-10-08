@@ -21,6 +21,8 @@ import {
   searchMixtNet,
   fetchAsText,
   buildIndex,
+  registerServers,
+  findSite,
   readHosts,
   addHostEntry,
   removeHostEntry,
@@ -32,6 +34,7 @@ import { useOS } from '../os/store'
 import { vfs, useVFS } from '../os/vfs'
 import { migrateBranding } from '../os/migrate'
 import type { PageCtx } from '../net/types'
+import type { ServerDef } from '../net/internet/types'
 import type { WinState } from '../os/types'
 
 interface Result {
@@ -304,6 +307,61 @@ export async function runSmoke() {
     }
   })
 
+  /* A machine published at runtime — the low-level path a dropped-in file takes
+     through manifest.ts. Search is built from the files discovered at load time
+     (SITES), so a runtime registration shows up in DNS, the browser, curl and
+     nmap, but the index is only refreshed for files on disk. */
+  await check('a machine registered at runtime joins the zone, the browser and curl', async () => {
+    // registerServers() rebuilds the whole zone from the list it is handed, the
+    // way manifest.ts does when a file appears — so hand it everything, plus one
+    // extra machine, exactly like a dropped-in server file would arrive.
+    const dropIn: ServerDef = {
+        id: 'smoke-dropin',
+        hosts: ['dropin.smoketest'],
+        operator: 'the smoke suite',
+        ports: [{ port: 443, service: 'https', version: 'smoked/1.0' }],
+        sites: [
+          {
+            domain: 'dropin.smoketest',
+            title: 'Drop-in Test',
+            glyph: 'Box',
+            color: '#61ad2b',
+            description: 'A machine that was published at runtime, the way a dropped-in file is.',
+            tags: ['smoke'],
+            defaultPath: '/',
+            pages: [
+              {
+                path: '/',
+                title: 'Drop-in Test — home',
+                keywords: ['dropin', 'smoke'],
+                snippet: 'The page of a runtime-registered machine.',
+                render: () => 'drop-in page',
+              },
+            ],
+            text: (path: string) => `drop-in ok ${path}`,
+          },
+        ],
+    }
+    registerServers([...SERVERS, dropIn])
+
+    assert(
+      resolveHost('mixtnews.com').status === 'NOERROR',
+      'registering the dropped-in machine wiped the rest of the zone',
+    )
+    assert(resolveHost('dropin.smoketest').status === 'NOERROR', 'the dropped-in machine is not in the zone')
+
+    const answer = resolveHost('dropin.smoketest')
+    assert(answer.status === 'NOERROR', `dropin.smoketest is ${answer.status}`)
+    assert(answer.server?.id === 'smoke-dropin', 'the dropped-in machine did not answer')
+    assert(addressOf('dropin.smoketest'), 'the dropped-in machine has no address')
+
+    const resolved = resolveUrl('https://dropin.smoketest/')
+    assert(resolved.kind === 'site', `the browser resolved the drop-in as ${resolved.kind}`)
+    assert(findSite('dropin.smoketest')?.title === 'Drop-in Test', 'findSite() missed the drop-in')
+
+    assert((await fetchAsText('https://dropin.smoketest/')) === 'drop-in ok /', 'curl text is wrong')
+  })
+
   await check('search index finds articles', () => {
     const index = buildIndex()
     assert(index.length > 30, `index too small: ${index.length}`)
@@ -465,7 +523,14 @@ export async function runSmoke() {
   await check('browser resolves a subdomain of a wildcard zone', async () => {
     const browser = await mountApp('browser', { url: 'https://en.mixtpedia.org/' })
     await new Promise((r) => setTimeout(r, 900))
-    assert(browser.text().includes('MixtPedia'), 'the wildcard host did not load the encyclopaedia')
+    assert(
+      resolveHost('en.mixtpedia.org').status === 'NOERROR',
+      'the wildcard host stopped resolving',
+    )
+    assert(
+      browser.text().includes('MixtPedia'),
+      `the wildcard host did not load the encyclopaedia (saw: ${browser.text().slice(0, 200)})`,
+    )
     browser.unmount()
   })
 

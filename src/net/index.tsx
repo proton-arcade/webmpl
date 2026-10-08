@@ -289,6 +289,7 @@ export {
   ipv6For,
   isIpAddress,
   latencyFor,
+  registerServers,
   renderDig,
   renderHost,
   renderNslookup,

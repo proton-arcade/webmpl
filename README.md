@@ -101,8 +101,9 @@ src/net/internet/hosts.ts               ← /etc/hosts + /etc/resolv.conf (real 
 Each `*.server.tsx` file default-exports a machine — hostnames, aliases,
 wildcards, open ports, DNS records, operator flavour, and the `SiteDef`s it
 serves. `import.meta.glob` picks the files up automatically, so **adding a site
-means adding a file**, and nothing else: `src/net/internet/README.md` documents
-the format, and `servers/pastemixt.server.tsx` is a complete worked example (a
+means adding a file**, and nothing else: `src/net/internet/HOWTO.md` is the
+step-by-step walkthrough, `src/net/internet/README.md` is the field-by-field
+reference, and `servers/pastemixt.server.tsx` is a complete worked example (a
 working pastebin in a single file).
 
 Every machine gets a stable fake address in the MixtNet block (`10.64.0.0/10`),
