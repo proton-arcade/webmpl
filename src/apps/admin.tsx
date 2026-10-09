@@ -19,7 +19,7 @@ const card: React.CSSProperties = {
 }
 const row: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 110px 92px 150px',
+  gridTemplateColumns: '1fr 110px 92px 118px 96px',
   gap: 8,
   alignItems: 'center',
   padding: '7px 0',
@@ -37,12 +37,18 @@ export default function AdminApp({ api }: AppProps) {
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
   const [newUser, setNewUser] = useState({ username: '', password: '', admin: false })
+  /* publishing from the console: the code is part of the submission */
+  const [newApp, setNewApp] = useState({ name: '', code: '' })
+  /* which account's password is being replaced, and with what */
+  const [pwFor, setPwFor] = useState<{ username: string; password: string } | null>(null)
+  const [guests, setGuests] = useState<backend.GuestLogin[] | null>(null)
 
   const refresh = useCallback(async () => {
-    const [a, u, s] = await Promise.all([backend.serverApps(), backend.allUsers(), backend.stats()])
+    const [a, u, s, g] = await Promise.all([backend.serverApps(), backend.allUsers(), backend.stats(), backend.guestLog()])
     setApps(a)
     setUsers(u)
     setStats(s)
+    setGuests(g)
   }, [])
 
   useEffect(() => {
@@ -151,6 +157,44 @@ export default function AdminApp({ api }: AppProps) {
             </div>
 
             <div style={card}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Publish an app</div>
+              <div style={{ fontSize: 12.5, opacity: 0.8, lineHeight: 1.5, marginBottom: 10 }}>
+                What the administrator publishes goes straight out approved — there is nobody above you to approve it.
+                The code is part of the submission: the server refuses an app that has none.
+              </div>
+              <input
+                className="entry"
+                placeholder="App name"
+                value={newApp.name}
+                onChange={(e) => setNewApp({ ...newApp, name: e.target.value })}
+                style={{ width: '100%', marginBottom: 8 }}
+              />
+              <textarea
+                className="entry"
+                placeholder="The code of the app"
+                value={newApp.code}
+                onChange={(e) => setNewApp({ ...newApp, code: e.target.value })}
+                style={{ width: '100%', height: 130, fontFamily: 'var(--font-mono)', fontSize: 12 }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                <button
+                  className="btn-mixt"
+                  disabled={!!busy || !newApp.name || !newApp.code}
+                  onClick={() =>
+                    act('Publish app', async () => {
+                      const r = await backend.publishApp(newApp.name.trim(), newApp.code, { approved: true, author: session.username })
+                      if (r.ok) setNewApp({ name: '', code: '' })
+                      return r
+                    })
+                  }
+                  style={{ padding: '5px 14px', fontSize: 12.5 }}
+                >
+                  Publish approved
+                </button>
+              </div>
+            </div>
+
+            <div style={card}>
               <div style={{ fontWeight: 700, marginBottom: 8 }}>Published ({approved.length})</div>
               {approved.length === 0 ? (
                 <div style={{ opacity: 0.7, fontSize: 12.5 }}>No approved apps yet.</div>
@@ -192,14 +236,67 @@ export default function AdminApp({ api }: AppProps) {
                   <div style={head}>
                     <span>Username</span>
                     <span>Role</span>
-                    <span>Session</span>
+                    <span>Mailbox</span>
+                    <span>Password</span>
                     <span style={{ textAlign: 'right' }}>Remove</span>
                   </div>
                   {users.map((u) => (
                     <div style={row} key={u.username}>
-                      <span style={{ fontWeight: 600 }}>{u.username}</span>
+                      <span style={{ fontWeight: 600 }}>
+                        {u.username}
+                        {u.username === session.username && <span style={{ fontWeight: 400, opacity: 0.65 }}> · this session</span>}
+                      </span>
                       <span>{u.role === 'admin' ? 'Administrator' : 'Standard user'}</span>
-                      <span style={{ opacity: 0.7 }}>{u.username === session.username ? 'this session' : ''}</span>
+                      <span>
+                        <button
+                          className={u.mailbox ? 'btn-mixt' : 'btn-ghost'}
+                          disabled={!!busy}
+                          title={u.mailbox ? 'Switch this mailbox off (the mail is kept, not deleted)' : 'Give this account a mailbox'}
+                          onClick={() => act(`${u.mailbox ? 'Close' : 'Open'} ${u.username}'s mailbox`, () => backend.setMailbox(u.username, !u.mailbox))}
+                          style={{ padding: '3px 10px', fontSize: 12 }}
+                        >
+                          {u.mailbox ? 'On' : 'Off'}
+                        </button>
+                      </span>
+                      <span>
+                        {pwFor?.username === u.username ? (
+                          <span style={{ display: 'flex', gap: 4 }}>
+                            <input
+                              className="entry"
+                              type="password"
+                              autoFocus
+                              placeholder="new password"
+                              value={pwFor.password}
+                              onChange={(e) => setPwFor({ ...pwFor, password: e.target.value })}
+                              style={{ width: 86, padding: '2px 6px', fontSize: 12 }}
+                            />
+                            <button
+                              className="btn-mixt"
+                              disabled={!!busy || !pwFor.password}
+                              onClick={() =>
+                                act(`Set ${u.username}'s password`, async () => {
+                                  const r = await backend.setUserPassword(u.username, pwFor.password)
+                                  if (r.ok) setPwFor(null)
+                                  return r
+                                })
+                              }
+                              style={{ padding: '3px 8px', fontSize: 12 }}
+                            >
+                              Set
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            className="btn-ghost"
+                            disabled={!!busy}
+                            title="Set a new password for this account"
+                            onClick={() => setPwFor({ username: u.username, password: '' })}
+                            style={{ padding: '3px 10px', fontSize: 12 }}
+                          >
+                            Set
+                          </button>
+                        )}
+                      </span>
                       <span style={{ textAlign: 'right' }}>
                         <button
                           className="btn-ghost"
@@ -218,6 +315,47 @@ export default function AdminApp({ api }: AppProps) {
               <div style={{ fontSize: 12, opacity: 0.72, marginTop: 10, lineHeight: 1.5 }}>
                 Guests are not listed: they are allowed in without an account and nothing is ever saved for them.
               </div>
+            </div>
+
+            <div style={card}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Guest accounts</div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  className={stats?.guestMailbox ? 'btn-mixt' : 'btn-ghost'}
+                  disabled={!!busy}
+                  onClick={() => act(`${stats?.guestMailbox ? 'Close' : 'Open'} the guest mailbox`, () => backend.setMailbox('guest', !stats?.guestMailbox))}
+                  style={{ padding: '4px 12px', fontSize: 12.5 }}
+                >
+                  Guest mailbox: {stats?.guestMailbox ? 'on' : 'off'}
+                </button>
+                <span style={{ fontSize: 12.5, opacity: 0.78, lineHeight: 1.5 }}>
+                  Guests are not accounts and nothing of theirs is saved, but they sign in with a username, a name and a
+                  password, and those sign-ins are logged below. One shared mailbox (<code>guest@proper.com</code>) can be
+                  switched on for all of them.
+                </span>
+              </div>
+              {guests && guests.length > 0 && (
+                <>
+                  <div style={{ ...head, gridTemplateColumns: '1fr 1fr 160px', marginTop: 12 }}>
+                    <span>Username</span>
+                    <span>Name</span>
+                    <span>Signed in</span>
+                  </div>
+                  {guests
+                    .slice()
+                    .reverse()
+                    .map((g, i) => (
+                      <div style={{ ...row, gridTemplateColumns: '1fr 1fr 160px' }} key={`${g.username}-${g.at}-${i}`}>
+                        <span style={{ fontWeight: 600 }}>{g.username || 'guest'}</span>
+                        <span>{g.name || '—'}</span>
+                        <span style={{ opacity: 0.75 }}>{new Date(g.at).toLocaleString()}</span>
+                      </div>
+                    ))}
+                </>
+              )}
+              {(!guests || guests.length === 0) && (
+                <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 10 }}>No guest has signed in yet.</div>
+              )}
             </div>
 
             <div style={card}>

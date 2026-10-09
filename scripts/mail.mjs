@@ -182,6 +182,94 @@ try {
   const demoAfter = await api('/api/mail', { token: demo })
   if ((demoAfter.data || []).some((m) => m.subject === 'from a guest')) bad("the guest's message was delivered anyway")
   else ok("nothing from the guest reached anyone's inbox")
+  console.log('• publishing an app…')
+  const noCode = await api('/api/apps', { method: 'POST', token: demo, body: { name: 'Half an app' } })
+  if (noCode.status !== 400) bad(`publishing with no code gave ${noCode.status}, expected 400`)
+  else if (!/code/.test(noCode.data.error || '')) bad(`the refusal does not say the code is missing: ${noCode.data.error}`)
+  else ok('publishing without the code is refused')
+
+  const withCode = await api('/api/apps', { method: 'POST', token: demo, body: { name: 'Tea Timer', code: 'echo steep' } })
+  if (withCode.status !== 200 || withCode.data.status !== 'pending')
+    bad(`a whitelisted user publishing code gave ${withCode.status} ${JSON.stringify(withCode.data)}`)
+  else ok('a whitelisted account can publish, and it waits for approval')
+
+  const guestPub = await api('/api/apps', { method: 'POST', token: guestToken, body: { name: 'Guest app', code: 'x' } })
+  if (guestPub.status !== 403) bad(`a guest could publish an app (${guestPub.status})`)
+  else ok('a guest cannot publish')
+
+  const adminPub = await api('/api/apps', { method: 'POST', token: root, body: { name: 'Console app', code: 'echo hi', approved: true } })
+  if (adminPub.status !== 200 || adminPub.data.status !== 'approved')
+    bad(`what the administrator publishes came back ${JSON.stringify(adminPub.data)}, expected approved`)
+  else ok('what the administrator publishes goes straight out approved')
+
+  console.log('• mailboxes can be switched…')
+  const off = await api('/api/users/demo/mailbox', { method: 'POST', token: root, body: { on: false } })
+  if (off.status !== 200) bad(`switching demo's mailbox off gave ${off.status}`)
+  else {
+    const readOff = await api('/api/mail', { token: demo })
+    if (readOff.status !== 403) bad(`demo could still read a switched-off mailbox (${readOff.status})`)
+    else ok('a switched-off mailbox cannot be read')
+    const sendOff = await api('/api/mail/send', { method: 'POST', token: root, body: { to: 'demo', subject: 'blocked', body: 'x' } })
+    if (sendOff.status !== 403) bad(`mail reached a switched-off mailbox (${sendOff.status})`)
+    else if (!/has no mailbox/.test(sendOff.data.error || '')) bad(`the refusal is unclear: ${sendOff.data.error}`)
+    else ok('and cannot be written to, with the reason given')
+    const on = await api('/api/users/demo/mailbox', { method: 'POST', token: root, body: { on: true } })
+    const readOn = await api('/api/mail', { token: demo })
+    if (on.status !== 200 || readOn.status !== 200) bad(`switching the mailbox back on did not work (${on.status}/${readOn.status})`)
+    else if (!(readOn.data || []).some((m) => m.subject === 'Tea timer request')) bad('the mail was lost while the mailbox was off')
+    else ok('switching it back on brings the mail with it')
+  }
+
+  console.log('• the guest mailbox…')
+  const g2 = await api('/api/guest', { method: 'POST', body: { username: 'visitor', name: 'A Visitor', password: 'letmein' } })
+  const visitor = g2.data.token
+  if (!visitor) bad('a guest could not sign in with a name and password')
+  const gOff = await api('/api/mail', { token: visitor })
+  if (gOff.status !== 403) bad(`a guest had a mailbox before one was switched on (${gOff.status})`)
+  else ok('guests have no mailbox until the administrator gives them one')
+  await api('/api/users/guest/mailbox', { method: 'POST', token: root, body: { on: true } })
+  const gOn = await api('/api/mail', { token: visitor })
+  if (gOn.status !== 200) bad(`switching the guest mailbox on did not give them one (${gOn.status})`)
+  else {
+    ok('the administrator can switch on a shared guest mailbox')
+    const gSend = await api('/api/mail/send', { method: 'POST', token: visitor, body: { to: 'demo', subject: 'Hello from a guest', body: 'Thanks for the tea.' } })
+    if (gSend.status !== 200) bad(`a guest with a mailbox still could not send (${gSend.status})`)
+    else {
+      const demoBox = await api('/api/mail', { token: demo })
+      const arrived = (demoBox.data || []).find((m) => m.subject === 'Hello from a guest')
+      if (!arrived) bad("the guest's message never reached demo")
+      else if (arrived.from !== 'guest@proper.com') bad(`it claims to be from ${arrived.from}`)
+      else ok('and a guest can write to a whitelisted account')
+    }
+  }
+
+  console.log('• guest sign-ins are tracked…')
+  const log = await api('/api/guests', { token: root })
+  if (log.status !== 200) bad(`the administrator could not read the guest log (${log.status})`)
+  else {
+    const entry = (log.data || []).find((g) => g.username === 'visitor')
+    if (!entry) bad('the guest sign-in was not recorded')
+    else if (entry.name !== 'A Visitor' || !entry.at) bad(`the record is incomplete: ${JSON.stringify(entry)}`)
+    else ok('the administrator sees who signed in as a guest, and when')
+    const denied = await api('/api/guests', { token: demo })
+    if (denied.status !== 403) bad(`a standard user could read the guest log (${denied.status})`)
+    else ok('nobody else can')
+  }
+
+  console.log('• the administrator can set a password…')
+  const setPw = await api('/api/users/demo/password', { method: 'POST', token: root, body: { password: 'steep-longer' } })
+  if (setPw.status !== 200) bad(`setting a password gave ${setPw.status}`)
+  else {
+    const oldPw = await api('/api/login', { method: 'POST', body: { username: 'demo', password: 'demo' } })
+    if (oldPw.status !== 401) bad('the old password still works after it was changed')
+    else ok('the old password stops working')
+    const newPw = await api('/api/login', { method: 'POST', body: { username: 'demo', password: 'steep-longer' } })
+    if (newPw.status !== 200) bad('the new password does not sign in')
+    else ok('and the new one does')
+    const blank = await api('/api/users/demo/password', { method: 'POST', token: root, body: { password: '' } })
+    if (blank.status !== 400) bad(`an empty password was accepted (${blank.status})`)
+    else ok('an empty password is refused')
+  }
 } catch (e) {
   bad(`the check threw: ${e.message}`)
   if (serverLog) console.log(serverLog)

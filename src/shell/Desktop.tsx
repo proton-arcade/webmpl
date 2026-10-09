@@ -986,17 +986,34 @@ function AuthGate({ onDone }: { onDone: () => void }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  /* A guest is still not an account — nothing of theirs is saved — but they
+   * sign in with a username, a name and a password, so the administrator sees
+   * who has been using the machine instead of an anonymous extra session. */
+  const [guestMode, setGuestMode] = useState(false)
+  const [guestName, setGuestName] = useState('')
+  const [guestUser, setGuestUser] = useState('')
+  const [guestPass, setGuestPass] = useState('')
 
   const doGuest = async () => {
+    if (!guestUser.trim() || !guestPass) {
+      setError('A guest signs in with a username and a password, and a name to be known by.')
+      return
+    }
     setBusy(true)
-    await api.guest()
+    await api.guest({ username: guestUser.trim(), name: guestName.trim(), password: guestPass })
+    setBusy(false)
+    onDone()
+  }
+  /* Pressing Enter with nothing typed at all still goes straight in, as before:
+   * no password to get wrong, no account to create. The sign-in is logged. */
+  const doAnonymous = async () => {
+    setBusy(true)
+    await api.guest({})
     setBusy(false)
     onDone()
   }
   const doLogin = async () => {
-    // nothing typed at all? That is the guest account: no password to get
-    // wrong, no account to create — just go in.
-    if (!username.trim() && !password) return doGuest()
+    if (!username.trim() && !password) return doAnonymous()
     setBusy(true)
     const res = await api.login(username.trim(), password)
     setBusy(false)
@@ -1009,47 +1026,123 @@ function AuthGate({ onDone }: { onDone: () => void }) {
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,14,12,0.6)', backdropFilter: 'blur(8px)' }} />
       <div style={{ position: 'relative', width: 360, maxWidth: '92vw', background: '#fbfbf9', color: '#22261f', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
         <div style={{ background: 'linear-gradient(180deg,#87cf3e,#6fa34c)', color: '#fff', padding: '14px 20px' }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>Sign in to Mixt</div>
-          <div style={{ fontSize: 12.5, opacity: 0.95 }}>Whitelisted accounts are saved. Guests are not.</div>
-          <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 2 }}>Leave both boxes empty and press Enter to go straight in as a guest.</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{guestMode ? 'Guest sign-in' : 'Sign in to Mixt'}</div>
+          <div style={{ fontSize: 12.5, opacity: 0.95 }}>
+            {guestMode
+              ? 'No account is created and nothing is saved for you — but the administrator sees this sign-in.'
+              : 'Whitelisted accounts are saved. Guests are not.'}
+          </div>
+          {!guestMode && (
+            <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 2 }}>
+              Leave both boxes empty and press Enter to go straight in without an account.
+            </div>
+          )}
         </div>
         <div style={{ padding: '16px 20px', display: 'grid', gap: 12 }}>
-          <label style={{ display: 'grid', gap: 4 }}>
-            <span style={{ fontSize: 12.5, opacity: 0.8 }}>Username</span>
-            <input
-              className="entry"
-              autoFocus
-              autoComplete="username"
-              placeholder="guest"
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value)
-                setError('')
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && doLogin()}
-            />
-          </label>
-          <label style={{ display: 'grid', gap: 4 }}>
-            <span style={{ fontSize: 12.5, opacity: 0.8 }}>Password</span>
-            <input
-              className="entry"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value)
-                setError('')
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && doLogin()}
-            />
-          </label>
+          {!guestMode && (
+            <>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Username</span>
+                <input
+                  className="entry"
+                  autoFocus
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doLogin()}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Password</span>
+                <input
+                  className="entry"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doLogin()}
+                />
+              </label>
+            </>
+          )}
+          {guestMode && (
+            <>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Your name</span>
+                <input
+                  className="entry"
+                  autoFocus
+                  placeholder="Who is using this computer?"
+                  value={guestName}
+                  onChange={(e) => {
+                    setGuestName(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doGuest()}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Username</span>
+                <input
+                  className="entry"
+                  placeholder="visitor"
+                  value={guestUser}
+                  onChange={(e) => {
+                    setGuestUser(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doGuest()}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Password</span>
+                <input
+                  className="entry"
+                  type="password"
+                  value={guestPass}
+                  onChange={(e) => {
+                    setGuestPass(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doGuest()}
+                />
+              </label>
+            </>
+          )}
           {error && <div style={{ color: '#c0392b', fontSize: 12.5 }}>{error}</div>}
-          <button className="btn-mixt" disabled={busy} onClick={doLogin} style={{ justifyContent: 'center' }}>
-            Log in
-          </button>
-          <button className="btn-ghost" disabled={busy} onClick={doGuest} style={{ justifyContent: 'center' }}>
-            Continue as guest
-          </button>
+          {!guestMode ? (
+            <>
+              <button className="btn-mixt" disabled={busy} onClick={doLogin} style={{ justifyContent: 'center' }}>
+                Log in
+              </button>
+              <button
+                className="btn-ghost"
+                disabled={busy}
+                onClick={() => {
+                  setError('')
+                  setGuestMode(true)
+                }}
+                style={{ justifyContent: 'center' }}
+              >
+                Continue as guest
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn-mixt" disabled={busy} onClick={doGuest} style={{ justifyContent: 'center' }}>
+                Enter as guest
+              </button>
+              <button className="btn-ghost" disabled={busy} onClick={() => setGuestMode(false)} style={{ justifyContent: 'center' }}>
+                Back to sign-in
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

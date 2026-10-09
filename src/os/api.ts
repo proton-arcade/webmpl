@@ -10,6 +10,8 @@ export interface Session {
   token: string
   role: 'admin' | 'user' | 'guest'
   username: string
+  /* a guest signs in with a name; it is shown so the session can be recognised */
+  name?: string
 }
 
 const KEY = 'mixt.session.v1'
@@ -90,16 +92,80 @@ export async function login(username: string, password: string): Promise<LoginRe
   }
 }
 
-export async function guest(): Promise<Session | null> {
+/* A guest still gets no account and nothing of theirs is saved, but they sign in
+ * with a username, a name and a password so the administrator can see who has
+ * been using the machine rather than an anonymous extra live session. */
+export interface GuestDetails {
+  username?: string
+  name?: string
+  password?: string
+}
+
+export async function guest(details: GuestDetails = {}): Promise<Session | null> {
   try {
-    const r = await fetch('/api/guest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+    const r = await fetch('/api/guest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(details),
+    })
     if (!r.ok || !isJson(r)) return null
     const d = await r.json()
-    const s: Session = { token: d.token, role: d.role, username: d.username }
+    const s: Session = { token: d.token, role: d.role, username: d.username, name: d.name }
     setSession(s)
     return s
   } catch {
     return null
+  }
+}
+
+/* Who has signed in as a guest, and when. Administrator only. */
+export interface GuestLogin {
+  username: string
+  name: string
+  at: number
+}
+
+export async function guestLog(): Promise<GuestLogin[] | null> {
+  try {
+    const r = await fetch('/api/guests', { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    return (await r.json()) as GuestLogin[]
+  } catch {
+    return null
+  }
+}
+
+/* Set a new password for a whitelisted account. The server hashes it; it can
+ * never be read back, only replaced. */
+export async function setUserPassword(username: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const r = await fetch(`/api/users/${encodeURIComponent(username)}/password`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ password }),
+    })
+    if (!isJson(r)) return { ok: false, error: 'the server did not answer' }
+    const d = await r.json()
+    return d.ok ? { ok: true } : { ok: false, error: d.error }
+  } catch {
+    return { ok: false, error: 'cannot reach the server' }
+  }
+}
+
+/* Switch an account's mailbox on or off. Pass 'guest' for the shared guest
+ * mailbox. Switching off hides the mail; it is not deleted. */
+export async function setMailbox(username: string, on: boolean): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const r = await fetch(`/api/users/${encodeURIComponent(username)}/mailbox`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ on }),
+    })
+    if (!isJson(r)) return { ok: false, error: 'the server did not answer' }
+    const d = await r.json()
+    return d.ok ? { ok: true } : { ok: false, error: d.error }
+  } catch {
+    return { ok: false, error: 'cannot reach the server' }
   }
 }
 
@@ -114,12 +180,25 @@ export async function serverApps(): Promise<{ id: string; name: string; author: 
   }
 }
 
-export async function publishApp(name: string, manifest: Record<string, unknown> = {}): Promise<boolean> {
+/* Publishing takes the app's code with it: an app with no code is not an app.
+ * Only whitelisted accounts may publish, and what the administrator publishes
+ * from the console goes straight out approved. */
+export async function publishApp(
+  name: string,
+  code: string,
+  opts: { approved?: boolean; author?: string; manifest?: Record<string, unknown> } = {},
+): Promise<{ ok: boolean; error?: string }> {
   try {
-    const r = await fetch('/api/apps', { method: 'POST', headers: headers(), body: JSON.stringify({ name, manifest }) })
-    return r.ok
+    const r = await fetch('/api/apps', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ name, code, approved: opts.approved, author: opts.author, manifest: opts.manifest || {} }),
+    })
+    if (!isJson(r)) return { ok: false, error: 'the server did not answer' }
+    const d = await r.json()
+    return d.ok ? { ok: true } : { ok: false, error: d.error }
   } catch {
-    return false
+    return { ok: false, error: 'cannot reach the server' }
   }
 }
 
@@ -210,6 +289,7 @@ export async function sendMail(to: string, subject: string, body: string): Promi
 export interface ServerUser {
   username: string
   role: 'admin' | 'user'
+  mailbox: boolean
 }
 export interface ServerStats {
   users: number
@@ -219,6 +299,8 @@ export interface ServerStats {
   appsApproved: number
   mailboxes: number
   savedSettings: number
+  guestMailbox: boolean
+  guestLogins: number
 }
 
 export async function allUsers(): Promise<ServerUser[] | null> {

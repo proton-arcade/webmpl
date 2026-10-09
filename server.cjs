@@ -48,8 +48,9 @@ function seed() {
     ],
     sessions: {}, // token -> {username, role}
     apps: [],     // published apps: {id,name,author,status:'pending'|'approved',manifest}
-    mail: {},     // username -> [mails]
+    mail: {},     // username -> [mails]  (and 'guest' when the guest mailbox is on)
     settings: {}, // username -> saved settings (never for guests)
+    guestMailbox: false, // the administrator can give guests one shared mailbox
   }
 }
 function load() {
@@ -70,12 +71,50 @@ function sessionOf(req, db) {
   const t = h.replace(/^Bearer /, '')
   return db.sessions[t] || null
 }
+const tokenOf = (req) => (req.headers.authorization || '').replace(/^Bearer /, '')
+
+/* Which mailbox a session may use, or null for none.
+ *
+ * A whitelisted account has one unless the administrator switched it off; a
+ * guest has one only if the administrator switched the shared guest mailbox on.
+ * Accounts created before the flag existed count as switched on. */
+function mailboxFor(db, sess) {
+  if (!sess) return null
+  if (sess.role === 'guest') return db.guestMailbox ? 'guest' : null
+  const u = db.users.find((x) => x.username === sess.username)
+  if (!u || u.mailbox === false) return null
+  return u.username
+}
 
 /* --------------------------------- router --------------------------------- */
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://x')
-  const p = url.pathname
+/* A request target is attacker-controlled and need not be a URL: `GET http://`,
+ * `GET ///` and friends make `new URL` throw ERR_INVALID_URL. Thrown inside the
+ * request handler that is an uncaught exception, which takes the whole server
+ * down — every session, every mailbox. So parse defensively, answer 400, and
+ * keep going. */
+function pathOf(req) {
+  try {
+    return new URL(req.url, 'http://localhost').pathname
+  } catch {
+    return null
+  }
+}
 
+const server = http.createServer(async (req, res) => {
+  const p = pathOf(req)
+  if (p === null) return json(res, 400, { ok: false, error: 'malformed request target' })
+
+  try {
+    await route(req, res, p)
+  } catch (e) {
+    /* one broken request must never cost the server its life */
+    console.error(`request ${req.method} ${req.url} failed:`, e && e.message)
+    if (!res.headersSent) json(res, 500, { ok: false, error: 'internal error' })
+    else try { res.end() } catch { /* already gone */ }
+  }
+})
+
+async function route(req, res, p) {
   if (p.startsWith('/api/')) {
     const db = load()
     const sess = sessionOf(req, db)
@@ -94,18 +133,38 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, token, role: u.role, username: u.username })
     }
 
+    /* A guest is still a guest — no account, nothing of theirs is persisted —
+     * but they now sign in with a username, a name and a password, and the
+     * server keeps a log of those sign-ins so the administrator can see who has
+     * been using the machine instead of an anonymous extra live session. The
+     * password is salted and hashed like any other; it is never stored plain. */
     if (p === '/api/guest' && req.method === 'POST') {
       const token = newToken()
-      db.sessions[token] = { username: 'guest', role: 'guest' }
+      const name = String(data.name || '').trim()
+      const username = String(data.username || '').trim() || 'guest'
+      db.sessions[token] = { username, role: 'guest', name }
+      ;(db.guestLog ||= []).push({
+        username,
+        name,
+        at: Date.now(),
+        salt: crypto.randomBytes(6).toString('hex'),
+        hash: hash(String(data.password || ''), crypto.randomBytes(6).toString('hex')),
+      })
       save(db)
-      return json(res, 200, { ok: true, token, role: 'guest', username: 'guest' })
+      return json(res, 200, { ok: true, token, role: 'guest', username, name })
+    }
+
+    /* who has signed in as a guest, most recent last */
+    if (p === '/api/guests' && req.method === 'GET') {
+      if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
+      return json(res, 200, (db.guestLog || []).map((g) => ({ username: g.username, name: g.name, at: g.at })))
     }
 
     if (p === '/api/session') return json(res, 200, sess ? { ok: true, ...sess } : { ok: false })
 
     if (p === '/api/users' && req.method === 'GET') {
       if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
-      return json(res, 200, db.users.map((u) => ({ username: u.username, role: u.role })))
+      return json(res, 200, db.users.map((u) => ({ username: u.username, role: u.role, mailbox: u.mailbox !== false })))
     }
 
     if (p === '/api/users' && req.method === 'POST') {
@@ -122,10 +181,28 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, (sess && sess.role === 'admin' ? db.apps : db.apps.filter((a) => a.status === 'approved')))
 
     if (p === '/api/apps' && req.method === 'POST') {
-      if (!sess || sess.role === 'guest') return json(res, 403, { ok: false, error: 'whitelisted users only' })
-      db.apps.push({ id: 'app-' + crypto.randomBytes(4).toString('hex'), name: data.name || 'Untitled app', author: sess.username, status: 'pending', manifest: data.manifest || {} })
+      /* Only a whitelisted account may publish: a guest has nothing to publish
+       * under and no way to be held to it. */
+      if (!sess || sess.role === 'guest' || !db.users.some((u) => u.username === sess.username))
+        return json(res, 403, { ok: false, error: 'only whitelisted accounts can publish apps' })
+      /* An app without its code is not an app — there would be nothing to run. */
+      const code = String(data.code || '').trim()
+      if (!code) return json(res, 400, { ok: false, error: 'the code of the app is required' })
+      /* Anything anybody else publishes waits for approval. What the
+       * administrator publishes from the console goes straight out approved —
+       * there is nobody above them to approve it. */
+      const byAdmin = sess.role === 'admin' && data.approved === true
+      const id = 'app-' + crypto.randomBytes(4).toString('hex')
+      db.apps.push({
+        id,
+        name: data.name || 'Untitled app',
+        author: byAdmin ? String(data.author || sess.username) : sess.username,
+        status: byAdmin ? 'approved' : 'pending',
+        manifest: data.manifest || {},
+        code,
+      })
       save(db)
-      return json(res, 200, { ok: true })
+      return json(res, 200, { ok: true, id, status: byAdmin ? 'approved' : 'pending' })
     }
 
     if (/^\/api\/apps\/[^/]+\/approve$/.test(p) && req.method === 'POST') {
@@ -161,7 +238,50 @@ const server = http.createServer(async (req, res) => {
         appsApproved: db.apps.filter((a) => a.status === 'approved').length,
         mailboxes: Object.keys(db.mail).length,
         savedSettings: Object.keys(db.settings).length,
+        guestMailbox: db.guestMailbox === true,
+        guestLogins: (db.guestLog || []).length,
       })
+    }
+
+    /* Set a new password for any whitelisted account. The old one stops working
+     * immediately, so that account's other live sessions are dropped — except
+     * the administrator's own, or they would lock themselves out mid-change.
+     * Passwords are stored salted and hashed; the server can never show one. */
+    if (/^\/api\/users\/[^/]+\/password$/.test(p) && req.method === 'POST') {
+      if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
+      const name = decodeURIComponent(p.split('/')[3])
+      const u = db.users.find((x) => x.username === name)
+      if (!u) return json(res, 404, { ok: false })
+      const pw = String(data.password || '')
+      if (!pw) return json(res, 400, { ok: false, error: 'a password is required' })
+      u.salt = crypto.randomBytes(6).toString('hex')
+      u.hash = hash(pw, u.salt)
+      const me = tokenOf(req)
+      for (const tk of Object.keys(db.sessions))
+        if (db.sessions[tk].username === name && tk !== me) delete db.sessions[tk]
+      save(db)
+      return json(res, 200, { ok: true })
+    }
+
+    /* Switch a mailbox on or off — for a whitelisted account, or for guest
+     * accounts as one shared mailbox. Switching off hides it; the mail itself is
+     * kept, so switching back on brings it back. */
+    if (/^\/api\/users\/[^/]+\/mailbox$/.test(p) && req.method === 'POST') {
+      if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
+      const name = decodeURIComponent(p.split('/')[3])
+      const on = data.on !== false
+      if (name === 'guest') {
+        db.guestMailbox = on
+        if (on) db.mail.guest ||= []
+        save(db)
+        return json(res, 200, { ok: true, on })
+      }
+      const u = db.users.find((x) => x.username === name)
+      if (!u) return json(res, 404, { ok: false })
+      u.mailbox = on
+      if (on) db.mail[u.username] ||= []
+      save(db)
+      return json(res, 200, { ok: true, on })
     }
 
     /* remove a whitelisted account (never your own, never the last admin) */
@@ -188,9 +308,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/mail') {
-      if (!sess || sess.role === 'guest') return json(res, 403, { ok: false, error: 'guests are not saved' })
-      if (req.method === 'GET') return json(res, 200, db.mail[sess.username] || [])
-      ;(db.mail[sess.username] ||= []).push(data)
+      const box = mailboxFor(db, sess)
+      if (!box) return json(res, 403, { ok: false, error: 'this session has no mailbox' })
+      if (req.method === 'GET') return json(res, 200, db.mail[box] || [])
+      ;(db.mail[box] ||= []).push(data)
       save(db)
       return json(res, 200, { ok: true })
     }
@@ -202,19 +323,27 @@ const server = http.createServer(async (req, res) => {
      * outside world — this machine only carries mail between its own users.
      * The sender keeps a copy in Sent, exactly as a mail client would. */
     if (p === '/api/mail/send' && req.method === 'POST') {
-      if (!sess || sess.role === 'guest') return json(res, 403, { ok: false, error: 'guests are not saved' })
+      const box = mailboxFor(db, sess)
+      if (!box) return json(res, 403, { ok: false, error: 'this session has no mailbox' })
       const to = String(data.to || '').trim()
       if (!to) return json(res, 400, { ok: false, error: 'no recipient' })
       const local = to.split('@')[0].toLowerCase()
-      const target = db.users.find((u) => u.username.toLowerCase() === local)
-      if (!target) return json(res, 404, { ok: false, error: `no mailbox for ${local} on this computer` })
+      /* "guest" reaches the shared guest mailbox when it is switched on */
+      let targetName = null
+      if (local === 'guest' && db.guestMailbox) targetName = 'guest'
+      else {
+        const u = db.users.find((x) => x.username.toLowerCase() === local)
+        if (!u) return json(res, 404, { ok: false, error: `no mailbox for ${local} on this computer` })
+        if (u.mailbox === false) return json(res, 403, { ok: false, error: `${u.username} has no mailbox` })
+        targetName = u.username
+      }
       const now = Date.now()
       const id = 'srv' + now.toString(36) + crypto.randomBytes(3).toString('hex')
-      const from = `${sess.username}@proper.com`
-      const address = `${target.username}@proper.com`
+      const from = `${box}@proper.com`
+      const address = `${targetName}@proper.com`
       const base = {
         from,
-        fromName: sess.username,
+        fromName: box,
         to: address,
         subject: String(data.subject || '(no subject)'),
         date: now,
@@ -222,10 +351,10 @@ const server = http.createServer(async (req, res) => {
         starred: false,
         labels: [],
       }
-      ;(db.mail[target.username] ||= []).push({ ...base, id, folder: 'Inbox', read: false })
-      ;(db.mail[sess.username] ||= []).push({ ...base, id: id + 'c', folder: 'Sent', read: true })
+      ;(db.mail[targetName] ||= []).push({ ...base, id, folder: 'Inbox', read: false })
+      ;(db.mail[box] ||= []).push({ ...base, id: id + 'c', folder: 'Sent', read: true })
       save(db)
-      return json(res, 200, { ok: true, id, to: target.username })
+      return json(res, 200, { ok: true, id, to: targetName })
     }
 
     return json(res, 404, { ok: false })
@@ -238,6 +367,11 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream' })
     res.end(buf)
   })
-})
+}
+
+/* Last line of defence: something thrown outside a request (a bad timer, a
+ * failed file write) logs and carries on instead of ending the process. */
+process.on('uncaughtException', (e) => console.error('uncaught, server still up:', e && e.message))
+process.on('unhandledRejection', (e) => console.error('unhandled rejection, server still up:', e && e.message))
 
 server.listen(PORT, '0.0.0.0', () => console.log(`Mixt backend on http://localhost:${PORT}`))

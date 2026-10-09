@@ -218,13 +218,40 @@ export default function SoftwareApp({ win, api }: AppProps) {
     refreshPublished()
   }, [])
   const session = backend.getSession()
-  const publish = () => {
-    const name = window.prompt('Name of the app to publish for approval:')
-    if (!name) return
-    backend.publishApp(name).then((ok) => {
-      notify('Software Manager', ok ? `“${name}” submitted for administrator approval.` : 'Publishing needs a whitelisted (non-guest) account.')
-      refreshPublished()
-    })
+  /* Publishing is a form, not a prompt: the code of the app is part of what is
+   * being published, and the server refuses an app that has none. */
+  const [publishForm, setPublishForm] = useState<{ name: string; code: string } | null>(null)
+  const [publishError, setPublishError] = useState('')
+  const [publishing, setPublishing] = useState(false)
+
+  const submitPublish = async () => {
+    if (!publishForm || publishing) return
+    const name = publishForm.name.trim()
+    if (!name) {
+      setPublishError('Give the app a name.')
+      return
+    }
+    if (!publishForm.code.trim()) {
+      setPublishError('The code of the app is required — without it there is nothing to run.')
+      return
+    }
+    setPublishing(true)
+    const r = await backend.publishApp(name, publishForm.code, { approved: session?.role === 'admin' })
+    setPublishing(false)
+    if (!r.ok) {
+      setPublishError(r.error || 'The server refused it.')
+      return
+    }
+    setPublishForm(null)
+    setPublishError('')
+    notify(
+      'Software Manager',
+      session?.role === 'admin'
+        ? `“${name}” was published.`
+        : `“${name}” was submitted for administrator approval.`,
+      'mixtinstall',
+    )
+    refreshPublished()
   }
   const approvePending = () => {
     const pend = published.find((a) => a.status === 'pending')
@@ -373,8 +400,11 @@ export default function SoftwareApp({ win, api }: AppProps) {
 
         <div
           className="menu-item"
-          title={session?.role === 'admin' ? 'Approve a pending published app' : 'Publish an app for approval'}
-          onClick={() => (session?.role === 'admin' ? approvePending() : publish())}
+          title="Publish an app — its name and its code"
+          onClick={() => {
+            setPublishError('')
+            setPublishForm({ name: '', code: '' })
+          }}
         >
           <Glyph name="Upload" size={15} />
           <span style={{ flex: 1 }}>Published</span>
@@ -560,6 +590,45 @@ export default function SoftwareApp({ win, api }: AppProps) {
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
               <button className="btn-ghost" onClick={() => setConfirmRemove(null)}>Cancel</button>
               <button className="btn-mixt" onClick={() => remove(getApp(confirmRemove)!)}>Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* publish an app */}
+      {publishForm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 180000, background: 'rgba(0,0,0,0.45)', display: 'grid', placeItems: 'center' }} onClick={() => !publishing && setPublishForm(null)}>
+          <div className="wm-window" style={{ position: 'relative', width: 460, padding: 18, background: 'var(--wm-window-bg)', color: 'var(--wm-window-fg)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Publish an app</div>
+            <div style={{ fontSize: 12.5, opacity: 0.8, lineHeight: 1.5, marginBottom: 12 }}>
+              Only whitelisted accounts can publish. The code goes with the app — the server refuses an app that has
+              none.{' '}
+              {session?.role === 'admin'
+                ? 'As administrator, what you publish goes straight out approved.'
+                : 'It then waits for an administrator to approve it.'}
+            </div>
+            <input
+              className="entry"
+              placeholder="App name"
+              value={publishForm.name}
+              onChange={(e) => setPublishForm({ ...publishForm, name: e.target.value })}
+              style={{ width: '100%', marginBottom: 8 }}
+            />
+            <textarea
+              className="entry"
+              placeholder="The code of the app"
+              value={publishForm.code}
+              onChange={(e) => setPublishForm({ ...publishForm, code: e.target.value })}
+              style={{ width: '100%', height: 170, fontFamily: 'var(--font-mono)', fontSize: 12 }}
+            />
+            {publishError && <div style={{ color: '#c0392b', fontSize: 12.5, marginTop: 8 }}>Not published: {publishError}</div>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
+              <button className="btn-ghost" disabled={publishing} onClick={() => setPublishForm(null)}>
+                Cancel
+              </button>
+              <button className="btn-mixt" disabled={publishing} onClick={submitPublish}>
+                {publishing ? 'Publishing…' : session?.role === 'admin' ? 'Publish' : 'Submit for approval'}
+              </button>
             </div>
           </div>
         </div>

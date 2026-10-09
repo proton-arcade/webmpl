@@ -442,6 +442,51 @@ else {
   }
 }
 
+/* ---------------- 13. an app can actually be installed --------------------- */
+/* The card that carries the Install button was rebuilt into a column layout,
+ * so the click that matters most in the shop needs proving, not assuming. */
+console.log('• installing something from the catalogue…')
+const installedCount = (win) => {
+  const item = [...(win?.querySelectorAll('.menu-item') ?? [])].find((e) => (e.textContent ?? '').trim().startsWith('Installed'))
+  const n = /(\d+)$/.exec((item?.textContent ?? '').trim())
+  return n ? Number(n[1]) : null
+}
+const shop3 = wins().find((x) => /Software Manager/.test(x.textContent ?? ''))
+if (!shop3) bad('no Software Manager window left to install from')
+else {
+  const allTab3 = [...shop3.querySelectorAll('.menu-item')].find((e) => (e.textContent ?? '').trim() === 'All')
+  await realClick(allTab3)
+  await tick(400)
+  const before = installedCount(wins().find((x) => /Software Manager/.test(x.textContent ?? '')))
+  const card = [...wins().find((x) => /Software Manager/.test(x.textContent ?? '')).querySelectorAll('[style*="auto-fill"] > div')]
+    .find((c) => /Weather/.test(c.textContent ?? ''))
+  const installBtn = card && [...card.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Install')
+  if (!installBtn) bad('the Weather card has no Install button to press')
+  else if (!(await realClick(installBtn))) bad('pressing Install on the Weather card did nothing')
+  else {
+    /* the progress bar steps every 170ms and needs a dozen or so steps */
+    await tick(3200)
+    const shop4 = wins().find((x) => /Software Manager/.test(x.textContent ?? ''))
+    const card2 = [...shop4.querySelectorAll('[style*="auto-fill"] > div')].find((c) => /Weather/.test(c.textContent ?? ''))
+    const after = installedCount(shop4)
+    const btn = card2 && [...card2.querySelectorAll('button')].map((b) => (b.textContent ?? '').trim())
+    if (!btn || !btn.includes('Open')) bad(`after installing, the card offers ${btn ? btn.join('/') : 'nothing'} instead of Open`)
+    else ok('the card now offers Open')
+    if (before === null || after === null) bad('the sidebar does not count installed packages')
+    else if (after !== before + 1) bad(`the Installed count went ${before} → ${after}, expected ${before + 1}`)
+    else ok(`the Installed count went ${before} → ${after}`)
+
+    /* and it must turn up in the menu, which is where the user will look */
+    await realClick(d.querySelector('.menu-button'))
+    await tick(400)
+    const inMenu = [...d.querySelectorAll('.menu-item')].some((e) => /^Weather/.test((e.textContent ?? '').trim()))
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await tick(150)
+    if (!inMenu) bad('the installed app never reached the menu')
+    else ok('Weather is now in the menu, ready to launch')
+  }
+}
+
 server.close()
 console.log('')
 if (warns.length) console.log(`  \x1b[33m${warns.length} warning(s)\x1b[0m (environment-limited, not counted)`)
