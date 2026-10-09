@@ -33,6 +33,7 @@ const ROOTPASS = 'mixt-root'
  * rather than by what the button claims. */
 const USERS = ['Mixt_MPL', 'demo']
 const mailboxes = {}
+const guestLog = []
 const deliveries = []
 const userOf = (req) => {
   const tk = (req.headers.authorization || '').replace(/^Bearer /, '')
@@ -55,7 +56,16 @@ const server = createServer(async (req, res) => {
       if (d.username === 'demo' && d.password === 'demo') return send(200, { ok: true, token: 'demo-token', role: 'user', username: 'demo' })
       return send(401, { ok: false, error: 'wrong username or password' })
     }
-    if (p === '/api/guest' && req.method === 'POST') return send(200, { ok: true, token: 'guest-token', role: 'guest', username: 'guest' })
+    if (p === '/api/guest' && req.method === 'POST') {
+      let body = ''
+      for await (const c of req) body += c
+      const d = JSON.parse(body || '{}')
+      /* the real server keeps a log of guest sign-ins; the Screen Viewer reads it */
+      guestLog.push({ username: d.username || 'guest', name: d.name || '', at: Date.now() })
+      return send(200, { ok: true, token: 'guest-token', role: 'guest', username: d.username || 'guest' })
+    }
+    if (p === '/api/guests' && req.method === 'GET')
+      return send(200, guestLog.map((g) => ({ username: g.username, name: g.name, at: g.at })))
     if (p === '/api/apps') return send(200, req.method === 'POST' ? { ok: true } : [{ id: 'app-1', name: 'Test App', author: 'demo', status: 'pending' }])
     if (p === '/api/apps/app-1/approve' || p === '/api/apps/app-1/reject') return send(200, { ok: true })
     if (p === '/api/users' && req.method === 'GET') return send(200, [{ username: 'Mixt_MPL', role: 'admin' }, { username: 'demo', role: 'user' }])
@@ -308,6 +318,45 @@ await tick(600)
 const forced = [...demo.d.querySelectorAll('.wm-window')].pop()?.textContent ?? ''
 if (!/Administrator access only/.test(forced)) bad('a standard user who launches it anyway gets in')
 else ok('launching it anyway is refused, not opened')
+
+/* -------- 5b. the Screen Viewer is the administrator's, and it works ------- */
+console.log('• the Screen Viewer…')
+/* a guest has to have signed in for there to be a guest screen to look at */
+await fetch(BASE + '/api/guest', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ username: 'visitor', name: 'A Visitor', password: '' }),
+})
+adm.w.dispatchEvent(new adm.w.CustomEvent('mixt:launch', { detail: { appId: 'screenviewer', props: {} } }))
+await tick(900)
+const svWin = [...adm.d.querySelectorAll('.wm-window')].pop()
+const svText = svWin?.textContent ?? ''
+if (/only for the administrator/.test(svText)) bad('the administrator was refused by the Screen Viewer')
+else if (!svText.includes('Sessions')) bad('the Screen Viewer did not open with a session list')
+else if (!svText.includes('demo')) bad('the Screen Viewer does not list the other account')
+else if (!/guest/i.test(svText)) bad('the Screen Viewer does not list the guest sign-in')
+else ok('the administrator sees the other accounts and the guest sign-ins')
+
+/* picking a session shows its screen */
+const demoRow = [...svWin.querySelectorAll('.menu-item')].find((m) => (m.textContent ?? '').includes('demo'))
+if (!demoRow) bad('there is no row for the demo account to look at')
+else {
+  await realClick(adm.w, demoRow)
+  await tick(500)
+  const shown = svWin.textContent ?? ''
+  if (!/window(s)? open/.test(shown)) bad('picking a session did not show its screen')
+  else if (!/Reconstructed from the session record/.test(shown)) bad('the view does not say what it actually is')
+  else ok('picking a session shows its screen, and says it is a reconstruction')
+}
+
+/* a standard account must not get it, from the menu or by force */
+const demoSv = [...demo.d.querySelectorAll('.wm-window')].length
+demo.w.dispatchEvent(new demo.w.CustomEvent('mixt:launch', { detail: { appId: 'screenviewer', props: {} } }))
+await tick(700)
+const svForced = [...demo.d.querySelectorAll('.wm-window')].pop()?.textContent ?? ''
+if (demoApps.includes('Screen Viewer')) bad('a standard user can see the Screen Viewer in the menu')
+else if (!/only for the administrator/.test(svForced)) bad('a standard user who launches the Screen Viewer gets in')
+else ok('a standard user does not see it, and is refused if they launch it')
 
 /* ------------- 6. signing back in after a sign-out ------------------------ */
 console.log('• typing a password after signing out…')

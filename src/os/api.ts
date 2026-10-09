@@ -129,7 +129,11 @@ export async function guestLog(): Promise<GuestLogin[] | null> {
   try {
     const r = await fetch('/api/guests', { headers: headers() })
     if (!r.ok || !isJson(r)) return null
-    return (await r.json()) as GuestLogin[]
+    const d = await r.json()
+    /* Not every answer is a list: a refusal or an error comes back as an
+       object, and handing that to a caller who maps over it is how a viewer
+       ends up blank with no explanation. */
+    return Array.isArray(d) ? (d as GuestLogin[]) : null
   } catch {
     return null
   }

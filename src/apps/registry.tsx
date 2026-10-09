@@ -10,6 +10,7 @@ import CalculatorApp from './calculator'
 import SystemMonitorApp from './system-monitor'
 import MediaPlayerApp from './mediaplayer'
 import MixtPlayerApp from './mixtplayer'
+import ScreenViewerApp from './screenviewer'
 import ImageViewerApp from './imageviewer'
 import WeatherApp from './weather'
 import ArchiveApp from './archive'
@@ -282,6 +283,21 @@ export const APPS: AppDef[] = [
     component: NewsApp,
     defaultSize: { w: 900, h: 620 },
     preinstalled: false,
+  },
+  /* Administrator only: looks at what another account or a guest is doing. */
+  {
+    id: 'screenviewer',
+    name: 'Screen Viewer',
+    generic: 'Session Viewer',
+    comment: 'See what another account or a guest has open',
+    glyph: 'Monitor',
+    color: '#5b8fd6',
+    color2: '#2f5c9e',
+    categories: ['Administration'],
+    keywords: ['screen', 'session', 'view', 'admin', 'monitor', 'guests'],
+    component: ScreenViewerApp,
+    defaultSize: { w: 940, h: 620 },
+    adminOnly: true,
   },
   {
     id: 'administration',

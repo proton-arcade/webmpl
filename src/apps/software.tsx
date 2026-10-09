@@ -25,19 +25,19 @@ const LS_RATINGS = 'mixt.store.ratings.v1'
 const REVIEWS: Record<string, number> = {
   nemo: 4.6, terminal: 4.9, browser: 4.4, mixtinstall: 4.2, settings: 4.0, xed: 4.3,
   calculator: 4.1, 'system-monitor': 4.5, mediaplayer: 4.0, mixtplayer: 4.4, imageviewer: 4.2, weather: 4.3,
-  archive: 4.1, screenshot: 3.9, help: 4.7, about: 4.4, paint: 4.5, mail: 4.2, news: 4.1,
+  archive: 4.1, screenshot: 3.9, help: 4.7, about: 4.4, paint: 4.5, mail: 4.2, news: 4.1, screenviewer: 4.3,
 }
 
 const SIZES: Record<string, string> = {
   paint: '4.2 MB', mail: '12.1 MB', news: '7.8 MB', browser: '38.6 MB', nemo: '9.4 MB',
-  terminal: '3.1 MB', mediaplayer: '15.2 MB', mixtplayer: '2.1 MB', 'system-monitor': '2.9 MB',
+  terminal: '3.1 MB', mediaplayer: '15.2 MB', mixtplayer: '2.1 MB', screenviewer: '1.8 MB', 'system-monitor': '2.9 MB',
 }
 
 const DEVELOPERS: Record<string, string> = {
   nemo: 'Mixt Desktop Team', terminal: 'Mixt Desktop Team', browser: 'Mixtsfox Project',
   mixtinstall: 'Mixt Desktop Team', settings: 'Mixt Desktop Team', xed: 'Mixt Editors',
   calculator: 'Mixt Accessories', 'system-monitor': 'Mixt Desktop Team', mediaplayer: 'Mixt Media', mixtplayer: 'Mixt Desktop Team',
-  imageviewer: 'Mixt Media', weather: 'MixtNet Services', archive: 'Mixt Accessories',
+  imageviewer: 'Mixt Media', weather: 'MixtNet Services', archive: 'Mixt Accessories', screenviewer: 'Mixt Desktop Team',
   screenshot: 'Mixt Accessories', help: 'Mixt Desktop Team',
   about: 'Mixt Desktop Team', paint: 'Mixt Graphics', mail: 'MixtNet Services', news: 'MixtNet Services',
 }
