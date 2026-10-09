@@ -15,7 +15,8 @@
     "explore": "node scripts/explore.mjs",
     "served": "node scripts/served.mjs",
     "session": "node scripts/session.mjs",
-    "mail": "node scripts/mail.mjs"
+    "mail": "node scripts/mail.mjs",
+    "devgate": "node scripts/devgate.mjs http://127.0.0.1:3000"
   },
   "dependencies": {
     "react": "^18.3.1",
