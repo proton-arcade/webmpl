@@ -31,6 +31,19 @@ export default function Desktop() {
   const [session, setSession] = useState<null | 'shutdown' | 'reboot' | 'logout'>(null)
   const [altTab, setAltTab] = useState<{ open: boolean; index: number }>({ open: false, index: 0 })
   const [showIcons, setShowIcons] = useState(true)
+  /* Boot splash: the desktop renders underneath it, so nothing is delayed —
+     it is only the moment of arrival that gets a little ceremony. */
+  const [booting, setBooting] = useState(true)
+  const [bootFade, setBootFade] = useState(false)
+  useEffect(() => {
+    const fade = setTimeout(() => setBootFade(true), 700)
+    const done = setTimeout(() => setBooting(false), 1080)
+    return () => {
+      clearTimeout(fade)
+      clearTimeout(done)
+    }
+  }, [])
+
   const [authGate, setAuthGate] = useState(false)
   const [serverSession, setServerSession] = useState<api.Session | null>(() => api.getSession())
   const [, bump] = useState(0)
@@ -414,6 +427,36 @@ export default function Desktop() {
       {runDialogOpen && <RunDialog onClose={() => useOS.getState().setRunDialog(false)} />}
       {session && <SessionDialog kind={session} onCancel={() => setSession(null)} />}
       {locked && <LockScreen />}
+      {booting && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 400000,
+            background: '#101314',
+            display: 'grid',
+            placeItems: 'center',
+            alignContent: 'center',
+            gap: 16,
+            opacity: bootFade ? 0 : 1,
+            transition: 'opacity .38s ease',
+            pointerEvents: bootFade ? 'none' : 'auto',
+          }}
+        >
+          <img src="logo.svg" width="74" height="74" alt="" />
+          <div style={{ color: '#9ede6a', fontSize: 15, fontWeight: 600, letterSpacing: 0.5 }}>Mixt Web OS</div>
+          <div
+            className="spin"
+            style={{
+              width: 18,
+              height: 18,
+              border: '2px solid rgba(158,222,106,0.22)',
+              borderTopColor: '#9ede6a',
+              borderRadius: 999,
+            }}
+          />
+        </div>
+      )}
       {authGate && !api.getSession() && <AuthGate onDone={() => { adoptServerSession(api.getSession()); setAuthGate(false); bump((x) => x + 1) }} />}
       {!hasUsers && !authGate && !serverSession && <FirstBootSetup />}
     </div>

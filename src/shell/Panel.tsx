@@ -164,15 +164,18 @@ export default function Panel() {
               : { display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto' }
           }
         >
-          {/* workspace switcher */}
-          <div className="panel-item" style={{ gap: 4 }} title="Workspaces (click for all windows)" onClick={() => S.setExposeOpen(true)}>
+          {/* workspace switcher — opens a chooser rather than guessing */}
+          <div
+            className="panel-item"
+            style={{ gap: 4 }}
+            title="Workspaces"
+            onClick={() =>
+              setPopup({ kind: 'workspaces', x: window.innerWidth - 230, y: top ? size : window.innerHeight - size - 210 })
+            }
+          >
             {Array.from({ length: workspaceCount }).map((_, i) => (
               <span
                 key={i}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  S.switchWorkspace(i)
-                }}
                 style={{
                   width: 9,
                   height: 9,
@@ -248,6 +251,27 @@ export default function Panel() {
             { separator: true },
             { label: 'IP address: 10.0.2.15', disabled: true },
             { label: 'Signal: excellent', disabled: true },
+          ]}
+        />
+      )}
+      {popup?.kind === 'workspaces' && (
+        <Popup
+          x={popup.x}
+          y={popup.y}
+          onClose={() => setPopup(null)}
+          items={[
+            { label: `Workspace ${workspace + 1} of ${workspaceCount}`, disabled: true },
+            { separator: true },
+            ...Array.from({ length: workspaceCount }, (_, i) => {
+              const count = windows.filter((w) => w.workspace === i && !w.minimized).length
+              return {
+                label: `Workspace ${i + 1}${count ? ` — ${count} window${count === 1 ? '' : 's'}` : ' — empty'}`,
+                disabled: i === workspace,
+                onClick: () => S.switchWorkspace(i),
+              }
+            }),
+            { separator: true },
+            { label: 'All windows (Exposé)', icon: <Glyph name="LayoutGrid" size={14} />, onClick: () => S.setExposeOpen(true) },
           ]}
         />
       )}

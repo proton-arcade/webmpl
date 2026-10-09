@@ -58,8 +58,21 @@ const dom = new JSDOM(html, {
 })
 const w = dom.window
 const d = w.document
-await new Promise((r) => setTimeout(r, 1500))
 const tick = (ms = 300) => new Promise((r) => setTimeout(r, ms))
+
+/* Watch the boot rather than sleeping through it: the splash must appear while
+   the machine is starting and be gone by the time the desktop is usable. */
+const splash = () => [...d.querySelectorAll('#root > div > div')].find((e) => (e.getAttribute('style') ?? '').includes('400000'))
+let sawSplash = false
+for (let i = 0; i < 20; i++) {
+  await tick(50)
+  if (splash()) {
+    sawSplash = true
+    break
+  }
+}
+const splashAtBoot = sawSplash
+await new Promise((r) => setTimeout(r, 1500 - (sawSplash ? 250 : 0)))
 
 const mouse = (el, type, x = 100, y = 100, extra = {}) =>
   el.dispatchEvent(new w.MouseEvent(type, { bubbles: true, cancelable: true, view: w, clientX: x, clientY: y, button: 0, ...extra }))
@@ -352,6 +365,38 @@ else {
     const installButtons = [...shop.querySelectorAll('button')].filter((b) => (b.textContent ?? '').trim() === 'Install')
     if (installButtons.length) bad(`the Updates tab still offers ${installButtons.length} Install button(s)`)
     else ok('the Updates tab offers updates, not installs')
+  }
+}
+
+/* ---------------------- 10. boot animation comes and goes ------------------ */
+console.log('• the boot animation…')
+if (!splashAtBoot) bad('no boot splash appeared while the machine was starting')
+else ok('the boot splash appeared at start-up')
+if (splash()) bad('the boot splash never went away')
+else ok('the boot splash is gone once the desktop is up')
+
+/* ---------------------- 11. the workspace button chooses ------------------- */
+console.log('• the workspace button on the panel…')
+const wsButton = [...d.querySelectorAll('.panel-item')].find((e) => (e.getAttribute('title') ?? '') === 'Workspaces')
+if (!wsButton) bad('there is no workspace button on the panel')
+else {
+  await realClick(wsButton)
+  await tick(300)
+  const chooser = [...d.querySelectorAll('.menu-popup')].find((p) => /Workspace 1/.test(p.textContent ?? ''))
+  if (!chooser) bad('the workspace button did not open a chooser')
+  else {
+    ok('the workspace button opens a chooser')
+    const dots = [...wsButton.querySelectorAll('span')]
+    const activeIndex = () => dots.findIndex((s) => /--wm-accent/.test(s.getAttribute('style') ?? ''))
+    if (activeIndex() !== 0) bad(`expected to start on workspace 1, the marker is on ${activeIndex() + 1}`)
+    const second = [...chooser.querySelectorAll('.menu-item')].find((e) => /^Workspace 2/.test((e.textContent ?? '').trim()))
+    if (!second) bad('the chooser does not list workspace 2')
+    else {
+      await realClick(second)
+      await tick(400)
+      if (activeIndex() !== 1) bad(`choosing workspace 2 left the marker on ${activeIndex() + 1}`)
+      else ok('choosing a workspace switches to it')
+    }
   }
 }
 
