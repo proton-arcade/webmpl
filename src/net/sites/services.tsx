@@ -2,6 +2,7 @@ import React from 'react'
 import { A, Btn, Card, H, Img, Meta, NotFound, Pill, Progress, SiteShell } from '../sitekit'
 import { FILES } from '../downloads'
 import type { PageCtx, SiteDef } from '../types'
+import { useOS } from '../../os/store'
 
 /* ==========================================================================
    mixtcart.com — the shop
@@ -315,8 +316,12 @@ const SEED_MAIL: Mail[] = [
 ]
 
 function MailApp({ ctx }: { ctx: PageCtx }) {
+  /* the webmail site is signed in as whoever owns the desktop, so it shows
+     their address rather than a generic "you" */
+  const settings = useOS((s) => s.settings)
+  const me = `${settings.username}@proper.com`
   const [folder, setFolder] = React.useState<'inbox' | 'sent' | 'trash'>('inbox')
-  const [mails, setMails] = React.useState<Mail[]>(SEED_MAIL)
+  const [mails, setMails] = React.useState<Mail[]>(() => SEED_MAIL.map((m) => (m.from === 'you@proper.com' ? { ...m, from: me } : m)))
   const [selected, setSelected] = React.useState<string | null>('m1')
   const [writing, setWriting] = React.useState(false)
   const [to, setTo] = React.useState('')
@@ -331,7 +336,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
     if (!to.trim()) return
     const mail: Mail = {
       id: `m${Date.now()}`,
-      from: 'you@proper.com',
+      from: me,
       subject: subject || '(no subject)',
       time: 'now',
       body: body.split('\n'),
@@ -367,7 +372,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
             ))}
           </div>
           <Meta>
-            you@proper.com
+            {me}
             <br />
             1.0 GB of 1.0 GB free
           </Meta>

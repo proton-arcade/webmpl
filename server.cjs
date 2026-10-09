@@ -21,7 +21,7 @@ const path = require('path')
 const crypto = require('crypto')
 
 const ROOT = __dirname
-const DB = path.join(ROOT, 'data.json')
+const DB = process.env.MIXT_DB || path.join(ROOT, 'data.json')
 const PORT = process.env.PORT || 8080
 
 const MIME = {
@@ -193,6 +193,39 @@ const server = http.createServer(async (req, res) => {
       ;(db.mail[sess.username] ||= []).push(data)
       save(db)
       return json(res, 200, { ok: true })
+    }
+
+    /* Deliver a message to another account on this computer.
+     *
+     * The address is resolved against the whitelisted users: `demo@proper.com`
+     * and bare `demo` both mean the account `demo`. There is no relay to the
+     * outside world — this machine only carries mail between its own users.
+     * The sender keeps a copy in Sent, exactly as a mail client would. */
+    if (p === '/api/mail/send' && req.method === 'POST') {
+      if (!sess || sess.role === 'guest') return json(res, 403, { ok: false, error: 'guests are not saved' })
+      const to = String(data.to || '').trim()
+      if (!to) return json(res, 400, { ok: false, error: 'no recipient' })
+      const local = to.split('@')[0].toLowerCase()
+      const target = db.users.find((u) => u.username.toLowerCase() === local)
+      if (!target) return json(res, 404, { ok: false, error: `no mailbox for ${local} on this computer` })
+      const now = Date.now()
+      const id = 'srv' + now.toString(36) + crypto.randomBytes(3).toString('hex')
+      const from = `${sess.username}@proper.com`
+      const address = `${target.username}@proper.com`
+      const base = {
+        from,
+        fromName: sess.username,
+        to: address,
+        subject: String(data.subject || '(no subject)'),
+        date: now,
+        body: String(data.body || ''),
+        starred: false,
+        labels: [],
+      }
+      ;(db.mail[target.username] ||= []).push({ ...base, id, folder: 'Inbox', read: false })
+      ;(db.mail[sess.username] ||= []).push({ ...base, id: id + 'c', folder: 'Sent', read: true })
+      save(db)
+      return json(res, 200, { ok: true, id, to: target.username })
     }
 
     return json(res, 404, { ok: false })

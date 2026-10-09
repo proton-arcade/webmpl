@@ -152,6 +152,57 @@ export async function putSettings(obj: unknown): Promise<void> {
   }
 }
 
+/* ------------------------------- mail API -------------------------------- */
+/* The server keeps one mailbox per whitelisted account. Guests have none: the
+ * server refuses to store anything for them, so they get local-only mail. */
+export interface ServerMail {
+  id: string
+  from: string
+  fromName: string
+  to: string
+  subject: string
+  date: number
+  body: string
+  folder: string
+  read: boolean
+  starred: boolean
+  labels: string[]
+}
+
+export async function serverMail(): Promise<ServerMail[] | null> {
+  try {
+    const r = await fetch('/api/mail', { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    const list = await r.json()
+    return Array.isArray(list) ? (list as ServerMail[]) : null
+  } catch {
+    return null
+  }
+}
+
+export interface SendResult {
+  ok: boolean
+  id?: string
+  error?: string
+}
+
+/* Deliver to another account on this machine. `ok` is false with a reason when
+ * there is no such mailbox, or when there is no server at all. */
+export async function sendMail(to: string, subject: string, body: string): Promise<SendResult> {
+  try {
+    const r = await fetch('/api/mail/send', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ to, subject, body }),
+    })
+    if (!isJson(r)) return { ok: false, error: 'there is no mail server on this computer' }
+    const out = await r.json()
+    return out.ok ? { ok: true, id: out.id } : { ok: false, error: out.error || 'not delivered' }
+  } catch {
+    return { ok: false, error: 'there is no mail server on this computer' }
+  }
+}
+
 /* --------------------------- administrator API --------------------------- */
 /* Every call here is admin-only on the server; they return null/[] for anyone
    else so the console can render "not permitted" instead of guessing. */

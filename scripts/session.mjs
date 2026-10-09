@@ -29,6 +29,15 @@ const SESSION_KEY = 'mixt.session.v1'
 const ROOTPASS = 'mixt-root'
 
 /* ------------------------------- fake API -------------------------------- */
+/* Two accounts with real mailboxes, so "Send" can be judged by what arrives
+ * rather than by what the button claims. */
+const USERS = ['Mixt_MPL', 'demo']
+const mailboxes = {}
+const deliveries = []
+const userOf = (req) => {
+  const tk = (req.headers.authorization || '').replace(/^Bearer /, '')
+  return tk === 'admin-token' ? 'Mixt_MPL' : tk === 'demo-token' ? 'demo' : tk === 'guest-token' ? 'guest' : null
+}
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
   const p = url.pathname
@@ -53,6 +62,28 @@ const server = createServer(async (req, res) => {
     if (p === '/api/users' && req.method === 'POST') return send(200, { ok: true })
     if (p === '/api/stats') return send(200, { ok: true, users: 2, admins: 1, sessions: 3, appsPending: 1, appsApproved: 0, mailboxes: 0, savedSettings: 1 })
     if (p === '/api/settings') return send(200, {})
+    if (p === '/api/mail') {
+      const u = userOf(req)
+      if (!u || u === 'guest') return send(403, { ok: false, error: 'guests are not saved' })
+      return send(200, mailboxes[u] || [])
+    }
+    if (p === '/api/mail/send' && req.method === 'POST') {
+      const u = userOf(req)
+      if (!u || u === 'guest') return send(403, { ok: false, error: 'guests are not saved' })
+      let raw = ''
+      for await (const c of req) raw += c
+      const d = JSON.parse(raw || '{}')
+      const local = String(d.to || '').trim().split('@')[0].toLowerCase()
+      if (!local) return send(400, { ok: false, error: 'no recipient' })
+      const target = USERS.find((x) => x.toLowerCase() === local)
+      if (!target) return send(404, { ok: false, error: `no mailbox for ${local} on this computer` })
+      const id = 'srv' + Date.now().toString(36) + deliveries.length
+      const base = { from: `${u}@proper.com`, fromName: u, to: `${target}@proper.com`, subject: d.subject || '(no subject)', date: Date.now(), body: d.body || '', starred: false, labels: [] }
+      ;(mailboxes[target] ||= []).push({ ...base, id, folder: 'Inbox', read: false })
+      ;(mailboxes[u] ||= []).push({ ...base, id: id + 'c', folder: 'Sent', read: true })
+      deliveries.push({ from: u, to: target, subject: base.subject })
+      return send(200, { ok: true, id, to: target })
+    }
     return send(200, { ok: true })
   }
   let path = p.endsWith('/') ? p + 'index.html' : p
@@ -137,6 +168,11 @@ function typeInto(w, input, text) {
   const setter = Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype, 'value').set
   setter.call(input, text)
   input.dispatchEvent(new w.Event('input', { bubbles: true }))
+}
+function typeArea(w, area, text) {
+  const setter = Object.getOwnPropertyDescriptor(w.HTMLTextAreaElement.prototype, 'value').set
+  setter.call(area, text)
+  area.dispatchEvent(new w.Event('input', { bubbles: true }))
 }
 /* The sign-in card is the fixed overlay at z-index 300000. Selecting #root input
    blindly is wrong: with the menu open there is a search box in there too. */
@@ -348,6 +384,79 @@ else {
     if (!appNames(live.d).includes('Administration'))
       bad('the menu did not update after signing in as administrator (the app list is memoised)')
     else ok('the menu gains the Administration console the moment the administrator signs in')
+  }
+}
+
+/* ------------- 9. mail really goes to the other account ------------------- */
+console.log('• demo writes to the administrator in the Mail app…')
+const post = await boot({ token: 'demo-token', role: 'user', username: 'demo' })
+post.w.dispatchEvent(new post.w.CustomEvent('mixt:launch', { detail: { appId: 'mail', props: {} } }))
+await tick(800)
+let mailWin = [...post.d.querySelectorAll('.wm-window')].pop()
+if (!mailWin) bad('the Mail app did not open')
+else {
+  /* the mailbox on show must be the signed-in account's, not a generic "you" */
+  const sideText = mailWin.textContent ?? ''
+  if (/you@proper\.com/.test(sideText)) bad('the Mail app still shows a generic you@proper.com account')
+  else if (!/demo@proper\.com/.test(sideText)) bad('the Mail app does not say whose mailbox it is showing')
+  else ok('the sidebar shows the signed-in mailbox, demo@proper.com')
+
+  const compose = byText(post.d, '.wm-window button', /^\s*Compose\s*$/)
+  if (!(await realClick(post.w, compose))) bad('the Mail app has no working Compose button')
+  else {
+    await tick(400)
+    mailWin = [...post.d.querySelectorAll('.wm-window')].pop()
+    const fromLine = mailWin.textContent ?? ''
+    if (!/From demo@proper\.com/.test(fromLine)) bad('the compose form does not say who the message is from')
+    else ok('the compose form is signed demo@proper.com')
+
+    const to = mailWin.querySelector('input[placeholder="To"]')
+    const subj = mailWin.querySelector('input[placeholder="Subject"]')
+    const area = mailWin.querySelector('textarea')
+    if (!to || !subj || !area) bad('the compose form is missing a To, Subject or body box')
+    else {
+      typeInto(post.w, to, 'Mixt_MPL@proper.com')
+      typeInto(post.w, subj, 'Seconds on the clock?')
+      typeArea(post.w, area, 'I time my tea with the panel clock.')
+      await tick(150)
+      const sendBtn = [...mailWin.querySelectorAll('button')].find((b) => /^\s*Send\s*$/.test(b.textContent ?? ''))
+      if (!(await realClick(post.w, sendBtn))) bad('the compose form has no working Send button')
+      else {
+        await tick(800)
+        if (deliveries.length !== 1) bad(`the server saw ${deliveries.length} deliveries, expected 1`)
+        else if (deliveries[0].from !== 'demo' || deliveries[0].to !== 'Mixt_MPL')
+          bad(`the delivery went from ${deliveries[0].from} to ${deliveries[0].to}`)
+        else ok('pressing Send delivered it to the administrator')
+
+        const landed = (mailboxes['Mixt_MPL'] || []).find((m) => m.subject === 'Seconds on the clock?')
+        if (!landed) bad("nothing arrived in Mixt_MPL's mailbox")
+        else if (landed.folder !== 'Inbox' || landed.read !== false) bad('it did not arrive as unread mail in the Inbox')
+        else if (landed.body !== 'I time my tea with the panel clock.') bad('the body did not survive')
+        else ok("it is waiting unread in the administrator's Inbox")
+
+        mailWin = [...post.d.querySelectorAll('.wm-window')].pop()
+        if (!/Seconds on the clock\?/.test(mailWin.textContent ?? '')) bad('the sender cannot see the message they sent')
+        else ok('the sender sees it in Sent')
+
+        /* an address nobody owns must be refused, and the draft kept */
+        const again = byText(post.d, '.wm-window button', /^\s*Compose\s*$/)
+        await realClick(post.w, again)
+        await tick(400)
+        mailWin = [...post.d.querySelectorAll('.wm-window')].pop()
+        typeInto(post.w, mailWin.querySelector('input[placeholder="To"]'), 'nobody@proper.com')
+        typeInto(post.w, mailWin.querySelector('input[placeholder="Subject"]'), 'Lost')
+        await tick(150)
+        await realClick(post.w, [...mailWin.querySelectorAll('button')].find((b) => /^\s*Send\s*$/.test(b.textContent ?? '')))
+        await tick(700)
+        mailWin = [...post.d.querySelectorAll('.wm-window')].pop()
+        const said = mailWin.textContent ?? ''
+        if (!/Not sent: no mailbox for nobody/.test(said)) bad(`an unknown address was not reported (window says: ${said.slice(0, 140)})`)
+        else ok('an address nobody owns is refused, with the reason shown')
+        if (!mailWin.querySelector('textarea')) bad('the refused message was thrown away instead of kept for editing')
+        else ok('the refused message is still there to fix and resend')
+        if (deliveries.length !== 1) bad(`the refused message was delivered anyway (${deliveries.length} deliveries)`)
+      }
+    }
   }
 }
 

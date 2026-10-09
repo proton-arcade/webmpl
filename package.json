@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Mixt Web OS — a full desktop computer that runs in the browser, styled after Linux Mint",
+  "description": "Mixt Web OS \u2014 a full desktop computer that runs in the browser, styled after Linux Mint",
   "scripts": {
     "dev": "vite",
     "build": "node scripts/build-static.mjs",
@@ -14,7 +14,8 @@
     "static": "node scripts/static.mjs",
     "explore": "node scripts/explore.mjs",
     "served": "node scripts/served.mjs",
-    "session": "node scripts/session.mjs"
+    "session": "node scripts/session.mjs",
+    "mail": "node scripts/mail.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
