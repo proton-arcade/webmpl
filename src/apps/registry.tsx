@@ -15,7 +15,6 @@ import ArchiveApp from './archive'
 import HelpApp from './help'
 import AboutApp from './about'
 import ScreenshotApp from './screenshot'
-import Game2048App from './game2048'
 import PaintApp from './paint'
 import MailApp from './mail'
 import NewsApp from './news'
@@ -40,6 +39,9 @@ export const APPS: AppDef[] = [
   {
     id: 'terminal',
     name: 'Terminal',
+    /* A guest gets no shell: it is the one place on this machine where anything
+       could be typed at the system. */
+    noGuest: true,
     generic: 'Terminal Emulator',
     comment: 'Run commands, scripts and system tools',
     glyph: 'Terminal',
@@ -196,19 +198,6 @@ export const APPS: AppDef[] = [
     minSize: { w: 480, h: 400 },
   },
   {
-    id: 'game2048',
-    name: '2048',
-    comment: 'Slide the tiles, reach 2048',
-    glyph: 'Gamepad2',
-    color: '#e05f8a',
-    color2: '#a32a55',
-    categories: ['Games'],
-    keywords: ['game', 'puzzle', 'play', 'tiles'],
-    preinstalled: false,
-    component: Game2048App,
-    defaultSize: { w: 520, h: 620 },
-  },
-  {
     id: 'help',
     name: 'Help',
     generic: 'Help & Documentation',
@@ -316,8 +305,12 @@ export function searchApps(q: string): AppDef[] {
 export function isAdmin(): boolean {
   return backend.getSession()?.role === 'admin'
 }
+export function isGuest(): boolean {
+  return backend.getSession()?.role === 'guest'
+}
 export function visibleApps(): AppDef[] {
-  return isAdmin() ? APPS : APPS.filter((a) => !a.adminOnly)
+  const guest = isGuest()
+  return APPS.filter((a) => (a.adminOnly ? isAdmin() : true) && (a.noGuest ? !guest : true))
 }
 
 export const CATEGORIES = [
@@ -326,7 +319,6 @@ export const CATEGORIES = [
   'Accessories',
   'Graphics',
   'Internet',
-  'Games',
   'Sound & Video',
   'System',
   'Preferences',

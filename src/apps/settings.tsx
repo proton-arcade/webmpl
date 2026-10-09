@@ -516,7 +516,7 @@ function DesktopSection() {
   const settings = useOS((s) => s.settings)
   const setSettings = useOS((s) => s.setSettings)
   return (
-    <Section title="Desktop" subtitle="Desktop icons and the hot corner.">
+    <Section title="Desktop" subtitle="The hot corner and how windows take focus.">
       <Card>
         <Row label="Hot corner" hint="Pushing the pointer into the top-left corner opens the menu">
           <Toggle value={settings.hotCorner} onChange={(v) => setSettings({ hotCorner: v })} />
@@ -531,35 +531,6 @@ function DesktopSection() {
             ]}
           />
         </Row>
-      </Card>
-      <Card title="Desktop icons">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {visibleApps().map((a) => (
-            <span
-              key={a.id}
-              onClick={() =>
-                setSettings({
-                  desktopIcons: settings.desktopIcons.includes(a.id)
-                    ? settings.desktopIcons.filter((d) => d !== a.id)
-                    : [...settings.desktopIcons, a.id],
-                })
-              }
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '5px 10px',
-                borderRadius: 999,
-                cursor: 'pointer',
-                border: '1px solid rgba(0,0,0,0.16)',
-                background: settings.desktopIcons.includes(a.id) ? 'color-mix(in srgb, var(--wm-accent) 34%, transparent)' : undefined,
-              }}
-            >
-              <AppIcon glyph={a.glyph} color={a.color} color2={a.color2} size={18} />
-              {a.name}
-            </span>
-          ))}
-        </div>
       </Card>
     </Section>
   )

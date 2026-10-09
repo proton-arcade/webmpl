@@ -459,6 +459,9 @@ export default function Desktop() {
         </div>
       )}
       {authGate && !api.getSession() && <AuthGate onDone={() => { adoptServerSession(api.getSession()); setAuthGate(false); bump((x) => x + 1) }} />}
+      {/* Never for a guest: a guest is not an account and must not be able to
+          create one. Without this the form only stayed hidden by accident,
+          because a guest session happens to set serverSession. */}
       {!hasUsers && !authGate && !serverSession && <FirstBootSetup />}
     </div>
   )
@@ -885,6 +888,9 @@ function LockScreen() {
    username and a password. */
 function FirstBootSetup() {
   const settings = useOS((s) => s.settings)
+  /* Guarded here too, so nothing that mounts this component by mistake can
+     hand a guest the account form. */
+  const guest = api.getSession()?.role === 'guest'
   const setSettings = useOS((s) => s.setSettings)
   const createUser = useOS((s) => s.createUser)
   const [fullName, setFullName] = useState('')
@@ -919,6 +925,10 @@ function FirstBootSetup() {
       {hint && <span style={{ fontSize: 11, opacity: 0.6 }}>{hint}</span>}
     </label>
   )
+
+  /* A guest is let in without an account, so there is nothing to set up and no
+     account for them to create. */
+  if (guest) return null
 
   return (
     <div

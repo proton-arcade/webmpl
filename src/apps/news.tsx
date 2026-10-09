@@ -63,7 +63,6 @@ const FEEDS: Feed[] = [
       { title: 'Installing Mixt Web OS (and why nothing needed installing)', summary: 'A walkthrough of the boot process, from the splash to the panel applets.', url: 'https://mixtube.com/watch/v1', date: '3 days', tag: 'Mixt Tips' },
       { title: 'Snapping windows with a pointer capture in React', summary: 'Pointer capture, transform-based dragging and the snap-preview rectangle.', url: 'https://mixtube.com/watch/v2', date: '1 week', tag: 'Frontend Kitchen' },
       { title: 'I wrote a shell in TypeScript and it has pipes', summary: 'Tokenisation, pipelines and redirection in about 500 lines.', url: 'https://mixtube.com/watch/v3', date: '2 weeks', tag: 'Terminal Velocity' },
-      { title: 'Review: the 2048 clone inside the browser inside the OS', summary: 'It is 2048. It has arrow-key support. Ten out of ten.', url: 'https://mixtube.com/watch/v5', date: '1 month', tag: 'Arcade Corner' },
     ],
   },
   {

@@ -274,7 +274,7 @@ await realClick(d.querySelector('.menu-button'))
 await tick(300)
 const vlcInMenu = [...d.querySelectorAll('.menu-item')].some((e) => /VLC media player/.test(e.textContent))
 if (vlcInMenu) warn('VLC still preinstalled in the menu (should be downloadable-only)')
-else ok('VLC/Weather/2048 are not preinstalled (download from Software Manager)')
+else ok('VLC and Weather are not preinstalled (download from Software Manager)')
 d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
 await tick(100)
 

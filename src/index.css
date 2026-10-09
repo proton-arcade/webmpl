@@ -217,13 +217,19 @@ html[data-scheme='dark'] .mixt-toolbar {
   color: #eceeed;
 }
 
+/* Every button carries a visible outline in every theme. The border used to be
+   transparent until hover, which left a light theme full of controls you could
+   not see until you happened to point at them — and the dark overrides below
+   only ever fixed the dark scheme. */
 .btn-ghost {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 9px;
   border-radius: 5px;
-  border: 1px solid transparent;
+  border: 1px solid rgba(0, 0, 0, 0.28);
+  background: rgba(255, 255, 255, 0.45);
+  color: inherit;
   white-space: nowrap;
   cursor: pointer;
   line-height: 1.35;
@@ -239,9 +245,14 @@ html[data-scheme='dark'] .mixt-toolbar {
   background: rgba(0, 0, 0, 0.12);
   border-color: rgba(0, 0, 0, 0.16);
 }
+/* Dark scheme inverts the outline rather than dropping it. */
+html[data-scheme='dark'] .btn-ghost {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.07);
+}
 html[data-scheme='dark'] .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 html[data-scheme='dark'] .btn-ghost[data-active='true'] {
   background: rgba(255, 255, 255, 0.14);
@@ -298,6 +309,13 @@ html[data-scheme='dark'] .entry {
   padding: 5px;
   min-width: 190px;
   backdrop-filter: blur(6px);
+  /* A menu with more entries than the screen is tall used to run off the bottom
+     with the last items unreachable: the popup clamps where it starts, but
+     nothing clamped how tall it could be. Now it stops short of the edge and
+     scrolls. */
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .menu-item {
   display: flex;

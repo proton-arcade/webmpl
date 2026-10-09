@@ -112,4 +112,6 @@ export interface AppDef {
   resident?: boolean
   /** true => only listed for the signed-in administrator account */
   adminOnly?: boolean
+  /** hidden from guest sessions, and refused if one launches it anyway */
+  noGuest?: boolean
 }

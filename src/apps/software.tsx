@@ -25,12 +25,12 @@ const LS_RATINGS = 'mixt.store.ratings.v1'
 const REVIEWS: Record<string, number> = {
   nemo: 4.6, terminal: 4.9, browser: 4.4, mixtinstall: 4.2, settings: 4.0, xed: 4.3,
   calculator: 4.1, 'system-monitor': 4.5, mediaplayer: 4.0, imageviewer: 4.2, weather: 4.3,
-  archive: 4.1, screenshot: 3.9, game2048: 4.8, help: 4.7, about: 4.4, paint: 4.5, mail: 4.2, news: 4.1,
+  archive: 4.1, screenshot: 3.9, help: 4.7, about: 4.4, paint: 4.5, mail: 4.2, news: 4.1,
 }
 
 const SIZES: Record<string, string> = {
   paint: '4.2 MB', mail: '12.1 MB', news: '7.8 MB', browser: '38.6 MB', nemo: '9.4 MB',
-  terminal: '3.1 MB', mediaplayer: '15.2 MB', game2048: '1.8 MB', 'system-monitor': '2.9 MB',
+  terminal: '3.1 MB', mediaplayer: '15.2 MB', 'system-monitor': '2.9 MB',
 }
 
 const DEVELOPERS: Record<string, string> = {
@@ -38,7 +38,7 @@ const DEVELOPERS: Record<string, string> = {
   mixtinstall: 'Mixt Desktop Team', settings: 'Mixt Desktop Team', xed: 'Mixt Editors',
   calculator: 'Mixt Accessories', 'system-monitor': 'Mixt Desktop Team', mediaplayer: 'Mixt Media',
   imageviewer: 'Mixt Media', weather: 'MixtNet Services', archive: 'Mixt Accessories',
-  screenshot: 'Mixt Accessories', game2048: 'Mixt Games', help: 'Mixt Desktop Team',
+  screenshot: 'Mixt Accessories', help: 'Mixt Desktop Team',
   about: 'Mixt Desktop Team', paint: 'Mixt Graphics', mail: 'MixtNet Services', news: 'MixtNet Services',
 }
 
@@ -56,7 +56,6 @@ const BLURBS: Record<string, string> = {
   weather: 'Forecasts for the cities of MixtNet, refreshed from the built-in weather service.',
   archive: 'Create and extract .zip archives from the file manager. Shows the contents before you unpack them and lets you choose the destination.',
   screenshot: 'Capture the whole screen, the focused window or a region, then annotate and save to Pictures.',
-  game2048: 'The tile game. Arrow keys or swipe, undo, best score saved per account.',
   help: 'The Mixt desktop guide: keyboard shortcuts, terminal commands, and what every panel applet does.',
   about: 'Version, kernel, browser engine, memory and the licences of everything that went into this build.',
   paint: 'A small bitmap editor: brushes, shapes, fill, picker, layers of undo, and save to Pictures.',
@@ -69,8 +68,7 @@ const CHANGELOG: Record<string, string[]> = {
   terminal: ['/startup creates user accounts', 'Tab completion covers the new commands'],
   browser: ['Rebranded as Mixtsfox', 'Downloads land in ~/Downloads'],
   mixtinstall: ['Storefront redesign with screenshots and ratings', 'Ratings are saved per browser'],
-  game2048: ['Undo', 'Best score is kept per account'],
-}
+  }
 
 const TESTIMONIALS: [string, string][] = [
   ['tux_fan_92', 'Exactly the application I needed, and I did not even have to compile it.'],

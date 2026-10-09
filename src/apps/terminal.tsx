@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../os/store'
 import { HOME, join, splitPath, normalizePath, vfs, humanSize, countNodes, nodeSize } from '../os/vfs'
-import { getApp, visibleApps } from './registry'
+import { getApp, visibleApps, isGuest } from './registry'
 import { ACCENTS, validateUsername } from '../os/users'
 import {
   addressFor,
@@ -1290,6 +1290,22 @@ export default function TerminalApp({ win, api }: AppProps) {
     err: '#ff8a80',
     ok: '#b6e88a',
     dim: '#8b9490',
+  }
+
+  /* A guest has no shell. The app is not in their menu, and if something
+     launches it anyway this is what they get — no prompt, no commands. */
+  if (isGuest()) {
+    return (
+      <div style={{ flex: 1, display: 'grid', placeItems: 'center', background: '#1b1f22', color: '#d7dbd8', padding: 26, textAlign: 'center' }}>
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>The Terminal is not available to guests</div>
+          <div style={{ opacity: 0.8, fontSize: 13, lineHeight: 1.6, maxWidth: 420 }}>
+            A guest session can use the desktop, but it gets no shell. Sign in with a whitelisted account to use the
+            Terminal.
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

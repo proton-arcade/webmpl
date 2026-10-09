@@ -13,7 +13,6 @@ export const REPO_VERSIONS: Record<string, string> = {
   'system-monitor': '1.0.1',
   xed: '1.0.2',
   mediaplayer: '3.0.25',
-  game2048: '1.1.0',
 }
 
 /** The version currently on this computer. */

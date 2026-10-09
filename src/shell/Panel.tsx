@@ -110,45 +110,32 @@ export default function Panel() {
                 style={{ padding: '0 5px' }}
                 title={open.length ? `${app.name} — ${open.length} window${open.length === 1 ? '' : 's'} open` : app.name}
                 onClick={() => {
-                  // an app that is already open gets focus back, not a second copy
+                  // an app that is already open gets minimised, exactly like
+                  // clicking its icon anywhere else in the system
                   if (!open.length) return launch(id, {})
                   const last = open[open.length - 1]
                   if (last.id === activeId && !last.minimized) return S.toggleMinimize(last.id)
                   if (last.minimized) return S.toggleMinimize(last.id)
                   S.focusWindow(last.id)
                 }}
-              >
-                <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={22} rounded={0.28} />
-                {open.length > 1 && <span className="panel-badge">+{open.length - 1}</span>}
-              </div>
-            )
-          })}
-        </div>
-
-        <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.18)', margin: '0 4px' }} />
-
-        {/* window list */}
-        <div style={{ display: 'flex', gap: 3, flex: shelf ? '0 1 auto' : '1 1 auto', overflow: 'hidden', minWidth: 0 }}>
-          {visible.map((w) => {
-            const app = getApp(w.appId)
-            const active = activeId === w.id && !w.minimized
-            return (
-              <div
-                key={w.id}
-                className="panel-item"
-                data-active={active}
-                style={{ maxWidth: 190, minWidth: 0, opacity: w.minimized ? 0.65 : 1 }}
-                title={w.title}
-                onClick={() => (active || w.minimized ? S.toggleMinimize(w.id) : S.focusWindow(w.id))}
                 onContextMenu={(e) => {
                   e.preventDefault()
-                  setPopup({ kind: `win:${w.id}`, x: e.clientX, y: e.clientY })
+                  setPopup({ kind: `app:${id}`, x: e.clientX, y: e.clientY })
                 }}
               >
-                <AppIcon glyph={app?.glyph ?? 'AppWindow'} color={app?.color ?? '#5b8def'} size={16} rounded={0.3} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>
-                  {w.title.replace(/ — .*/, '')}
-                </span>
+                <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={22} rounded={0.28} />
+                {open.length > 1 && (
+                  <span
+                    className="panel-badge"
+                    title={`${open.length} windows — click for the list`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPopup({ kind: `app:${id}`, x: e.clientX, y: e.clientY })
+                    }}
+                  >
+                    +{open.length - 1}
+                  </span>
+                )}
               </div>
             )
           })}
@@ -322,6 +309,37 @@ export default function Panel() {
             { label: 'System Settings', icon: <Glyph name="Settings" size={14} />, onClick: () => launch('settings', {}) },
             { label: 'About This Computer', icon: <Glyph name="Info" size={14} />, onClick: () => launch('about', {}) },
           ]}
+        />
+      )}
+      {/* One app, several windows: the list of them, and a way to close them
+          all at once. This replaced the old tab strip along the panel. */}
+      {popup?.kind?.startsWith('app:') && (
+        <Popup
+          x={popup.x}
+          y={popup.y}
+          onClose={() => setPopup(null)}
+          items={(() => {
+            const id = popup.kind.slice(4)
+            const app = getApp(id)
+            const mine = windows.filter((w) => w.appId === id)
+            if (!mine.length) return [{ label: 'No windows open', disabled: true }]
+            return [
+              ...mine.map(
+                (w) =>
+                  ({
+                    label: w.title.length > 34 ? `${w.title.slice(0, 33)}…` : w.title,
+                    icon: <Glyph name={w.minimized ? 'Minus' : 'AppWindow'} size={14} />,
+                    onClick: () => (w.minimized ? S.toggleMinimize(w.id) : S.focusWindow(w.id)),
+                  }) as MenuItem,
+              ),
+              { separator: true },
+              {
+                label: mine.length === 1 ? 'Close window' : `Close all ${mine.length} windows`,
+                icon: <Glyph name="X" size={14} />,
+                onClick: () => mine.forEach((w) => S.closeWindow(w.id)),
+              },
+            ] as MenuItem[]
+          })()}
         />
       )}
       {popup?.kind?.startsWith('win:') && (

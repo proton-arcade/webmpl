@@ -165,7 +165,6 @@ async function runCondition(mode) {
       }),
     )
     local.setItem('webmpl.settings.v2', JSON.stringify({ accent: '#61ad2b', scheme: 'dark' }))
-    local.setItem('webmpl.2048.best', '4096')
     session.setItem('webmpl.boot.cycle', '7')
   }
 
