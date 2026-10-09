@@ -9,6 +9,7 @@ import type { AppDef } from '../os/types'
 export default function MainMenu({ onClose }: { onClose: () => void }) {
   const settings = useOS((s) => s.settings)
   const installed = useOS((s) => s.installed)
+  const serverRole = useOS((s) => s.serverRole)
   const [category, setCategory] = useState('All Applications')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
@@ -25,9 +26,11 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // serverRole is a dependency because which apps exist depends on who is
+  // signed in — and that can change while the desktop is running
   const available = useMemo(
     () => visibleApps().filter((a) => a.preinstalled !== false || !!installed[a.id]),
-    [installed],
+    [installed, serverRole],
   )
 
   const list = useMemo(() => {

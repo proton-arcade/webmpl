@@ -43,6 +43,7 @@ export default function Desktop() {
     if (!s) return
     setPersistenceEnabled(s.role !== 'guest')
     const st = useOS.getState()
+    st.setServerRole(s.role)
     if (st.settings.username !== s.username) st.setSettings({ username: s.username, fullName: s.username })
   }
 
@@ -663,6 +664,7 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
           // a server account goes back to the sign-in screen, not the local
           // lock screen — two stacked overlays fought over the keyboard
           api.setSession(null)
+          S.setServerRole(null)
           S.setLocked(false)
           window.dispatchEvent(new CustomEvent('mixt:authchanged'))
         } else {

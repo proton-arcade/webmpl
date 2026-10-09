@@ -138,6 +138,10 @@ function typeInto(w, input, text) {
   setter.call(input, text)
   input.dispatchEvent(new w.Event('input', { bubbles: true }))
 }
+/* The sign-in card is the fixed overlay at z-index 300000. Selecting #root input
+   blindly is wrong: with the menu open there is a search box in there too. */
+const gateInputs = (d) => [...(d.querySelector('#root [style*="z-index: 300000"]')?.querySelectorAll('input') ?? [])]
+
 function pressEnter(w, el) {
   el.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
 }
@@ -278,7 +282,7 @@ await realClick(back.w, [...back.d.querySelectorAll('button')].find((b) => (b.te
 await tick(1500)
 if (!loginGateShown(back.d)) bad('the sign-in screen did not come back')
 else {
-  const boxes = [...back.d.querySelectorAll('#root input')]
+  const boxes = gateInputs(back.d)
   const pass = boxes.find((i) => i.type === 'password')
   if (!pass) bad('the sign-in screen has no password box to type into')
   else {
@@ -313,6 +317,37 @@ else {
       if (!stored || stored.role !== 'guest') bad(`the empty sign-in did not create a guest session (got ${JSON.stringify(stored)})`)
       else ok('empty username and password go straight in as a guest')
     }
+  }
+}
+
+/* -------- 8. signing in mid-session reveals the administrator tools -------- */
+console.log('• signing in as administrator while the desktop is running…')
+const live = await boot(null)
+await tick(400)
+if (!loginGateShown(live.d)) bad('no sign-in screen for a fresh visitor')
+else {
+  /* the menu before signing in must not have it */
+  await realClick(live.w, live.d.querySelector('.menu-button'))
+  await tick(300)
+  if (appNames(live.d).includes('Administration')) bad('the console was listed before anybody signed in')
+  await realClick(live.w, live.d.querySelector('.menu-button'))
+  await tick(300)
+
+  const boxes = gateInputs(live.d)
+  if (boxes.length !== 2) bad(`the sign-in card should have exactly two boxes, found ${boxes.length}`)
+  const pw = boxes.find((i) => i.type === 'password')
+  typeInto(live.w, boxes.find((i) => i.type !== 'password'), 'Mixt_MPL')
+  typeInto(live.w, pw, 'mixt-root')
+  await tick(120)
+  pressEnter(live.w, pw)
+  await tick(1400)
+  if (loginGateShown(live.d)) bad('signing in from the gate did not take')
+  else {
+    await realClick(live.w, live.d.querySelector('.menu-button'))
+    await tick(400)
+    if (!appNames(live.d).includes('Administration'))
+      bad('the menu did not update after signing in as administrator (the app list is memoised)')
+    else ok('the menu gains the Administration console the moment the administrator signs in')
   }
 }
 

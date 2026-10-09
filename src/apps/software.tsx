@@ -201,6 +201,7 @@ type Sort = 'featured' | 'rating' | 'name' | 'size'
 
 export default function SoftwareApp({ win, api }: AppProps) {
   const installed = useOS((s) => s.installed)
+  const serverRole = useOS((s) => s.serverRole)
   const setInstalled = useOS((s) => s.setInstalled)
   const [category, setCategory] = useState('Featured')
   const [query, setQuery] = useState('')
@@ -305,7 +306,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
   }, [current?.id])
 
   const updates = visibleApps().filter((a) => a.preinstalled === false && !installed[a.id])
-  const picks = useMemo(() => [...visibleApps()].sort((a, b) => ratingOf(b) - ratingOf(a)).slice(0, 4), [])
+  const picks = useMemo(() => [...visibleApps()].sort((a, b) => ratingOf(b) - ratingOf(a)).slice(0, 4), [serverRole])
   const featured = picks[0]
 
   return (
