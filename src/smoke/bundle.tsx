@@ -31,7 +31,7 @@ import {
   zoneRecords,
 } from '../net'
 import { useOS, sanitizeSettings, DEFAULT_SETTINGS } from '../os/store'
-import { vfs, useVFS, parseTree } from '../os/vfs'
+import { vfs, useVFS, parseTree, ensureWebShare } from '../os/vfs'
 import { migrateBranding } from '../os/migrate'
 import { bootstrap } from '../os/bootstrap'
 import { safeLocal, safeSession, clearSavedData } from '../os/storage'
@@ -208,6 +208,37 @@ export async function runSmoke() {
     vfs.trash('/home/mixt/Documents/smoke.txt')
     assert(!vfs.exists('/home/mixt/Documents/smoke.txt'), 'trash did not remove the file')
     vfs.rm('/home/mixt/smoke-dir')
+  })
+
+  await check('the hosted share and its manifest', () => {
+    const manifest = vfs.read('/srv/www/mixt/index.js') ?? ''
+    assert(manifest.length > 0, '/srv/www/mixt/index.js is missing')
+    assert(/ALL_FILES/.test(manifest) && /ALL_DIRS/.test(manifest), 'the manifest does not list files and directories')
+    /* every path the manifest names must really exist, or the site would serve
+       a listing of files that are not there */
+    const paths = [
+      '/srv/www/mixt/audio/chime.ogg',
+      '/srv/www/mixt/audio/notify.wav',
+      '/srv/www/mixt/audio/startup.ogg',
+      '/srv/www/mixt/text/welcome.txt',
+      '/srv/www/mixt/text/readme.txt',
+      '/srv/www/mixt/text/notes.txt',
+      '/srv/www/mixt/images/banner.png',
+      '/srv/www/mixt/images/leaf.svg',
+      '/srv/www/mixt/video/intro.mp4',
+    ]
+    for (const p of paths) assert(vfs.exists(p), `the manifest names ${p} but it is not there`)
+    for (const d of ['/srv/www/mixt/audio', '/srv/www/mixt/text', '/srv/www/mixt/images', '/srv/www/mixt/video'])
+      assert(vfs.node(d)?.type === 'dir', `${d} is not a directory`)
+    assert((vfs.read('/srv/www/mixt/text/welcome.txt') ?? '').includes('Mixt Web OS'), 'welcome.txt has no content')
+    assert(vfs.exists('/srv/www/index.html'), 'the hosted site has no index.html')
+
+    /* a filesystem saved before the share existed must gain it on boot */
+    vfs.rm('/srv')
+    assert(!vfs.exists('/srv/www/mixt/index.js'), 'the share was not removed for the migration test')
+    ensureWebShare()
+    assert(vfs.exists('/srv/www/mixt/index.js'), 'ensureWebShare did not walk the share back in')
+    assert(vfs.exists('/srv/www/mixt/text/welcome.txt'), 'the migration left the text files behind')
   })
 
   await check('url resolution', () => {

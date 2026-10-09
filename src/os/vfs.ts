@@ -97,6 +97,21 @@ export function countNodes(n: VNode): number {
 /* --------------------------------- seeds --------------------------------- */
 const WALLPAPERS = ['mixt-wave.jpg', 'mixt-facets.jpg', 'mixt-leaf.jpg']
 
+/* The default user's file share on the hosted site, and the manifest that
+ * lists the path of every directory and file in it. Kept as strings here so the
+ * manifest is a real file the user can open and edit. */
+const SHARE_LEAF = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2c6 4 8 9 4 14-3 4-9 3-11-1 4 1 7-1 7-1s-4 0-6-4c3 1 6 0 6 0s-4-2-4-6c2 2 4 2 4 2z" fill="#6cab37"/></svg>'
+const SHARE_INDEX_HTML = "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Mixt \u2014 hosted share</title>\n  <link rel=\"stylesheet\" href=\"src/style.css\">\n</head>\n<body>\n  <h1>Mixt share</h1>\n  <p>Served from /srv/www. Every path this page uses comes from <code>mixt/index.js</code>.</p>\n  <script src=\"mixt/index.js\"></script>\n  <script src=\"src/main.js\"></script>\n</body>\n</html>\n"
+const SHARE_MAIN_JS = "/* Reads the manifest and fills the page in. No path is written here: they\n * all come from mixt/index.js, which is the one file to edit. */\n(function () {\n  var files = (typeof ALL_FILES !== 'undefined' && ALL_FILES) || []\n  var list = document.createElement('ul')\n  files.forEach(function (f) {\n    var li = document.createElement('li')\n    li.textContent = f\n    list.appendChild(li)\n  })\n  document.body.appendChild(list)\n})()\n"
+const SHARE_CSS = "body { font-family: system-ui, sans-serif; margin: 2rem; }\nh1 { color: #4b7a1c; }\ncode { background: #eef4e6; padding: 0 4px; }\n"
+const SHARE_MANIFEST = "/* Every path this site serves, in one place.\n *\n * Nothing else in the site hard-codes a location: they all come from here.\n * Move a file, rename a folder, add a track \u2014 change it in this one file and\n * the hosted pages follow. Paths are absolute inside the virtual filesystem.\n */\nvar ROOT = '/srv/www/mixt'\n\nvar PATHS = {\n  root: ROOT,\n\n  audio: {\n    dir: ROOT + '/audio',\n    chime: ROOT + '/audio/chime.ogg',\n    notify: ROOT + '/audio/notify.wav',\n    startup: ROOT + '/audio/startup.ogg'\n  },\n\n  text: {\n    dir: ROOT + '/text',\n    welcome: ROOT + '/text/welcome.txt',\n    readme: ROOT + '/text/readme.txt',\n    notes: ROOT + '/text/notes.txt'\n  },\n\n  images: {\n    dir: ROOT + '/images',\n    banner: ROOT + '/images/banner.png',\n    leaf: ROOT + '/images/leaf.svg'\n  },\n\n  video: {\n    dir: ROOT + '/video',\n    intro: ROOT + '/video/intro.mp4'\n  }\n}\n\n/* A flat list of every directory and every file, for anything that wants to\n   walk the tree without knowing its shape. */\nvar ALL_DIRS = [PATHS.root, PATHS.audio.dir, PATHS.text.dir, PATHS.images.dir, PATHS.video.dir]\nvar ALL_FILES = [\n  PATHS.audio.chime, PATHS.audio.notify, PATHS.audio.startup,\n  PATHS.text.welcome, PATHS.text.readme, PATHS.text.notes,\n  PATHS.images.banner, PATHS.images.leaf,\n  PATHS.video.intro\n]\n\nif (typeof module !== 'undefined') module.exports = { PATHS: PATHS, ALL_DIRS: ALL_DIRS, ALL_FILES: ALL_FILES }\n"
+
+const SHARE_WELCOME = "Welcome to the Mixt Web OS file share.\n\nThese are the files the hosted site starts with: three sounds, three text\nfiles, two images and one video. They are ordinary files in the virtual\nfilesystem, so you can open, edit, move or delete them from the Files\napplication like anything else in your home folder.\n\nWhere each one lives is listed in ../index.js - that file is the single\nplace the site looks for them.\n"
+
+const SHARE_README = "README - the default file directory\n==================================\n\nThis directory is the default user's share on the hosted site. Everything\nthe site plays, shows or links to is served from here.\n\n  audio/    sounds the site plays\n  text/     plain text the site shows\n  images/   pictures and drawings\n  video/    anything that moves\n\nTo add a file: drop it in the right folder, then add its path to\n../index.js. The site reads that file and nothing else, so a file that is\nnot listed there is not served.\n"
+
+const SHARE_NOTES = "Notes\n-----\n\n- index.js is the manifest. If a file is missing from the site but present\n  here, it is almost certainly missing from index.js.\n- Filenames are case-sensitive.\n- The audio and video files are silent placeholders: they exist so the\n  paths are real and can be replaced with your own recordings.\n"
+
 function seedTree(): VDirNode {
   const wallChildren: Record<string, VNode> = {}
   for (const w of WALLPAPERS) {
@@ -262,6 +277,39 @@ Everything you create is saved in your browser and survives a reboot.
           share: dir({
             Trash: dir({ files: dir({}), info: dir({}) }),
             'recently-used.xbel': file('<?xml version="1.0"?><xbel version="1.0"/>'),
+          }),
+        }),
+      }),
+    }),
+    /* Where the site is hosted. Everything under /srv/www/mixt belongs to the
+     * default user's share, and index.js is the manifest that lists the path of
+     * every directory and file so the whole tree can be rearranged from one
+     * place instead of by hunting through the site's source. */
+    srv: dir({
+      www: dir({
+        'index.html': file(SHARE_INDEX_HTML, 'text/html'),
+        src: dir({
+          'main.js': file(SHARE_MAIN_JS, 'text/javascript'),
+          'style.css': file(SHARE_CSS, 'text/css'),
+        }),
+        mixt: dir({
+          'index.js': file(SHARE_MANIFEST, 'text/javascript'),
+          audio: dir({
+            'chime.ogg': file('', 'audio/ogg'),
+            'notify.wav': file('', 'audio/wav'),
+            'startup.ogg': file('', 'audio/ogg'),
+          }),
+          text: dir({
+            'welcome.txt': file(SHARE_WELCOME),
+            'readme.txt': file(SHARE_README),
+            'notes.txt': file(SHARE_NOTES),
+          }),
+          images: dir({
+            'banner.png': file('', 'image/png'),
+            'leaf.svg': file(SHARE_LEAF, 'image/svg+xml'),
+          }),
+          video: dir({
+            'intro.mp4': file('', 'video/mp4'),
           }),
         }),
       }),
@@ -507,6 +555,39 @@ export const useVFS = create<VFSState>()((set, get) => ({
 }))
 
 /** home directory of the session user */
+/** Walk the hosted share into a filesystem that predates it.
+ *
+ *  The tree is saved to localStorage and a saved tree replaces the seed
+ *  outright, so a session that booted before /srv/www existed would never see
+ *  it. This creates only what is missing, so anything the user has since added,
+ *  edited or deleted is left exactly as they left it. */
+export function ensureWebShare() {
+  if (vfs.read('/srv/www/mixt/index.js') !== null) return
+  const share: [string, string, string][] = [
+    ['/srv/www/index.html', SHARE_INDEX_HTML, 'text/html'],
+    ['/srv/www/src/main.js', SHARE_MAIN_JS, 'text/javascript'],
+    ['/srv/www/src/style.css', SHARE_CSS, 'text/css'],
+    ['/srv/www/mixt/index.js', SHARE_MANIFEST, 'text/javascript'],
+    ['/srv/www/mixt/audio/chime.ogg', '', 'audio/ogg'],
+    ['/srv/www/mixt/audio/notify.wav', '', 'audio/wav'],
+    ['/srv/www/mixt/audio/startup.ogg', '', 'audio/ogg'],
+    ['/srv/www/mixt/text/welcome.txt', SHARE_WELCOME, 'text/plain'],
+    ['/srv/www/mixt/text/readme.txt', SHARE_README, 'text/plain'],
+    ['/srv/www/mixt/text/notes.txt', SHARE_NOTES, 'text/plain'],
+    ['/srv/www/mixt/images/banner.png', '', 'image/png'],
+    ['/srv/www/mixt/images/leaf.svg', SHARE_LEAF, 'image/svg+xml'],
+    ['/srv/www/mixt/video/intro.mp4', '', 'video/mp4'],
+  ]
+  for (const [path, content, mime] of share) {
+    try {
+      vfs.mkdirp(parentPath(path))
+      if (vfs.read(path) === null) vfs.write(path, content, mime)
+    } catch {
+      /* a blocked or full store must not cost the user their session */
+    }
+  }
+}
+
 export const HOME = '/home/mixt'
 export const TRASH_DIR = '/home/mixt/.local/share/Trash/files'
 
@@ -523,13 +604,19 @@ export const vfs = {
     useVFS.getState().writeFile(p, c, mime, url),
   mkdir: (p: string) => useVFS.getState().mkdir(p),
   mkdirp: (p: string) => {
+    /* Every level has to be built as an ABSOLUTE path. join() drops empty
+     * segments, so starting from '' produced relative paths like 'srv/www' —
+     * and parentPath('srv') is 'srv' itself, so the very first mkdir went
+     * looking for its own parent, found nothing, and quietly failed. mkdirp
+     * still returned true, so the caller had no way to know. Absolute paths put
+     * '/' in front of every level, and the result now tells the truth. */
     const parts = splitPath(p)
     let cur = ''
     for (const part of parts) {
-      cur = join(cur, part)
+      cur += '/' + part
       if (!useVFS.getState().exists(cur)) useVFS.getState().mkdir(cur)
     }
-    return true
+    return useVFS.getState().exists(p)
   },
   rm: (p: string) => useVFS.getState().remove(p),
   mv: (a: string, b: string) => useVFS.getState().move(a, b),

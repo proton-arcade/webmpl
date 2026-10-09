@@ -2,6 +2,7 @@ import { applyThemeVars } from '../os/theme'
 import { useOS } from '../os/store'
 import { vfs } from '../os/vfs'
 import { ensureNetworkFiles } from '../net/internet/hosts'
+import { ensureWebShare } from '../os/vfs'
 import { safeSession } from './storage'
 import { INSTALLED_VERSION, REPO_VERSIONS } from '../apps/versions'
 import { getSession, serverMail } from './api'
@@ -42,6 +43,15 @@ export function bootstrap() {
   // /etc/hosts and /etc/resolv.conf — the local resolver's configuration
   try {
     ensureNetworkFiles()
+  } catch {
+    /* ignore */
+  }
+
+  /* /srv/www — the hosted site and the default user's file share. A saved
+   * filesystem replaces the seed outright, so a session that booted before the
+   * share existed needs it walked in; anything already there is left alone. */
+  try {
+    ensureWebShare()
   } catch {
     /* ignore */
   }

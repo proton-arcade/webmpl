@@ -320,6 +320,7 @@ export default function Desktop() {
                 key={app!.id}
                 label={app!.name}
                 node={{ type: 'app', name: app!.name }}
+                openOnClick
                 onOpen={() => launch(app!.id, {})}
                 onMenu={() =>
                   setWinMenu({
@@ -469,12 +470,17 @@ function DesktopIcon({
   onOpen,
   onMenu,
   appIcon,
+  openOnClick,
 }: {
   label: string
   node: { type: string; mime?: string; name: string }
   onOpen: () => void
   onMenu: () => void
   appIcon?: { glyph: string; color: string; color2?: string }
+  /* An app on the desktop opens the same way it opens everywhere else — one
+   * click, like the Menu and the taskbar. Waiting for a double-click made the
+   * desktop icons look broken next to the rest of the system. */
+  openOnClick?: boolean
 }) {
   const [selected, setSelected] = useState(false)
   return (
@@ -484,6 +490,7 @@ function DesktopIcon({
       onClick={(e) => {
         e.stopPropagation()
         setSelected(true)
+        if (openOnClick) onOpen()
       }}
       onDoubleClick={onOpen}
       onContextMenu={(e) => {
