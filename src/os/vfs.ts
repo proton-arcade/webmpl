@@ -104,6 +104,17 @@ const SHARE_LEAF = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
 const SHARE_INDEX_HTML = "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Mixt \u2014 hosted share</title>\n  <link rel=\"stylesheet\" href=\"src/style.css\">\n</head>\n<body>\n  <h1>Mixt share</h1>\n  <p>Served from /srv/www. Every path this page uses comes from <code>mixt/index.js</code>.</p>\n  <script src=\"mixt/index.js\"></script>\n  <script src=\"src/main.js\"></script>\n</body>\n</html>\n"
 const SHARE_MAIN_JS = "/* Reads the manifest and fills the page in. No path is written here: they\n * all come from mixt/index.js, which is the one file to edit. */\n(function () {\n  var files = (typeof ALL_FILES !== 'undefined' && ALL_FILES) || []\n  var list = document.createElement('ul')\n  files.forEach(function (f) {\n    var li = document.createElement('li')\n    li.textContent = f\n    list.appendChild(li)\n  })\n  document.body.appendChild(list)\n})()\n"
 const SHARE_CSS = "body { font-family: system-ui, sans-serif; margin: 2rem; }\nh1 { color: #4b7a1c; }\ncode { background: #eef4e6; padding: 0 4px; }\n"
+/* The record describing the hosted site, in INI form: a [Website] section with
+ * one key per line, so it can be read by hand or by anything that parses INI.
+ * `Path` is where the files live, `Server` is what answers for them. */
+const SHARE_WEBSITE_INI = `[Website]
+URL=http://mixt-desktop.local/
+Server=Mixt Static 1.0
+Path=/srv/www
+Description=The share this machine serves. Edit index.html and the files under mixt/ to change what it publishes.
+keywords=mixt,share,hosted,static
+`
+
 const SHARE_MANIFEST = "/* Every path this site serves, in one place.\n *\n * Nothing else in the site hard-codes a location: they all come from here.\n * Move a file, rename a folder, add a track \u2014 change it in this one file and\n * the hosted pages follow. Paths are absolute inside the virtual filesystem.\n */\nvar ROOT = '/srv/www/mixt'\n\nvar PATHS = {\n  root: ROOT,\n\n  audio: {\n    dir: ROOT + '/audio',\n    chime: ROOT + '/audio/chime.ogg',\n    notify: ROOT + '/audio/notify.wav',\n    startup: ROOT + '/audio/startup.ogg'\n  },\n\n  text: {\n    dir: ROOT + '/text',\n    welcome: ROOT + '/text/welcome.txt',\n    readme: ROOT + '/text/readme.txt',\n    notes: ROOT + '/text/notes.txt'\n  },\n\n  images: {\n    dir: ROOT + '/images',\n    banner: ROOT + '/images/banner.png',\n    leaf: ROOT + '/images/leaf.svg'\n  },\n\n  video: {\n    dir: ROOT + '/video',\n    intro: ROOT + '/video/intro.mp4'\n  }\n}\n\n/* A flat list of every directory and every file, for anything that wants to\n   walk the tree without knowing its shape. */\nvar ALL_DIRS = [PATHS.root, PATHS.audio.dir, PATHS.text.dir, PATHS.images.dir, PATHS.video.dir]\nvar ALL_FILES = [\n  PATHS.audio.chime, PATHS.audio.notify, PATHS.audio.startup,\n  PATHS.text.welcome, PATHS.text.readme, PATHS.text.notes,\n  PATHS.images.banner, PATHS.images.leaf,\n  PATHS.video.intro\n]\n\nif (typeof module !== 'undefined') module.exports = { PATHS: PATHS, ALL_DIRS: ALL_DIRS, ALL_FILES: ALL_FILES }\n"
 
 const SHARE_WELCOME = "Welcome to the Mixt Web OS file share.\n\nThese are the files the hosted site starts with: three sounds, three text\nfiles, two images and one video. They are ordinary files in the virtual\nfilesystem, so you can open, edit, move or delete them from the Files\napplication like anything else in your home folder.\n\nWhere each one lives is listed in ../index.js - that file is the single\nplace the site looks for them.\n"
@@ -288,6 +299,7 @@ Everything you create is saved in your browser and survives a reboot.
     srv: dir({
       www: dir({
         'index.html': file(SHARE_INDEX_HTML, 'text/html'),
+        'website.ini': file(SHARE_WEBSITE_INI, 'text/plain'),
         src: dir({
           'main.js': file(SHARE_MAIN_JS, 'text/javascript'),
           'style.css': file(SHARE_CSS, 'text/css'),
@@ -562,9 +574,13 @@ export const useVFS = create<VFSState>()((set, get) => ({
  *  it. This creates only what is missing, so anything the user has since added,
  *  edited or deleted is left exactly as they left it. */
 export function ensureWebShare() {
-  if (vfs.read('/srv/www/mixt/index.js') !== null) return
+  /* The manifest being present means the share is there — but an older share
+     predates the website record, so that one is filled in either way. */
+  const present = vfs.read('/srv/www/mixt/index.js') !== null
+  if (present && vfs.read('/srv/www/website.ini') !== null) return
   const share: [string, string, string][] = [
     ['/srv/www/index.html', SHARE_INDEX_HTML, 'text/html'],
+    ['/srv/www/website.ini', SHARE_WEBSITE_INI, 'text/plain'],
     ['/srv/www/src/main.js', SHARE_MAIN_JS, 'text/javascript'],
     ['/srv/www/src/style.css', SHARE_CSS, 'text/css'],
     ['/srv/www/mixt/index.js', SHARE_MANIFEST, 'text/javascript'],

@@ -234,11 +234,27 @@ export async function runSmoke() {
     assert((vfs.read('/srv/www/mixt/text/welcome.txt') ?? '').includes('Mixt Web OS'), 'welcome.txt has no content')
     assert(vfs.exists('/srv/www/index.html'), 'the hosted site has no index.html')
 
+    /* the record describing the hosted site is INI: a [Website] section, one
+       key per line, and every key the format promises */
+    const ini = vfs.read('/srv/www/website.ini') ?? ''
+    assert(ini.startsWith('[Website]'), `the record does not open with a [Website] section:\n${ini}`)
+    const keys: Record<string, string> = {}
+    for (const line of ini.split('\n')) {
+      const m = line.match(/^([A-Za-z]+)=(.*)$/)
+      if (m) keys[m[1]] = m[2]
+    }
+    for (const k of ['URL', 'Server', 'Path', 'Description', 'keywords'])
+      assert(k in keys, `the record is missing ${k}=`)
+    assert(keys.Path === '/srv/www', `Path= says ${keys.Path}, not where the share is`)
+    assert(!!keys.URL && !!keys.Server, 'the record names no URL or Server')
+    assert(keys.keywords.split(',').length >= 2, 'keywords= should be a comma-separated list')
+
     /* a filesystem saved before the share existed must gain it on boot */
     vfs.rm('/srv')
     assert(!vfs.exists('/srv/www/mixt/index.js'), 'the share was not removed for the migration test')
     ensureWebShare()
     assert(vfs.exists('/srv/www/mixt/index.js'), 'ensureWebShare did not walk the share back in')
+    assert(vfs.exists('/srv/www/website.ini'), 'ensureWebShare did not write the website record')
     assert(vfs.exists('/srv/www/mixt/text/welcome.txt'), 'the migration left the text files behind')
   })
 
