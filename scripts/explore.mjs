@@ -396,6 +396,48 @@ else {
       await tick(400)
       if (activeIndex() !== 1) bad(`choosing workspace 2 left the marker on ${activeIndex() + 1}`)
       else ok('choosing a workspace switches to it')
+      /* come back — windows live on their own workspace, and the checks that
+         follow need the ones on workspace 1 to still be on screen */
+      await realClick(wsButton)
+      await tick(300)
+      const chooser2 = [...d.querySelectorAll('.menu-popup')].find((p) => /Workspace 1/.test(p.textContent ?? ''))
+      const first = [...(chooser2?.querySelectorAll('.menu-item') ?? [])].find((e) => /^Workspace 1/.test((e.textContent ?? '').trim()))
+      await realClick(first)
+      await tick(400)
+      if (activeIndex() !== 0) bad(`coming back to workspace 1 left the marker on ${activeIndex() + 1}`)
+      else ok('and back again to workspace 1')
+    }
+  }
+}
+
+/* ------------------- 12. catalogue cards are uniform ----------------------- */
+console.log('• the catalogue cards…')
+/* re-query the window: React replaces the element when workspaces change, so
+   the reference grabbed back at the Updates check is stale by now */
+const shopNow = wins().find((x) => /Software Manager/.test(x.textContent ?? ''))
+if (!shopNow) bad('no Software Manager window to inspect')
+else {
+  /* the Updates check left us on the Updates tab — go back to the catalogue */
+  const allTab = [...shopNow.querySelectorAll('.menu-item')].find((e) => (e.textContent ?? '').trim() === 'All')
+  if (!allTab) bad('the Software Manager has no “All” entry to get back to the catalogue')
+  else {
+    await realClick(allTab)
+    await tick(400)
+    const shop2 = wins().find((x) => /Software Manager/.test(x.textContent ?? ''))
+    const cards = [...(shop2?.querySelectorAll('[style*="auto-fill"] > div') ?? [])]
+    if (cards.length < 5) bad(`expected a grid of cards, found ${cards.length}`)
+    else {
+      ok(`${cards.length} cards in the catalogue grid`)
+      const ragged = cards.filter((c) => !/min-height/.test(c.getAttribute('style') ?? ''))
+      if (ragged.length) bad(`${ragged.length} card(s) have no minimum height, so they render at different sizes`)
+      else ok('every card keeps the same proportions')
+      const clamped = cards.filter((c) => /line-clamp/.test(c.innerHTML))
+      if (clamped.length) bad(`${clamped.length} card(s) still clamp their blurb`)
+      else ok('no blurb is clamped')
+      const news = cards.find((c) => /News Reader/.test(c.textContent ?? ''))
+      if (!news) bad('News Reader is not in the catalogue')
+      else if (!/Follow MixtNet news feeds offline/.test(news.textContent ?? '')) bad('the News Reader blurb is cut short')
+      else ok('the News Reader blurb is shown in full')
     }
   }
 }

@@ -511,30 +511,35 @@ export default function SoftwareApp({ win, api }: AppProps) {
                       cursor: 'pointer',
                       background: 'color-mix(in srgb, var(--wm-window-bg) 95%, #ffffff)',
                       display: 'flex',
-                      gap: 10,
+                      flexDirection: 'column',
+                      gap: 9,
+                      /* every card the same shape, whatever the blurb says */
+                      minHeight: 122,
                     }}
                   >
-                    <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={40} />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{app.name}</div>
-                      <div style={{ fontSize: 11.5, opacity: 0.72, display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <Stars value={ratingOf(app)} size={10} /> {ratingOf(app).toFixed(1)} · {isInstalled(app) ? 'Installed' : sizeOf(app)}
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={40} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{app.name}</div>
+                        <div style={{ fontSize: 11.5, opacity: 0.72, display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <Stars value={ratingOf(app)} size={10} /> {ratingOf(app).toFixed(1)} · {isInstalled(app) ? 'Installed' : sizeOf(app)}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, opacity: 0.8, marginTop: 3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {app.comment}
-                      </div>
+                      {installing?.id === app.id ? (
+                        <div style={{ width: 46, fontSize: 11, textAlign: 'right', opacity: 0.8 }}>{Math.round(installing.pct)}%</div>
+                      ) : (
+                        <button
+                          className="btn-ghost"
+                          style={{ padding: '3px 9px', fontSize: 12 }}
+                          onClick={(e) => { e.stopPropagation(); isInstalled(app) ? launch(app.id, {}) : install(app) }}
+                        >
+                          {isInstalled(app) ? 'Open' : 'Install'}
+                        </button>
+                      )}
                     </div>
-                    {installing?.id === app.id ? (
-                      <div style={{ width: 46, fontSize: 11, textAlign: 'right', opacity: 0.8 }}>{Math.round(installing.pct)}%</div>
-                    ) : (
-                      <button
-                        className="btn-ghost"
-                        style={{ alignSelf: 'center', padding: '3px 9px', fontSize: 12 }}
-                        onClick={(e) => { e.stopPropagation(); isInstalled(app) ? launch(app.id, {}) : install(app) }}
-                      >
-                        {isInstalled(app) ? 'Open' : 'Install'}
-                      </button>
-                    )}
+                    {/* the blurb gets the full width of the card and is never
+                        clamped, so a long one is read, not truncated */}
+                    <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.45 }}>{app.comment}</div>
                   </div>
                 ))}
               </div>
