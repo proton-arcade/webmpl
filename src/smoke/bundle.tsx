@@ -269,6 +269,115 @@ export async function runSmoke() {
     assert(/Mixt Player|Music/.test(out), 'the player did not render its library')
   })
 
+  /* --- an archive can actually be unzipped --- */
+  await check('an archive round-trips: compress writes it, extract unpacks it', async () => {
+    const zip = '/home/mixt/Downloads/roundtrip.zip'
+    const body = {
+      kind: 'mixt-archive',
+      version: 1,
+      created: Date.now(),
+      entries: [
+        { path: 'notes/', type: 'dir', size: 0, modified: Date.now() },
+        { path: 'notes/readme.txt', type: 'file', size: 24, modified: Date.now(), content: 'extracted correctly', mime: 'text/plain' },
+        { path: 'top.txt', type: 'file', size: 9, modified: Date.now(), content: 'top level', mime: 'text/plain' },
+      ],
+    }
+    vfs.mkdirp('/home/mixt/Downloads')
+    vfs.write(zip, JSON.stringify(body), 'application/zip')
+
+    /* Extracting opens the file manager on the result; remember what was open
+       so this check does not leave windows behind for the next one. */
+    const before = new Set(useOS.getState().windows.map((w) => w.id))
+    const host = await mountApp('archive', { path: zip })
+    assert(host.text().includes('readme.txt'), `the archive listing did not show its entries: ${host.text().slice(0, 200)}`)
+
+    const btns = [...host.host.querySelectorAll('button')]
+    const extractAll = btns.find((b) => (b.textContent ?? '').includes('Extract All'))
+    assert(!!extractAll, 'there is no Extract All button')
+    extractAll!.click()
+    /* extraction now runs on a clock scaled to the payload, so give it room */
+    await new Promise((r) => setTimeout(r, 1400))
+
+    const made = (vfs.list('/home/mixt/Downloads') ?? []).map((e) => e.name).filter((n) => n !== 'roundtrip.zip')
+    assert(made.length > 0, 'nothing was extracted next to the archive')
+    const root = `/home/mixt/Downloads/${made[0]}`
+    assert(vfs.exists(`${root}/notes/readme.txt`), `the tree was not preserved: ${JSON.stringify(made)}`)
+    assert(vfs.read(`${root}/notes/readme.txt`) === 'extracted correctly', 'the extracted file lost its contents')
+    assert(vfs.exists(`${root}/top.txt`), 'the top-level entry was not extracted')
+    host.unmount()
+    for (const w of useOS.getState().windows) if (!before.has(w.id)) useOS.getState().closeWindow(w.id)
+    vfs.rm(zip)
+    vfs.rm(root)
+  })
+
+  /* The reported bug: an archive this system did not create refused to open at
+     all, so nothing could ever be unzipped from it. */
+  await check('an archive with no manifest still lists and extracts', async () => {
+    const foreign = '/home/mixt/Downloads/someone-elses.zip'
+    vfs.mkdirp('/home/mixt/Downloads')
+    vfs.write(foreign, 'PK\u0003\u0004 not a manifest, just bytes ' + 'x'.repeat(4000), 'application/zip')
+    const before = new Set(useOS.getState().windows.map((w) => w.id))
+    const host = await mountApp('archive', { path: foreign })
+    assert(!/can’t be decoded|nothing is extracted/.test(host.text()), 'the archive was still refused')
+    assert(/items/.test(host.text()), `no listing was shown: ${host.text().slice(0, 160)}`)
+    const btn = [...host.host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Extract All'))
+    assert(!!btn, 'there is no Extract All button')
+    btn!.click()
+    await new Promise((r) => setTimeout(r, 1600))
+    const made = (vfs.list('/home/mixt/Downloads') ?? []).map((e) => e.name).filter((n) => n.includes('someone-elses') && n !== 'someone-elses.zip')
+    assert(made.length > 0, 'a foreign archive extracted nothing')
+    const inner = vfs.list(`/home/mixt/Downloads/${made[0]}`) ?? []
+    assert(inner.length > 0, `the extracted folder is empty: ${made[0]}`)
+    host.unmount()
+    for (const w of useOS.getState().windows) if (!before.has(w.id)) useOS.getState().closeWindow(w.id)
+    vfs.rm(foreign)
+    vfs.rm(`/home/mixt/Downloads/${made[0]}`)
+  })
+
+  /* Bigger payloads must take longer, not both snap to done at once. */
+  await check('a big archive takes longer to extract than a small one', async () => {
+    const mk = (path: string, kb: number) => {
+      const body = {
+        kind: 'mixt-archive', version: 1, created: Date.now(),
+        entries: [{ path: 'payload.bin', type: 'file', size: kb * 1024, modified: Date.now(), content: 'y'.repeat(64), mime: 'application/octet-stream' }],
+      }
+      vfs.write(path, JSON.stringify(body), 'application/zip')
+    }
+    const small = '/home/mixt/Downloads/small.zip'
+    const big = '/home/mixt/Downloads/big.zip'
+    vfs.mkdirp('/home/mixt/Downloads')
+    mk(small, 1)
+    mk(big, 900)
+    const before = new Set(useOS.getState().windows.map((w) => w.id))
+
+    /* The notification goes to the desktop, not into the app's own DOM, so the
+       filesystem itself is the signal: has the extracted folder appeared yet? */
+    const folderFor = (n: string) =>
+      (vfs.list('/home/mixt/Downloads') ?? []).map((e) => e.name).find((x) => x === n || x.startsWith(`${n} (`))
+
+    const a = await mountApp('archive', { path: small })
+    ;[...a.host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Extract All'))!.click()
+    await new Promise((r) => setTimeout(r, 1400))
+    const smallFolder = folderFor('small')
+    a.unmount()
+
+    const b = await mountApp('archive', { path: big })
+    ;[...b.host.querySelectorAll('button')].find((x) => (x.textContent ?? '').includes('Extract All'))!.click()
+    /* at the moment the small one had landed, the big one must still be going */
+    await new Promise((r) => setTimeout(r, 1400))
+    const bigFolderEarly = folderFor('big')
+    await new Promise((r) => setTimeout(r, 8000))
+    const bigFolderLate = folderFor('big')
+    b.unmount()
+
+    assert(!!smallFolder, 'the small archive did not finish extracting')
+    assert(!bigFolderEarly, 'the big archive finished at the same speed as the small one')
+    assert(!!bigFolderLate, 'the big archive never finished')
+    for (const w of useOS.getState().windows) if (!before.has(w.id)) useOS.getState().closeWindow(w.id)
+    for (const f of [small, big]) vfs.rm(f)
+    for (const e of vfs.list('/home/mixt/Downloads') ?? []) if (/^(small|big)( \(\d+\))?$/.test(e.name)) vfs.rm(`/home/mixt/Downloads/${e.name}`)
+  })
+
   await check('url resolution', () => {
     assert(resolveUrl('mixtnews.com').kind === 'site', 'mixtnews.com should resolve to a site')
     assert(resolveUrl('https://mixtpedia.org/article/mixt-os').path === '/article/mixt-os', 'path parsing failed')

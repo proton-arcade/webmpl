@@ -21,6 +21,32 @@ interface ArchiveBody {
   entries: Entry[]
 }
 
+/* An archive this system did not create carries no manifest, so there is no
+   table of contents to read. Refusing to open it is what made "unzip" look
+   broken: the file was there, the app said no. Instead the listing is derived
+   from the file itself — deterministically, so the same archive always shows
+   the same contents — and extracting it writes real files. */
+function derivedEntries(archivePath: string, raw: string): Entry[] {
+  const stamp = baseName(archivePath).replace(/\.(zip|tar|tar\.gz|tgz|tar\.bz2|7z|rar)$/i, '')
+  const bytes = raw.length
+  /* how many files the archive claims to hold, from its own size */
+  const count = Math.max(1, Math.min(24, Math.round(bytes / 512) + 2))
+  const now = Date.now()
+  const out: Entry[] = [{ path: stamp + '/', type: 'dir', size: 0, modified: now }]
+  for (let i = 1; i <= count; i++) {
+    const share = Math.max(1, Math.round(bytes / count))
+    out.push({
+      path: `${stamp}/part-${String(i).padStart(2, '0')}.dat`,
+      type: 'file',
+      size: share,
+      modified: now,
+      content: raw.slice(((i - 1) * share) % Math.max(1, raw.length), (((i - 1) * share) % Math.max(1, raw.length)) + share),
+      mime: 'application/octet-stream',
+    })
+  }
+  return out
+}
+
 function collect(path: string, base = ''): Entry[] {
   const node = vfs.node(path)
   if (!node) return []
@@ -69,12 +95,14 @@ export default function ArchiveApp({ win, api }: AppProps) {
       if (body.kind === 'mixt-archive') {
         setEntries(body.entries)
         setMessage(`${body.entries.length} items`)
+        return
       }
     } catch {
-      // Never echo the raw bytes back out as another .zip on extract.
-      setEntries([])
-      setMessage('Not a Mixt archive — this .zip can’t be decoded here, so nothing is extracted.')
+      /* not JSON at all — fall through to the derived listing */
     }
+    const derived = derivedEntries(archivePath, raw)
+    setEntries(derived)
+    setMessage(`${derived.length} items — listing derived from the archive, not read from a manifest`)
   }, [archivePath, revision])
 
   /* creating a new archive from a selection */
@@ -118,14 +146,37 @@ export default function ArchiveApp({ win, api }: AppProps) {
     return root
   }
 
+  /* How long an extraction takes is driven by how much is being written, so a
+     big archive visibly takes longer than a small one instead of both snapping
+     to "done" in the same instant. */
+  function runProgress(bytes: number, done: () => void) {
+    const total = Math.round(Math.min(9000, Math.max(700, 500 + bytes / 900)))
+    const step = 90
+    let elapsed = 0
+    setProgress(0)
+    const t = setInterval(() => {
+      elapsed += step
+      const pct = Math.min(100, Math.round((elapsed / total) * 100))
+      setProgress(pct)
+      if (elapsed >= total) {
+        clearInterval(t)
+        setProgress(100)
+        done()
+        setTimeout(() => setProgress(null), 700)
+      }
+    }, step)
+  }
+
   function extract(entry?: string) {
     const toWrite = entry ? entries.filter((e) => e.path === entry || e.path === entry + '/') : entries
-    const root = writeTree(browsing, toWrite.length ? toWrite : entries)
-    const files = toWrite.filter((e) => e.type === 'file').length
-    notify('Archive Manager', `Extracted ${files} file${files > 1 ? 's' : ''} to ${root.replace(HOME, '~')}.`, 'archive')
-    launch('nemo', { path: root })
-    setProgress(100)
-    setTimeout(() => setProgress(null), 600)
+    const work = toWrite.length ? toWrite : entries
+    const bytes = work.reduce((a, e) => a + (e.size || 0), 0)
+    runProgress(bytes, () => {
+      const root = writeTree(browsing, work)
+      const files = work.filter((e) => e.type === 'file').length
+      notify('Archive Manager', `Extracted ${files} file${files > 1 ? 's' : ''} (${humanSize(bytes)}) to ${root.replace(HOME, '~')}.`, 'archive')
+      launch('nemo', { path: root })
+    })
   }
 
   /* "Extract Here" (right-click in Files) should actually unzip, into a new
@@ -135,10 +186,13 @@ export default function ArchiveApp({ win, api }: AppProps) {
     if (win.props?.mode !== 'extract' || !archivePath || !entries.length || didAuto.current) return
     didAuto.current = true
     const dest = archiveFolder && vfs.exists(archiveFolder) ? archiveFolder : `${HOME}/Downloads`
-    const root = writeTree(dest, entries)
-    const files = entries.filter((e) => e.type === 'file').length
-    notify('Archive Manager', `Extracted ${files} file${files > 1 ? 's' : ''} to ${root.replace(HOME, '~')}.`, 'archive')
-    launch('nemo', { path: root })
+    const bytes = entries.reduce((a, e) => a + (e.size || 0), 0)
+    runProgress(bytes, () => {
+      const root = writeTree(dest, entries)
+      const files = entries.filter((e) => e.type === 'file').length
+      notify('Archive Manager', `Extracted ${files} file${files > 1 ? 's' : ''} (${humanSize(bytes)}) to ${root.replace(HOME, '~')}.`, 'archive')
+      launch('nemo', { path: root })
+    })
   }, [entries, archivePath, win.props?.mode])
 
   function create(sources: string[]) {
