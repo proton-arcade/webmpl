@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useOS } from '../os/store'
-import { useVFS, HOME, vfs, join } from '../os/vfs'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { openUrl } from '../os/bus'
 import { serverMail, sendMail, type ServerMail } from '../os/api'
+import { readMailCache, writeMailCache } from './mailstore'
 import type { AppProps } from '../os/types'
 
 interface Message {
@@ -20,7 +20,6 @@ interface Message {
   labels: string[]
 }
 
-const STORE = '/home/mixt/.config/mixtmail/messages.json'
 
 /* Seed mail is addressed to the account that is signed in, so two users on the
  * same machine each see their own inbox rather than one shared "you". */
@@ -125,21 +124,9 @@ function seed(me: string, name: string): Message[] {
   ]
 }
 
-function load(me: string, name: string): Message[] {
-  const raw = vfs.read(STORE)
-  if (raw) {
-    try {
-      return JSON.parse(raw) as Message[]
-    } catch {
-      /* fall through */
-    }
-  }
-  return seed(me, name)
-}
-
-function persist(messages: Message[]) {
-  vfs.mkdirp('/home/mixt/.config/mixtmail')
-  vfs.write(STORE, JSON.stringify(messages, null, 2), 'application/json')
+function load(user: string, me: string, name: string): Message[] {
+  const cached = readMailCache(user)
+  return cached.length ? (cached as unknown as Message[]) : seed(me, name)
 }
 
 /* Merge what the server holds into the local list. The server is the authority
@@ -158,7 +145,7 @@ export default function MailApp({ api }: AppProps) {
   const settings = useOS((s) => s.settings)
   /* this account's address on this machine */
   const me = `${settings.username}@proper.com`
-  const [messages, setMessages] = useState<Message[]>(() => load(me, settings.fullName || settings.username))
+  const [messages, setMessages] = useState<Message[]>(() => load(settings.username, me, settings.fullName || settings.username))
   const [folder, setFolder] = useState<Message['folder']>('Inbox')
   const [selected, setSelected] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -169,8 +156,8 @@ export default function MailApp({ api }: AppProps) {
   const [sendError, setSendError] = useState('')
 
   useEffect(() => {
-    persist(messages)
-  }, [messages])
+    writeMailCache(settings.username, messages)
+  }, [messages, settings.username])
 
   /* pick up anything other users have sent since this window was opened */
   useEffect(() => {

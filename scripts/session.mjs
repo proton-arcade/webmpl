@@ -460,6 +460,16 @@ else {
   }
 }
 
+/* -------- 10. the desktop announces mail that is waiting ------------------ */
+console.log('• signing in as the administrator, who now has mail waiting…')
+const awaited = await boot({ token: 'admin-token', role: 'admin', username: 'Mixt_MPL' })
+/* the announcement is deliberately a few seconds behind the welcome ones */
+await tick(7200)
+const notice = rootText(awaited.d)
+if (!/1 new message from demo/.test(notice))
+  bad(`the desktop did not announce the waiting mail (says: ${notice.slice(0, 150)})`)
+else ok('the desktop announces "1 new message from demo"')
+
 server.close()
 console.log('')
 if (failures.length) {
