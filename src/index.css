@@ -328,6 +328,7 @@ html[data-scheme='dark'] .entry {
 }
 
 .panel-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -336,6 +337,37 @@ html[data-scheme='dark'] .entry {
   cursor: pointer;
   border-radius: 4px;
   white-space: nowrap;
+}
+/* a running app is underlined on the panel; the focused one gets a longer mark */
+.panel-item[data-running='true']::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--wm-accent, #9ede6a);
+}
+.panel-item[data-active='true'][data-running='true']::after {
+  width: 22px;
+  height: 3px;
+}
+/* +N when one app has more than one window open */
+.panel-badge {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--wm-accent, #9ede6a);
+  color: #16181a;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
 }
 .panel-item:hover {
   background: rgba(255, 255, 255, 0.14);

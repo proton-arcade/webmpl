@@ -296,6 +296,40 @@ if (termWin) {
   else warn('snap produced no geometry change (may need a real browser)')
 }
 
+/* --------------------- 7. calendar closes on click-away -------------------- */
+console.log('• opening the calendar, then clicking elsewhere…')
+const clock = [...d.querySelectorAll('.panel-item')].find((e) => /GMT|UTC|AM|PM/.test(e.getAttribute('title') ?? ''))
+if (!clock) bad('there is no clock on the panel to open the calendar')
+else {
+  await realClick(clock)
+  await tick(250)
+  const cal = [...d.querySelectorAll('.menu-popup')].find((p) => /[A-Z][a-z]+ \d{4}/.test(p.textContent ?? ''))
+  if (!cal) bad('clicking the clock opened no calendar')
+  else {
+    ok('the calendar opened')
+    mouse(d.body, 'mousedown', 620, 380)
+    await tick(250)
+    const still = [...d.querySelectorAll('.menu-popup')].find((p) => /[A-Z][a-z]+ \d{4}/.test(p.textContent ?? ''))
+    if (still) bad('the calendar stayed open after clicking away')
+    else ok('the calendar closed on click-away')
+  }
+}
+
+/* ------------------- 8. the panel marks what is running -------------------- */
+console.log('• the panel marking running apps…')
+const quick = (name) => [...d.querySelectorAll('.panel-item')].find((e) => (e.getAttribute('title') ?? '').startsWith(name))
+const termQuick = quick('Terminal')
+if (!termQuick) bad('there is no Terminal launcher on the panel')
+else if (termQuick.getAttribute('data-running') !== 'true') bad('a running app is not marked on the panel')
+else ok('the panel underlines the running app')
+
+w.dispatchEvent(new w.CustomEvent('mixt:launch', { detail: { appId: 'terminal', props: {} } }))
+await tick(500)
+const badge = quick('Terminal')?.querySelector('.panel-badge')
+if (!badge) bad('opening a second window of an app showed no +N badge')
+else if (badge.textContent?.trim() !== '+1') bad(`the badge reads “${badge.textContent}”, expected +1`)
+else ok('a second window gets a +1 badge')
+
 server.close()
 console.log('')
 if (warns.length) console.log(`  \x1b[33m${warns.length} warning(s)\x1b[0m (environment-limited, not counted)`)

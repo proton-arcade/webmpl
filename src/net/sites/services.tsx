@@ -253,7 +253,7 @@ interface Mail {
 const SEED_MAIL: Mail[] = [
   {
     id: 'm1',
-    from: 'Mixt Update Manager <updates@mixtnet.com>',
+    from: 'Mixt Update Manager <updates@proper.com>',
     subject: '3 optional applications are available',
     time: '09:12',
     folder: 'inbox',
@@ -268,7 +268,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm2',
-    from: 'Mixt Shell Team <hello@mixt-shell.dev>',
+    from: 'Mixt Shell Team <hello@proper.com>',
     subject: 'Your window snapped correctly',
     time: 'Yesterday, 18:40',
     folder: 'inbox',
@@ -280,7 +280,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm3',
-    from: 'MixtCart <orders@mixtcart.com>',
+    from: 'MixtCart <orders@proper.com>',
     subject: 'Your digital downloads are ready',
     time: 'Yesterday, 11:02',
     folder: 'inbox',
@@ -292,7 +292,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm4',
-    from: 'Petra Lindgren <petra@mixtnews.com>',
+    from: 'Petra Lindgren <petra@proper.com>',
     subject: 'Re: desktop feature ideas',
     time: 'Monday',
     folder: 'inbox',
@@ -306,7 +306,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm5',
-    from: 'you@mixtmail.com',
+    from: 'you@proper.com',
     subject: 'Re: desktop feature ideas',
     time: 'Monday',
     folder: 'sent',
@@ -331,7 +331,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
     if (!to.trim()) return
     const mail: Mail = {
       id: `m${Date.now()}`,
-      from: 'you@mixtmail.com',
+      from: 'you@proper.com',
       subject: subject || '(no subject)',
       time: 'now',
       body: body.split('\n'),
@@ -367,7 +367,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
             ))}
           </div>
           <Meta>
-            you@mixtmail.com
+            you@proper.com
             <br />
             1.0 GB of 1.0 GB free
           </Meta>
@@ -779,7 +779,7 @@ export const MIXTMAIL: SiteDef = {
     { path: '/', title: 'MixtMail — inbox', keywords: ['email', 'inbox', 'messages', 'compose', 'send'], snippet: 'Read your inbox, compose and send messages.', render: (ctx) => <MailApp ctx={ctx} /> },
     { path: '/compose', title: 'MixtMail — compose', keywords: ['compose', 'new message', 'write'], snippet: 'Write a new message.', render: (ctx) => <MailApp ctx={ctx} /> },
   ],
-  text: () => ['MixtMail — inbox', '================', '1. 3 optional applications are available        — updates@mixtnet.com', '2. Your window snapped correctly                 — hello@mixt-shell.dev', '3. Your digital downloads are ready              — orders@mixtcart.com', '', 'Open https://mixtmail.com/ in the browser to read them.'].join('\n'),
+  text: () => ['MixtMail — inbox', '================', '1. 3 optional applications are available        — updates@proper.com', '2. Your window snapped correctly                 — hello@proper.com', '3. Your digital downloads are ready              — orders@proper.com', '', 'Open https://mixtmail.com/ in the browser to read them.'].join('\n'),
 }
 
 export const MIXTMAPS: SiteDef = {

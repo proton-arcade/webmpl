@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useOS } from '../os/store'
 import { AppIcon, Glyph } from './AppIcon'
 import { getApp, searchApps } from '../apps/registry'
@@ -99,9 +99,27 @@ export default function Panel() {
           {quickApps.map((id) => {
             const app = getApp(id)
             if (!app) return null
+            const open = visible.filter((w) => w.appId === id)
+            const focused = open.some((w) => w.id === activeId && !w.minimized)
             return (
-              <div key={id} className="panel-item" style={{ padding: '0 5px' }} title={app.name} onClick={() => launch(id, {})}>
+              <div
+                key={id}
+                className="panel-item"
+                data-running={open.length > 0}
+                data-active={focused}
+                style={{ padding: '0 5px' }}
+                title={open.length ? `${app.name} — ${open.length} window${open.length === 1 ? '' : 's'} open` : app.name}
+                onClick={() => {
+                  // an app that is already open gets focus back, not a second copy
+                  if (!open.length) return launch(id, {})
+                  const last = open[open.length - 1]
+                  if (last.id === activeId && !last.minimized) return S.toggleMinimize(last.id)
+                  if (last.minimized) return S.toggleMinimize(last.id)
+                  S.focusWindow(last.id)
+                }}
+              >
                 <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={22} rounded={0.28} />
+                {open.length > 1 && <span className="panel-badge">+{open.length - 1}</span>}
               </div>
             )
           })}
@@ -352,6 +370,24 @@ function MixtLogo() {
 }
 
 function CalendarPopup({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  /* Clicking anywhere else closes it, like every other popup on the panel.
+     Installed a tick later so the click that opened it does not close it
+     again on the way back up. */
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) onClose()
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const t = setTimeout(() => window.addEventListener('mousedown', onDown, true), 0)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('mousedown', onDown, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
   const [cursor, setCursor] = useState(() => {
     const d = new Date()
     return new Date(d.getFullYear(), d.getMonth(), 1)
@@ -370,6 +406,7 @@ function CalendarPopup({ x, y, onClose }: { x: number; y: number; onClose: () =>
 
   return (
     <div
+      ref={boxRef}
       className="menu-popup anim-pop"
       style={{ position: 'fixed', left: Math.max(6, x - 40), top: Math.max(6, y - 40), zIndex: 160000, width: 300 }}
       onMouseDown={(e) => e.stopPropagation()}

@@ -24,9 +24,9 @@ const STORE = '/home/mixt/.config/mixtmail/messages.json'
 const SEED: Message[] = [
   {
     id: 'm1',
-    from: 'updates@mixtnet.com',
+    from: 'updates@proper.com',
     fromName: 'Mixt Update Manager',
-    to: 'you@mixtmail.com',
+    to: 'you@proper.com',
     subject: '3 optional applications are available',
     date: Date.now() - 3 * 3600_000,
     body:
@@ -38,9 +38,9 @@ const SEED: Message[] = [
   },
   {
     id: 'm2',
-    from: 'hello@mixt.dev',
+    from: 'hello@proper.com',
     fromName: 'Mixt Team',
-    to: 'you@mixtmail.com',
+    to: 'you@proper.com',
     subject: 'Your window snapped correctly',
     date: Date.now() - 26 * 3600_000,
     body:
@@ -52,9 +52,9 @@ const SEED: Message[] = [
   },
   {
     id: 'm3',
-    from: 'orders@mixtcart.com',
+    from: 'orders@proper.com',
     fromName: 'MixtCart',
-    to: 'you@mixtmail.com',
+    to: 'you@proper.com',
     subject: 'Your digital downloads are ready',
     date: Date.now() - 2 * 86400_000,
     body:
@@ -66,9 +66,9 @@ const SEED: Message[] = [
   },
   {
     id: 'm4',
-    from: 'petra@mixtnews.com',
+    from: 'petra@proper.com',
     fromName: 'Petra Lindgren',
-    to: 'you@mixtmail.com',
+    to: 'you@proper.com',
     subject: 'Re: desktop feature ideas',
     date: Date.now() - 4 * 86400_000,
     body:
@@ -80,9 +80,9 @@ const SEED: Message[] = [
   },
   {
     id: 'm5',
-    from: 'dev@mixt.dev',
+    from: 'dev@proper.com',
     fromName: 'mixt.dev',
-    to: 'you@mixtmail.com',
+    to: 'you@proper.com',
     subject: 'Welcome to Mixt Web OS',
     date: Date.now() - 6 * 86400_000,
     body:
@@ -94,9 +94,9 @@ const SEED: Message[] = [
   },
   {
     id: 'm6',
-    from: 'editor@mixtnews.com',
+    from: 'editor@proper.com',
     fromName: 'MixtNews Editor',
-    to: 'you@mixtmail.com',
+    to: 'you@proper.com',
     subject: 'Pitch accepted: “Why the browser is the new OS”',
     date: Date.now() - 8 * 86400_000,
     body: 'We loved the piece. It runs on the opinion page this week.\n\nPlease do not write another one about localStorage. One was enough.',
@@ -107,9 +107,9 @@ const SEED: Message[] = [
   },
   {
     id: 'm7',
-    from: 'you@mixtmail.com',
+    from: 'you@proper.com',
     fromName: 'You',
-    to: 'petra@mixtnews.com',
+    to: 'petra@proper.com',
     subject: 'Re: desktop feature ideas',
     date: Date.now() - 4 * 86400_000,
     body: 'Petra,\n\nRight-click the clock, choose preferences, tick “Show seconds”. Enjoy the tea.\n\n— Mixt',
@@ -181,7 +181,7 @@ export default function MailApp({ api }: AppProps) {
     if (!composing || !composing.to.trim()) return
     const msg: Message = {
       id: `m${Date.now()}`,
-      from: 'you@mixtmail.com',
+      from: 'you@proper.com',
       fromName: 'You',
       to: composing.to,
       subject: composing.subject || '(no subject)',
@@ -239,7 +239,7 @@ export default function MailApp({ api }: AppProps) {
             <AppIcon glyph="Mail" color="#4a6fe0" color2="#26409c" size={28} />
             <div>
               <div style={{ fontWeight: 600 }}>Mail</div>
-              <div style={{ fontSize: 11, opacity: 0.7 }}>you@mixtmail.com</div>
+              <div style={{ fontSize: 11, opacity: 0.7 }}>you@proper.com</div>
             </div>
           </div>
           {(['Inbox', 'Sent', 'Drafts', 'Junk', 'Trash'] as const).map((f) => (
@@ -320,7 +320,7 @@ export default function MailApp({ api }: AppProps) {
                 <button className="btn-mixt" onClick={send}>
                   <Glyph name="Upload" size={14} /> Send
                 </button>
-                <button className="btn-ghost" onClick={() => { setMessages((all) => [...all, { ...composing, id: `m${Date.now()}`, from: 'you@mixtmail.com', fromName: 'You', date: Date.now(), folder: 'Drafts', read: true, starred: false, labels: [] } as Message]); setComposing(null); setFolder('Drafts') }}>
+                <button className="btn-ghost" onClick={() => { setMessages((all) => [...all, { ...composing, id: `m${Date.now()}`, from: 'you@proper.com', fromName: 'You', date: Date.now(), folder: 'Drafts', read: true, starred: false, labels: [] } as Message]); setComposing(null); setFolder('Drafts') }}>
                   Save to Drafts
                 </button>
                 <button className="btn-ghost" onClick={() => setComposing(null)}>
