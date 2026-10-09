@@ -39,6 +39,7 @@ import { BootBoundary, renderPlainFailure } from '../os/errorboundary'
 import type { PageCtx } from '../net/types'
 import type { ServerDef } from '../net/internet/types'
 import type { WinState } from '../os/types'
+import { INSTALLED_VERSION, REPO_VERSIONS, hasUpdate, installedVersion, repoVersion, versionLabel } from '../apps/versions'
 
 interface Result {
   name: string
@@ -733,6 +734,30 @@ export async function runSmoke() {
     }
     assert(renderPlainFailure(new Error('removed again'), host) !== null, 'the plain fallback should accept a host')
     host.innerHTML = ''
+  })
+
+  /* An update is an installed package the repository has a newer build of —
+     never an extra you have simply not installed yet. */
+  await check('updates are real updates, and stop being updates once applied', () => {
+    const S = useOS.getState()
+    const applied: Record<string, string> = {}
+
+    // an optional extra that is not installed is NOT an update
+    assert(!hasUpdate('weather', applied), 'an uninstalled extra counted as an update')
+
+    // a preinstalled package with a newer repo build IS one
+    const id = Object.keys(REPO_VERSIONS)[0]
+    assert(hasUpdate(id, applied), `${id} should have an update available`)
+    assert(installedVersion(id, applied) === INSTALLED_VERSION, 'the installed version is wrong')
+    assert(versionLabel(id, applied) === `${INSTALLED_VERSION} → ${REPO_VERSIONS[id]}`, `the version label reads ${versionLabel(id, applied)}`)
+
+    // applying it clears the update
+    S.applyUpdate(id, repoVersion(id))
+    assert(!hasUpdate(id, useOS.getState().updatesApplied), 'an applied update is still listed')
+    assert(versionLabel(id, useOS.getState().updatesApplied) === repoVersion(id), 'the version did not move forward')
+
+    // a package with no newer build never shows one
+    assert(!hasUpdate('calculator', {}), 'calculator invented an update')
   })
 
   /* Accounts have no avatars: nothing to pick, nothing stored, nothing drawn. */

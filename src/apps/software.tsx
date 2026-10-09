@@ -13,6 +13,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useOS } from '../os/store'
 import { CATEGORIES, getApp, searchApps, visibleApps } from './registry'
+import { hasUpdate, installedVersion, repoVersion, versionLabel } from './versions'
 import * as backend from '../os/api'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { launch, notify } from '../os/bus'
@@ -232,6 +233,8 @@ export default function SoftwareApp({ win, api }: AppProps) {
   }
 
   const isInstalled = (app: AppDef) => app.preinstalled !== false || !!installed[app.id]
+  const updatesApplied = useOS((s) => s.updatesApplied)
+  const applyUpdate = useOS((s) => s.applyUpdate)
 
   const list = useMemo(() => {
     let items = [...visibleApps()]
@@ -276,6 +279,24 @@ export default function SoftwareApp({ win, api }: AppProps) {
     }, 170)
   }
 
+  function update(app: AppDef) {
+    if (installing) return
+    setInstalling({ id: app.id, pct: 0 })
+    let pct = 0
+    const timer = setInterval(() => {
+      pct += 9 + Math.random() * 15
+      if (pct >= 100) {
+        clearInterval(timer)
+        setInstalling(null)
+        const to = repoVersion(app.id)
+        applyUpdate(app.id, to)
+        notify('Update Manager', `${app.name} updated to ${to}.`, 'mixtinstall')
+      } else {
+        setInstalling({ id: app.id, pct })
+      }
+    }, 170)
+  }
+
   function remove(app: AppDef) {
     setInstalled(app.id, false)
     setConfirmRemove(null)
@@ -305,7 +326,9 @@ export default function SoftwareApp({ win, api }: AppProps) {
     api.setTitle(current ? `${current.name} — Software Manager` : 'Software Manager')
   }, [current?.id])
 
-  const updates = visibleApps().filter((a) => a.preinstalled === false && !installed[a.id])
+  /* An update is a package you already have where the repository has something
+     newer. Extras you have never installed are not updates. */
+  const updates = visibleApps().filter((a) => (a.preinstalled !== false || !!installed[a.id]) && hasUpdate(a.id, updatesApplied))
   const picks = useMemo(() => [...visibleApps()].sort((a, b) => ratingOf(b) - ratingOf(a)).slice(0, 4), [serverRole])
   const featured = picks[0]
 
@@ -421,7 +444,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
               related={visibleApps().filter((a) => a.id !== current.id && a.categories.some((c) => current.categories.includes(c))).slice(0, 4)}
             />
           ) : tab === 'updates' ? (
-            <UpdatesPanel updates={updates} onInstall={install} installing={installing} onOpen={setSelected} />
+            <UpdatesPanel updates={updates} applied={updatesApplied} onUpdate={update} installing={installing} onOpen={setSelected} />
           ) : (
             <>
               {/* storefront home */}
@@ -556,6 +579,7 @@ function DetailPage({
   related: AppDef[]
 }) {
   const [shot, setShot] = useState(0)
+  const updatesApplied = useOS((s) => s.updatesApplied)
   const rating = ratingOf(app)
   return (
     <div style={{ maxWidth: 820 }}>
@@ -639,7 +663,7 @@ function DetailPage({
           <table style={{ width: '100%', fontSize: 12.5 }}>
             <tbody>
               {([
-                ['Version', '1.0.0'],
+                ['Version', versionLabel(app.id, updatesApplied)],
                 ['Updated', 'today'],
                 ['Download size', sizeOf(app)],
                 ['Developer', devOf(app)],
@@ -702,35 +726,43 @@ function DetailPage({
 }
 
 function UpdatesPanel({
-  updates, onInstall, installing, onOpen,
+  updates, applied, onUpdate, installing, onOpen,
 }: {
   updates: AppDef[]
-  onInstall: (app: AppDef) => void
+  applied: Record<string, string>
+  onUpdate: (app: AppDef) => void
   installing: { id: string; pct: number } | null
   onOpen: (id: string) => void
 }) {
   return (
     <div style={{ maxWidth: 680 }}>
       <h2 style={{ marginTop: 0 }}>Updates</h2>
-      <p style={{ opacity: 0.8, lineHeight: 1.6 }}>
-        Your system is up to date. The applications below are optional extras from the Mixt repository, and they are one
-        click away.
-      </p>
-      {updates.length === 0 && <div style={{ opacity: 0.7 }}>Everything available is already installed. Impressive.</div>}
+      {updates.length === 0 ? (
+        <p style={{ opacity: 0.8, lineHeight: 1.6 }}>
+          Your system is up to date. Every installed package is at the newest version the Mixt repository has.
+        </p>
+      ) : (
+        <p style={{ opacity: 0.8, lineHeight: 1.6 }}>
+          {updates.length} installed package{updates.length === 1 ? ' has' : 's have'} a newer version in the Mixt
+          repository. Optional extras you have not installed are listed in the catalogue, not here.
+        </p>
+      )}
       {updates.map((app) => (
         <div key={app.id} style={{ display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.12)', padding: '10px 0' }}>
           <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={36} />
           <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => onOpen(app.id)}>
-            <div style={{ fontWeight: 600, cursor: 'pointer' }}>{app.name}</div>
-            <div style={{ fontSize: 12.5, opacity: 0.75 }}>{app.comment}</div>
+            <div style={{ fontWeight: 600 }}>{app.name}</div>
+            <div style={{ fontSize: 12.5, opacity: 0.75, fontFamily: 'var(--font-mono)' }}>
+              {installedVersion(app.id, applied)} → {repoVersion(app.id)}
+            </div>
             {installing?.id === app.id && (
               <div style={{ height: 6, background: 'rgba(128,136,132,0.3)', borderRadius: 999, marginTop: 6, overflow: 'hidden' }}>
                 <div style={{ width: `${installing.pct}%`, height: '100%', background: 'var(--wm-accent)' }} />
               </div>
             )}
           </div>
-          <button className="btn-mixt" disabled={installing?.id === app.id} onClick={() => onInstall(app)}>
-            {installing?.id === app.id ? 'Installing…' : 'Install'}
+          <button className="btn-mixt" disabled={installing?.id === app.id} onClick={() => onUpdate(app)}>
+            {installing?.id === app.id ? 'Updating…' : 'Update'}
           </button>
         </div>
       ))}

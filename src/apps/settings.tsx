@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useOS, DEFAULT_SETTINGS } from '../os/store'
 import { useVFS, vfs, HOME, humanSize, nodeSize, join } from '../os/vfs'
+import { clearSavedData } from '../os/storage'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { Dialog } from './files'
 import { visibleApps } from './registry'
@@ -41,6 +42,7 @@ export default function SettingsApp({ win, api }: AppProps) {
   const setSettings = useOS((s) => s.setSettings)
   const [page, setPage] = useState<string>(win.props?.page ?? 'appearance')
   const [confirmReset, setConfirmReset] = useState(false)
+  const [confirmWipe, setConfirmWipe] = useState(false)
 
   React.useEffect(() => {
     if (win.props?.page && win.props.page !== page) setPage(win.props.page)
@@ -101,11 +103,12 @@ export default function SettingsApp({ win, api }: AppProps) {
         {page === 'clock' && <ClockSection />}
         {page === 'startup' && <StartupSection />}
         {page === 'users' && <UsersSection />}
-        {page === 'privacy' && <PrivacySection onReset={() => setConfirmReset(true)} />}
+        {page === 'privacy' && <PrivacySection onReset={() => setConfirmReset(true)} onWipe={() => setConfirmWipe(true)} />}
         {page === 'info' && <InfoSection />}
       </div>
 
       {confirmReset && <ResetDialog onClose={() => setConfirmReset(false)} />}
+      {confirmWipe && <WipeDialog onClose={() => setConfirmWipe(false)} />}
     </div>
   )
 }
@@ -839,7 +842,7 @@ function UsersSection() {
   )
 }
 
-function PrivacySection({ onReset }: { onReset: () => void }) {
+function PrivacySection({ onReset, onWipe }: { onReset: () => void; onWipe: () => void }) {
   return (
     <Section title="Privacy" subtitle="Everything here lives in your browser's storage. Nothing leaves the tab.">
       <Card title="Data on this computer">
@@ -858,6 +861,13 @@ function PrivacySection({ onReset }: { onReset: () => void }) {
       <Card title="Notifications">
         <Row label="Allow notifications from MixtNet sites">
           <span style={{ opacity: 0.75 }}>always on (it is charming that way)</span>
+        </Row>
+      </Card>
+      <Card title="Reset the entire computer" hint="Everything this browser has saved for Mixt, not just the files">
+        <Row label="Accounts, files, settings, installed apps, mail and ratings" hint="The machine comes back as it did on first boot">
+          <button className="btn-ghost" onClick={onWipe}>
+            <Glyph name="Power" size={14} /> Reset everything…
+          </button>
         </Row>
       </Card>
     </Section>
@@ -922,6 +932,35 @@ function InfoSection() {
         </button>
       </Card>
     </Section>
+  )
+}
+
+function WipeDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <Dialog title="Reset the entire computer?" width={480} onClose={onClose}>
+      <p>
+        This erases everything Mixt has saved in this browser: the accounts you created, every file, your settings and
+        wallpaper, the apps you installed, their ratings and reviews, and your mail. The computer restarts as it did the
+        very first time.
+      </p>
+      <p style={{ opacity: 0.8 }}>
+        Accounts held by the Mixt server are not touched — sign in again and they will still be there.
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button className="btn-ghost" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          className="btn-mixt"
+          onClick={() => {
+            clearSavedData()
+            window.location.reload()
+          }}
+        >
+          Erase and restart
+        </button>
+      </div>
+    </Dialog>
   )
 }
 

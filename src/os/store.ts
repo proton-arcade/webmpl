@@ -119,6 +119,8 @@ interface OSState {
   settings: Settings
   notifications: Notification[]
   installed: Record<string, boolean>
+  /** package id -> the version that has been updated to */
+  updatesApplied: Record<string, string>
   /** role of the signed-in backend account, so menus can react to a sign-in
       that happens while the desktop is already running */
   serverRole: 'admin' | 'user' | 'guest' | null
@@ -154,6 +156,7 @@ interface OSState {
   clearNotifications: () => void
   setSettings: (patch: Partial<Settings>) => void
   setInstalled: (appId: string, value: boolean) => void
+  applyUpdate: (appId: string, version: string) => void
   setServerRole: (r: 'admin' | 'user' | 'guest' | null) => void
   setMenuOpen: (v: boolean) => void
   setExposeOpen: (v: boolean) => void
@@ -212,6 +215,7 @@ export const useOS = create<OSState>()((set, get) => ({
   settings: loadSettings(),
   notifications: [],
   installed: {},
+  updatesApplied: {},
   serverRole: null,
   menuOpen: false,
   exposeOpen: false,
@@ -433,6 +437,9 @@ export const useOS = create<OSState>()((set, get) => ({
 
   setInstalled: (appId, value) =>
     set((s) => ({ installed: { ...s.installed, [appId]: value } })),
+
+  applyUpdate: (appId, version) =>
+    set((s) => ({ updatesApplied: { ...s.updatesApplied, [appId]: version } })),
 
   setServerRole: (serverRole) => set({ serverRole }),
 

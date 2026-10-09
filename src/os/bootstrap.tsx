@@ -3,6 +3,7 @@ import { useOS } from '../os/store'
 import { vfs } from '../os/vfs'
 import { ensureNetworkFiles } from '../net/internet/hosts'
 import { safeSession } from './storage'
+import { INSTALLED_VERSION, REPO_VERSIONS } from '../apps/versions'
 
 /** One-time session boot: theme, seed notifications, housekeeping.
  *
@@ -57,10 +58,16 @@ export function bootstrap() {
         })
       }
       if (os.settings.autoUpdates) {
+        /* report what is actually out of date, not a hard-coded count */
+        const pending = Object.keys(REPO_VERSIONS).filter(
+          (id) => REPO_VERSIONS[id] !== (os.updatesApplied?.[id] ?? INSTALLED_VERSION),
+        )
         setTimeout(() => {
           os.notify({
             title: 'Update Manager',
-            body: 'Your system is up to date.\n3 packages can be installed from the Software Manager.',
+            body: pending.length
+              ? `${pending.length} package${pending.length === 1 ? '' : 's'} can be updated in the Software Manager.`
+              : 'Your system is up to date.',
             appId: 'mixtinstall',
           })
         }, 5200)

@@ -330,6 +330,31 @@ if (!badge) bad('opening a second window of an app showed no +N badge')
 else if (badge.textContent?.trim() !== '+1') bad(`the badge reads “${badge.textContent}”, expected +1`)
 else ok('a second window gets a +1 badge')
 
+/* ---------------- 9. the Updates tab lists only real updates --------------- */
+console.log('• the Software Manager Updates tab…')
+w.dispatchEvent(new w.CustomEvent('mixt:launch', { detail: { appId: 'mixtinstall', props: {} } }))
+await tick(600)
+const shop = wins().find((x) => /Software Manager/.test(x.textContent ?? ''))
+if (!shop) bad('the Software Manager did not open')
+else {
+  const updatesTab = [...shop.querySelectorAll('button, .menu-item, div')].find((e) => /^Updates/.test((e.textContent ?? '').trim()))
+  if (!updatesTab) bad('there is no Updates tab')
+  else {
+    await realClick(updatesTab)
+    await tick(400)
+    const text = shop.textContent ?? ''
+    // Weather is an uninstalled extra: it belongs in the catalogue, not here
+    if (/Weather/.test(text)) bad('the Updates tab still lists an app that was never installed (Weather)')
+    else ok('uninstalled extras are not listed as updates')
+    if (!/→/.test(text)) bad('no update shows the version it would move to')
+    else ok('each update shows the version it moves to')
+    if (!/Update/.test(text)) bad('there is no Update button')
+    const installButtons = [...shop.querySelectorAll('button')].filter((b) => (b.textContent ?? '').trim() === 'Install')
+    if (installButtons.length) bad(`the Updates tab still offers ${installButtons.length} Install button(s)`)
+    else ok('the Updates tab offers updates, not installs')
+  }
+}
+
 server.close()
 console.log('')
 if (warns.length) console.log(`  \x1b[33m${warns.length} warning(s)\x1b[0m (environment-limited, not counted)`)
