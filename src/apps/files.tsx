@@ -145,6 +145,11 @@ export default function FilesApp({ win, api }: AppProps) {
       notify('Files', `There is no application installed for “${name}”.\nOpen the Software Manager to find one.`)
       return
     }
+    // Double-clicking an archive unzips it into a fresh folder beside itself.
+    if (appId === 'archive') {
+      launch('archive', { path: target, mode: 'extract' })
+      return
+    }
     launch(appId, { path: target })
   }
 
@@ -496,7 +501,12 @@ export default function FilesApp({ win, api }: AppProps) {
             if (e.key === 'v' && (e.ctrlKey || e.metaKey)) paste()
             if (e.key === 'h' && (e.ctrlKey || e.metaKey)) setShowHidden((s) => !s)
           }}
-          onContextMenu={(e) => popup.open(e, 'context')}
+          onContextMenu={(e) => {
+            // Right-clicking the empty background drops the selection and shows
+            // the folder menu (New / Paste / …), like a real file manager.
+            if (e.target === e.currentTarget) setSelection([])
+            popup.open(e, 'context')
+          }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelection([])
           }}
@@ -525,7 +535,7 @@ export default function FilesApp({ win, api }: AppProps) {
                     onDoubleClick={() => openEntry(en.name)}
                     onContextMenu={(e) => {
                       if (!selection.includes(en.name)) setSelection([en.name])
-                      popup.open(e, en.name)
+                      popup.open(e, 'context')
                     }}
                   >
                     <FileIcon node={{ type: en.node.type, mime: (en.node as any).mime, name: en.name }} size={46} />
@@ -593,7 +603,7 @@ export default function FilesApp({ win, api }: AppProps) {
                       onDoubleClick={() => openEntry(en.name)}
                       onContextMenu={(e) => {
                         if (!selection.includes(en.name)) setSelection([en.name])
-                        popup.open(e, en.name)
+                        popup.open(e, 'context')
                       }}
                     >
                       <td style={{ padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 7 }}>

@@ -61,6 +61,10 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
     onClose()
   }
 
+  if (settings.desktopStyle === 'shelf') {
+    return <AppLauncher onClose={onClose} available={available} />
+  }
+
   return (
     <>
       <div
@@ -81,7 +85,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
           boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
           overflow: 'hidden',
         } as any}
-        className="anim-pop"
+        className="anim-pop wm-shell-ui wm-menu"
       >
         {/* search */}
         <div style={{ padding: 10, backgroundImage: 'linear-gradient(to bottom,#4b5054,#35393c)', display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -289,7 +293,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
       {/* application context menu */}
       {context && (
         <div
-          className="menu-popup anim-pop"
+          className="menu-popup anim-pop wm-shell-ui"
           style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 240), top: Math.min(context.y, window.innerHeight - 200), zIndex: 170000 }}
           onMouseDown={(e) => e.stopPropagation()}
         >
@@ -338,6 +342,120 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       )}
+    </>
+  )
+}
+
+
+/* ------------------------- shelf launcher ------------------------------- */
+/* Full-height drawer: a search bar across the top, "continue where you left
+   off", then a grid of round icons with their names underneath — the layout
+   from the reference screenshots. */
+function AppLauncher({ onClose, available }: { onClose: () => void; available: AppDef[] }) {
+  const [query, setQuery] = useState('')
+  const windows = useOS((s) => s.windows)
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    inputRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const recent = windows.slice(-5).map((w) => getApp(w.appId)).filter(Boolean) as AppDef[]
+  const list = query.trim()
+    ? available
+        .filter((a) => [a.name, a.generic ?? '', a.comment, ...(a.keywords ?? [])].join(' ').toLowerCase().includes(query.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    : [...available].sort((a, b) => a.name.localeCompare(b.name))
+
+  const open = (app: AppDef) => {
+    launch(app.id, {})
+    onClose()
+  }
+
+  return (
+    <>
+      <div
+        className="wm-shell-ui"
+        style={{
+          position: 'fixed',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bottom: 56,
+          width: 'min(760px, 94vw)',
+          height: 'min(600px, 80vh)',
+          zIndex: 165000,
+          borderRadius: 24,
+          background: 'rgba(20, 24, 30, 0.82)',
+          backdropFilter: 'blur(26px) saturate(1.4)',
+          WebkitBackdropFilter: 'blur(26px) saturate(1.4)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          color: '#eef2f4',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        {/* search */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ width: 30, height: 30, borderRadius: 999, background: 'linear-gradient(135deg,#9ede6a,#3b6f18)', display: 'grid', placeItems: 'center', fontSize: 15 }}>
+            {useOS.getState().settings.avatar}
+          </div>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search your shortcuts, files, apps, and more…"
+            style={{
+              flex: 1,
+              background: 'rgba(255,255,255,0.1)',
+              border: 'none',
+              borderRadius: 999,
+              padding: '9px 16px',
+              color: '#eef2f4',
+              outline: 'none',
+              fontSize: 13.5,
+            }}
+          />
+        </div>
+
+        <div style={{ flex: 1, overflow: 'auto', padding: '14px 20px 20px' }}>
+          {!query && recent.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>Continue where you left off</div>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 18, flexWrap: 'wrap' }}>
+                {recent.map((app) => (
+                  <button key={app.id} className="btn-ghost" style={{ color: '#eef2f4', display: 'flex', gap: 8, alignItems: 'center' }} onClick={() => open(app)}>
+                    <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={26} rounded={0.5} />
+                    {app.name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(88px,1fr))', gap: '18px 6px', justifyItems: 'center' }}>
+            {list.map((app) => (
+              <div
+                key={app.id}
+                onClick={() => open(app)}
+                style={{ display: 'grid', justifyItems: 'center', gap: 6, cursor: 'pointer', width: '100%' }}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                <div style={{ borderRadius: 999, background: 'rgba(255,255,255,0.06)', padding: 4, transition: 'background 120ms' }}>
+                  <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={44} rounded={0.5} />
+                </div>
+                <div style={{ fontSize: 11.5, opacity: 0.9, maxWidth: 84, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {app.name}
+                </div>
+              </div>
+            ))}
+          </div>
+          {list.length === 0 && <div style={{ opacity: 0.7, padding: 20, textAlign: 'center' }}>No apps match “{query}”.</div>}
+        </div>
+      </div>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 164999 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
     </>
   )
 }

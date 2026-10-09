@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../os/store'
-import { useVFS, HOME, vfs, baseName, join, humanSize, normalizePath } from '../os/vfs'
+import { useVFS, HOME, vfs, baseName, join, humanSize, normalizePath, parentPath } from '../os/vfs'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { launch, notify } from '../os/bus'
 import type { AppProps } from '../os/types'
@@ -52,7 +52,12 @@ export default function ArchiveApp({ win, api }: AppProps) {
   const [progress, setProgress] = useState<number | null>(null)
   const [message, setMessage] = useState('')
   const [createTarget, setCreateTarget] = useState<string[] | null>(null)
-  const [browsing, setBrowsing] = useState<string>((win.props?.outDir as string) ?? `${HOME}/Desktop`)
+  /* Where an extraction lands defaults to the folder the archive itself is in —
+     extracting ~/Downloads/foo.tar.bz2 to the Desktop was simply wrong. */
+  const archiveFolder = win.props?.path ? parentPath(win.props.path as string) : ''
+  const [browsing, setBrowsing] = useState<string>(
+    (win.props?.outDir as string) ?? (archiveFolder && vfs.exists(archiveFolder) ? archiveFolder : `${HOME}/Downloads`),
+  )
 
   /* load an existing archive */
   useEffect(() => {
@@ -66,10 +71,9 @@ export default function ArchiveApp({ win, api }: AppProps) {
         setMessage(`${body.entries.length} items`)
       }
     } catch {
-      setEntries([
-        { path: baseName(archivePath), type: 'file', size: raw.length, modified: Date.now(), content: raw },
-      ])
-      setMessage('Unrecognised archive format — showing raw contents')
+      // Never echo the raw bytes back out as another .zip on extract.
+      setEntries([])
+      setMessage('Not a Mixt archive — this .zip can’t be decoded here, so nothing is extracted.')
     }
   }, [archivePath, revision])
 
@@ -83,23 +87,59 @@ export default function ArchiveApp({ win, api }: AppProps) {
   const listed = useMemo(() => entries.filter((e) => e.type === 'file'), [entries])
   const totalSize = listed.reduce((a, e) => a + e.size, 0)
 
-  function extract(entry?: string) {
-    const dest = browsing
+  /* A fresh folder for an extraction, named after the archive and deduplicated
+     ("notes", "notes (2)", …) so unzipping never overwrites an earlier run.   */
+  function folderFor(dest: string): string {
+    const base =
+      (archivePath ? baseName(archivePath) : 'archive').replace(/\.(zip|tar|tar\.gz|tgz|tar\.bz2|7z|rar)$/i, '') ||
+      'archive'
+    let name = base
+    let i = 1
+    while (vfs.exists(join(dest, name))) name = `${base} (${++i})`
+    return name
+  }
+
+  /* Unpack entries into a brand-new folder inside `dest`, preserving the tree
+     the archive recorded (directories included) instead of flattening files.  */
+  function writeTree(dest: string, ents: Entry[]): string {
     if (!vfs.exists(dest)) vfs.mkdirp(dest)
-    const toWrite = entry ? listed.filter((e) => e.path === entry) : listed
-    let n = 0
-    for (const e of toWrite) {
-      const target = join(dest, e.path.split('/').pop()!)
-      let candidate = target
-      let i = 1
-      while (vfs.exists(candidate)) candidate = target.replace(/(\.\w+)?$/, (m) => ` (${++i})${m ?? ''}`)
-      vfs.write(candidate, e.content ?? '', e.mime)
-      n++
+    const root = join(dest, folderFor(dest))
+    vfs.mkdirp(root)
+    for (const e of ents) {
+      const rel = e.path.replace(/\/+$/, '')
+      const target = join(root, rel)
+      if (e.type === 'dir') {
+        vfs.mkdirp(target)
+        continue
+      }
+      vfs.mkdirp(parentPath(target))
+      vfs.write(target, e.content ?? '', e.mime)
     }
-    notify('Archive Manager', `Extracted ${n} file${n > 1 ? 's' : ''} to ${dest.replace(HOME, '~')}.`, 'archive')
+    return root
+  }
+
+  function extract(entry?: string) {
+    const toWrite = entry ? entries.filter((e) => e.path === entry || e.path === entry + '/') : entries
+    const root = writeTree(browsing, toWrite.length ? toWrite : entries)
+    const files = toWrite.filter((e) => e.type === 'file').length
+    notify('Archive Manager', `Extracted ${files} file${files > 1 ? 's' : ''} to ${root.replace(HOME, '~')}.`, 'archive')
+    launch('nemo', { path: root })
     setProgress(100)
     setTimeout(() => setProgress(null), 600)
   }
+
+  /* "Extract Here" (right-click in Files) should actually unzip, into a new
+     folder next to the archive, not just open the viewer.                    */
+  const didAuto = useRef(false)
+  useEffect(() => {
+    if (win.props?.mode !== 'extract' || !archivePath || !entries.length || didAuto.current) return
+    didAuto.current = true
+    const dest = archiveFolder && vfs.exists(archiveFolder) ? archiveFolder : `${HOME}/Downloads`
+    const root = writeTree(dest, entries)
+    const files = entries.filter((e) => e.type === 'file').length
+    notify('Archive Manager', `Extracted ${files} file${files > 1 ? 's' : ''} to ${root.replace(HOME, '~')}.`, 'archive')
+    launch('nemo', { path: root })
+  }, [entries, archivePath, win.props?.mode])
 
   function create(sources: string[]) {
     const name = `${baseName(sources[0]) || 'archive'}${sources.length > 1 ? '-and-more' : ''}.zip`

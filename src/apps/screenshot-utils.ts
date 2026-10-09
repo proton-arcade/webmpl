@@ -25,7 +25,7 @@ export async function saveWallpaperShot(): Promise<string> {
     ctx.fillStyle = wallpaper
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     ctx.fillStyle = 'rgba(255,255,255,0.7)'
-    ctx.font = '500 22px Ubuntu, sans-serif'
+    ctx.font = '500 22px system-ui, sans-serif'
     ctx.fillText(`Mixt Web OS — solid colour background ${wallpaper}`, 28, 48)
     saveToPictures(canvas.toDataURL('image/png'), name)
     return `Saved ${name} to ~/Pictures`
@@ -40,7 +40,7 @@ export async function saveWallpaperShot(): Promise<string> {
     ctx.fillStyle = 'rgba(20,32,16,0.55)'
     ctx.fillRect(0, canvas.height - 46, canvas.width, 46)
     ctx.fillStyle = 'rgba(255,255,255,0.92)'
-    ctx.font = '500 18px Ubuntu, sans-serif'
+    ctx.font = '500 18px system-ui, sans-serif'
     ctx.fillText(`Mixt Web OS ${new Date().toLocaleString()}`, 20, canvas.height - 17)
     saveToPictures(canvas.toDataURL('image/png'), name)
     return `Saved ${name} to ~/Pictures`

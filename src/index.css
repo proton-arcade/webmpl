@@ -1,12 +1,12 @@
 /* ==========================================================================
    Mixt Web OS — global stylesheet
-   Visual language follows Mixt OS (Cinnamon / Mixt-Y themes)
+   Visual language follows Mixt OS (Mixt Shell / Mixt-Y themes)
    ========================================================================== */
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Ubuntu', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'Ubuntu Mono', 'DejaVu Sans Mono', monospace;
+  --font-sans: system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
 
   /* Mixt-Y accent palette */
   --color-mixt-50: #f2fce9;
@@ -200,7 +200,7 @@ h3 {
   z-index: 5;
 }
 
-/* =============================== chrome bits ============================== */
+/* =============================== shell bits ============================== */
 .mixt-toolbar {
   display: flex;
   align-items: center;
@@ -484,7 +484,7 @@ html[data-scheme='dark'] .entry {
 
 /* ============================ web-content scope ========================== */
 .webdoc {
-  font-family: 'Ubuntu', system-ui, sans-serif;
+  font-family: system-ui, sans-serif;
   color: #1a1d1f;
   background: #fff;
 }
@@ -494,4 +494,82 @@ html[data-scheme='dark'] .entry {
 }
 .webdoc a:hover {
   text-decoration: underline;
+}
+
+/* ===================== shelf shell (data-shell='shelf') ===================
+   Material-style reinterpretation: a centred shelf of round icons, a round
+   launcher button on the left and a translucent status pill on the right.   */
+html[data-shell='shelf'] .panel {
+  background: rgba(23, 26, 31, 0.78) !important;
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+html[data-shell='shelf'] .wm-window {
+  border-radius: 12px;
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+}
+html[data-shell='shelf'] .menu-button {
+  border-radius: 999px;
+  background: transparent;
+}
+html[data-shell='shelf'] .panel-item {
+  border-radius: 999px;
+}
+html[data-shell='shelf'] .panel-item:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+html[data-shell='shelf'] .wm-titlebar {
+  border-radius: 12px 12px 0 0;
+}
+html[data-shell='shelf'] .wm-menu,
+html[data-shell='shelf'] .menu-popup {
+  border-radius: 20px;
+}
+html[data-shell='shelf'] .desktop-icon {
+  border-radius: 14px;
+}
+html[data-shell='shelf'] .desktop-icon:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+html[data-shell='shelf'] .entry,
+html[data-shell='shelf'] .btn-ghost {
+  border-radius: 999px;
+}
+html[data-shell='shelf'] .btn-mixt {
+  border-radius: 999px;
+}
+
+/* ===================== classic shell (data-shell='classic') ===============
+   A nod to the Linux Mint / Cinnamon look: a dark bottom panel, a green menu
+   chip on the left and mint-green selection highlights.                    */
+html[data-shell='classic'] .panel {
+  background: #212425;
+  color: #e6e8e6;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+html[data-shell='classic'] .menu-button {
+  background: linear-gradient(180deg, #87cf3e, #6fa34c);
+  color: #fff;
+  border-radius: 6px;
+  font-weight: 600;
+}
+html[data-shell='classic'] .menu-button:hover {
+  filter: brightness(1.08);
+}
+html[data-shell='classic'] .panel-item[data-active='true'],
+html[data-shell='classic'] .desktop-icon[data-selected='true'] {
+  background: rgba(135, 207, 62, 0.28);
+}
+html[data-shell='classic'] .wm-titlebar {
+  background: #2b2e2f;
+}
+
+/* shelf launcher polish: a soft filled circle, like the ChromeOS launcher   */
+html[data-shell='shelf'] .menu-button {
+  background: rgba(255, 255, 255, 0.1);
+}
+html[data-shell='shelf'] .menu-button:hover {
+  background: rgba(255, 255, 255, 0.2);
 }

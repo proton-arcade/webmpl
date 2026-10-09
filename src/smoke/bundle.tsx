@@ -30,9 +30,12 @@ import {
   serverAddress,
   zoneRecords,
 } from '../net'
-import { useOS } from '../os/store'
-import { vfs, useVFS } from '../os/vfs'
+import { useOS, sanitizeSettings, DEFAULT_SETTINGS } from '../os/store'
+import { vfs, useVFS, parseTree } from '../os/vfs'
 import { migrateBranding } from '../os/migrate'
+import { bootstrap } from '../os/bootstrap'
+import { safeLocal, safeSession, clearSavedData } from '../os/storage'
+import { BootBoundary, renderPlainFailure } from '../os/errorboundary'
 import type { PageCtx } from '../net/types'
 import type { ServerDef } from '../net/internet/types'
 import type { WinState } from '../os/types'
@@ -365,10 +368,10 @@ export async function runSmoke() {
   await check('search index finds articles', () => {
     const index = buildIndex()
     assert(index.length > 30, `index too small: ${index.length}`)
-    const hits = searchMixtNet('cinnamon desktop')
-    assert(hits.length > 0, 'no results for "cinnamon desktop"')
-    const linux = searchMixtNet('mixt os')
-    assert(linux.some((h) => h.url.includes('mixt-os')), 'expected the Mixt OS article in the results')
+    const hits = searchMixtNet('mixt-shell desktop')
+    assert(hits.length > 0, 'no results for "mixt-shell desktop"')
+    const mixtHits = searchMixtNet('mixt os')
+    assert(mixtHits.some((h) => h.url.includes('mixt-os')), 'expected the Mixt OS article in the results')
   })
 
   await check('plain-text rendering works for the terminal', async () => {
@@ -496,8 +499,8 @@ export async function runSmoke() {
     const browser = await mountApp('browser', { url: 'https://mixtnews.com/' })
     await new Promise((r) => setTimeout(r, 700))
     const text = browser.text()
-    assert(text.includes('Cinnamon 6.4'), `front page did not render (saw: ${text.slice(0, 120)})`)
-    assert(text.includes('MixtNews'), 'site chrome missing')
+    assert(text.includes('Mixt Shell 6.4'), `front page did not render (saw: ${text.slice(0, 120)})`)
+    assert(text.includes('MixtNews'), 'site frame missing')
     browser.unmount()
   })
 
@@ -591,6 +594,145 @@ export async function runSmoke() {
   await check('filesystem persists to localStorage', () => {
     const raw = localStorage.getItem('mixt.vfs.v2')
     assert(raw && raw.length > 100, 'vfs was never written to localStorage')
+  })
+
+  /* ---- the white-screen regressions: a desktop that never mounts ---------- *
+   * Each of these used to throw before React's first render, which leaves a
+   * blank page with no message and no way out until the browser is cleared.  */
+
+  await check('a damaged saved filesystem cannot stop the boot', () => {
+    // a directory with no children map (older build, interrupted write)
+    const damaged = parseTree(
+      JSON.stringify({ type: 'dir', children: { home: { type: 'dir', name: 'home', children: { mixt: { type: 'dir' } } } } }),
+    )
+    assert(damaged.type === 'dir', 'the root should always be a directory')
+    const home = damaged.children.home as any
+    assert(home?.type === 'dir' && typeof home.children?.mixt?.children === 'object', 'a children-less directory was not repaired')
+
+    // rubbish in storage falls back to the seed filesystem rather than nothing
+    assert(vfs.list('/home/mixt/Desktop') !== undefined, 'listing should never throw')
+    const seeded = parseTree('{ this is not json')
+    assert(seeded.type === 'dir' && !!(seeded.children.home as any)?.children?.mixt, 'a corrupt blob should reseed the filesystem')
+
+    // and the tree itself is defensive even if something bypasses parseTree
+    const broken: any = { type: 'dir', children: { home: { type: 'dir', children: { mixt: { type: 'dir' } } } }, created: 0, modified: 0 }
+    useVFS.setState({ root: broken })
+    assert(vfs.list('/home/mixt/Desktop') === null, 'a damaged tree should read as "not there"')
+    assert(vfs.node('/home/mixt/Desktop/nope.txt') === null, 'walking a damaged tree must not throw')
+    assert(vfs.mkdir('/home/mixt/Desktop') === true, 'writing should repair the damaged directory')
+    assert(vfs.exists('/home/mixt/Desktop') === true, 'the repaired directory should exist')
+    vfs.reset()
+    assert(vfs.exists('/home/mixt/Documents/welcome.md'), 'reset should restore the seed filesystem')
+  })
+
+  await check('settings from an older build are repaired, not trusted', () => {
+    const repaired = sanitizeSettings({
+      wallpaper: null,
+      desktopIcons: null,
+      startupApps: null,
+      panelSize: 'huge',
+      panelPosition: 'sideways',
+      accent: 'not-a-colour',
+      scheme: 'neon',
+      volume: 900,
+      username: '',
+      clock24: 'yes',
+    })
+    assert(typeof repaired.wallpaper === 'string' && repaired.wallpaper.length > 0, 'wallpaper must stay a string')
+    assert(Array.isArray(repaired.desktopIcons) && Array.isArray(repaired.startupApps), 'icon lists must stay arrays')
+    assert(repaired.panelSize >= 24 && repaired.panelSize <= 96, 'panel size must stay usable')
+    assert(!repaired.panelPosition || repaired.panelPosition === 'bottom' || repaired.panelPosition === 'top', 'bad panel position survived')
+    assert(repaired.accent.startsWith('#'), 'accent must stay a colour')
+    assert(repaired.scheme === 'light' || repaired.scheme === 'dark', 'scheme must stay light or dark')
+    assert(repaired.volume <= 100, 'volume must stay in range')
+    assert(repaired.username.length > 0, 'an empty username should fall back to the default')
+    assert(sanitizeSettings(null).hostname === DEFAULT_SETTINGS.hostname, 'no blob at all should give defaults')
+    assert(sanitizeSettings('[]').panelSize === DEFAULT_SETTINGS.panelSize, 'a non-object blob should give defaults')
+  })
+
+  await check('the OS boots in a browser that blocks web storage', () => {
+    const realLocal = globalThis.localStorage
+    const realSession = globalThis.sessionStorage
+    const denied = () => {
+      throw new DOMException('Access is denied for this document.', 'SecurityError')
+    }
+    const blocked = new Proxy(
+      {},
+      {
+        get(_t, prop) {
+          if (prop === Symbol.toPrimitive || prop === 'then') return undefined
+          denied()
+        },
+        set: denied,
+      },
+    )
+    try {
+      Object.defineProperty(globalThis, 'localStorage', { value: blocked, configurable: true })
+      Object.defineProperty(globalThis, 'sessionStorage', { value: blocked, configurable: true })
+
+      // boot must survive: this is the call that used to leave a white page
+      bootstrap()
+
+      // and the wrappers keep working in memory, so the OS keeps behaving
+      assert(safeLocal.setItem('mixt.smoke.probe', 'yes') === false, 'a blocked store cannot report a successful write')
+      assert(safeLocal.getItem('mixt.smoke.probe') === 'yes', 'in-memory fallback lost the value')
+      assert(safeSession.getItem('mixt.boot.cycle') !== null, 'the boot counter should still be tracked')
+      safeLocal.setItem('mixt.smoke.probe', 'again')
+      safeLocal.removeItem('mixt.smoke.probe')
+      assert(safeLocal.getItem('mixt.smoke.probe') === null, 'the in-memory fallback did not forget the value')
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', { value: realLocal, configurable: true })
+      Object.defineProperty(globalThis, 'sessionStorage', { value: realSession, configurable: true })
+    }
+
+    assert(safeLocal.getItem('mixt.vfs.v2') !== null, 'real storage should be visible again')
+  })
+
+  await check('saved data can be cleared from the recovery screen', () => {
+    safeLocal.setItem('mixt.settings.v2', JSON.stringify({ accent: '#000000' }))
+    safeSession.setItem('mixt.boot.cycle', '9')
+    clearSavedData()
+    assert(safeLocal.getItem('mixt.settings.v2') === null, 'settings were not cleared')
+    assert(safeSession.getItem('mixt.boot.cycle') === null, 'the boot counter was not cleared')
+    assert(safeLocal.getItem('mixt.vfs.v2') === null, 'the filesystem was not cleared')
+  })
+
+  await check('a crash during rendering shows a report, not a white page', async () => {
+    const host = document.createElement('div')
+    host.id = 'boundary-probe'
+    document.body.appendChild(host)
+    const node = createRoot(host)
+    function Broken(): JSX.Element {
+      throw new Error('smoke test: deliberate render failure')
+    }
+    try {
+      node.render(
+        React.createElement(BootBoundary, null, React.createElement(Broken)),
+      )
+      await new Promise((r) => setTimeout(r, 260))
+      const text = host.textContent ?? ''
+      assert(text.includes('could not start'), 'the boot failure screen did not render')
+      assert(text.includes('deliberate render failure'), 'the error itself was not shown')
+      const buttons = Array.from(host.querySelectorAll('button')).map((b) => b.textContent ?? '')
+      assert(buttons.some((b) => b.includes('Reload')), 'no reload action offered')
+      assert(buttons.some((b) => b.includes('Reset saved data')), 'no reset action offered')
+      assert(host.innerHTML.length > 200, 'the failure screen is empty')
+    } finally {
+      node.unmount()
+      host.remove()
+    }
+
+    // the no-React fallback must work too, and must not itself throw
+    const plain = renderPlainFailure(new Error('smoke test: fallback path'))
+    try {
+      assert(plain, 'the plain fallback did not render')
+      assert((plain!.textContent ?? '').includes('could not start'), 'the plain fallback is missing its heading')
+      assert((plain!.textContent ?? '').includes('fallback path'), 'the plain fallback hid the error')
+    } finally {
+      plain?.remove()
+    }
+    assert(renderPlainFailure(new Error('removed again'), host) !== null, 'the plain fallback should accept a host')
+    host.innerHTML = ''
   })
 
   await check('desktop unmounts cleanly', () => {

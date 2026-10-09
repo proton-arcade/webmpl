@@ -2,6 +2,22 @@
 
 export type Scheme = 'light' | 'dark'
 
+/** A local account. Created with `/startup` in the terminal. */
+export interface User {
+  id: string
+  username: string
+  fullName: string
+  /** '' means no password. Stored hashed; this is a demo, not real security. */
+  passwordHash: string
+  avatar: string
+  accent: string
+  wallpaper: string
+  created: number
+}
+
+/** Where a window lands when you drag it against a screen edge. */
+export type SnapZone = 'max' | 'left' | 'right' | 'bottom' | 'tl' | 'tr' | 'bl' | 'br'
+
 export interface WinGeometry {
   x: number
   y: number
@@ -53,6 +69,7 @@ export interface Settings {
   hotCorner: boolean
   focusMode: 'click' | 'sloppy'
   buttonSide: 'left' | 'right'
+  desktopStyle: 'classic' | 'shelf'
   themeName: string
   iconTheme: string
   desktopIcons: string[]

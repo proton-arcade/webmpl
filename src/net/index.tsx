@@ -229,7 +229,7 @@ export function searchMixtNet(query: string): SearchResult[] {
 /** Suggested queries shown under the MixtNet search box. */
 export const SUGGESTED_SEARCHES = [
   'mixt os',
-  'cinnamon desktop',
+  'mixt-shell desktop',
   'what is a virtual filesystem',
   'mixt recipes',
   'web development',

@@ -220,6 +220,43 @@ function Appearance() {
             ))}
           </div>
         </Row>
+        <Row label="Desktop style" hint="The shelf look restyles the panel into a shelf and the menu into a launcher">
+          <div style={{ display: 'flex', gap: 10 }}>
+            {([['classic', 'Mixt classic'], ['shelf', 'Shelf + launcher']] as const).map(([style, label]) => (
+              <div
+                key={style}
+                onClick={() => setSettings({ desktopStyle: style })}
+                style={{
+                  width: 132,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  border: settings.desktopStyle === style ? '2px solid var(--wm-accent)' : '1px solid rgba(0,0,0,0.25)',
+                  cursor: 'pointer',
+                  background: 'color-mix(in srgb, var(--wm-window-bg) 96%, #808890)',
+                }}
+              >
+                <div style={{ height: 54, position: 'relative', background: style === 'shelf' ? 'linear-gradient(135deg,#1b3a5b,#3b6f8f)' : '#4a674a', padding: 6 }}>
+                  {style === 'shelf' ? (
+                    <>
+                      <div style={{ position: 'absolute', left: 8, right: 8, bottom: 5, height: 12, borderRadius: 999, background: 'rgba(20,24,30,0.8)' }} />
+                      <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 8, display: 'flex', gap: 3 }}>
+                        {[0, 1, 2, 3].map((i) => (
+                          <span key={i} style={{ width: 7, height: 7, borderRadius: 999, background: '#cfd6da' }} />
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 10, background: 'rgba(0,0,0,0.4)' }} />
+                      <div style={{ position: 'absolute', left: 5, bottom: 2, width: 8, height: 6, borderRadius: 2, background: '#9ede6a' }} />
+                    </>
+                  )}
+                </div>
+                <div style={{ padding: '5px 8px', fontSize: 12, textAlign: 'center' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </Row>
         <Row label="Accent colour" hint="Used for selections, switches and highlights">
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {ACCENTS.map(([hex, name]) => (
@@ -245,7 +282,7 @@ function Appearance() {
             onChange={(v) => setSettings({ buttonSide: v })}
             options={[
               ['right', 'Right (Mixt default)'],
-              ['left', 'Left (Ubuntu style)'],
+              ['left', 'Left'],
             ]}
           />
         </Row>
@@ -314,7 +351,7 @@ function Background() {
       <Card title="Wallpapers">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12 }}>
           {wallpapers.map((w) => {
-            const url = `/wallpapers/${w}`
+            const url = `wallpapers/${w}`
             return (
               <div key={w} onClick={() => setSettings({ wallpaper: url })} style={{ cursor: 'pointer' }}>
                 <div
@@ -603,7 +640,7 @@ function NetworkSection() {
   const nets = [
     ['MixtNet', 'WPA2', true],
     ['MixtNet Guest', 'open', false],
-    ['Cinnamon-5G', 'WPA2', false],
+    ['MixtNet-5G', 'WPA2', false],
     ['Neighbour_2.4GHz', 'WPA2', false],
   ] as [string, string, boolean][]
   return (
@@ -747,31 +784,36 @@ function StartupSection() {
 function UsersSection() {
   const settings = useOS((s) => s.settings)
   const setSettings = useOS((s) => s.setSettings)
-  const avatars = ['🪴', '🐧', '🍃', '💻', '🧑🚀', '🐢', '🌱', '🦉']
   return (
     <Section title="Users &amp; Groups" subtitle="There is one account here, and it is yours.">
       <Card>
-        <Row label="Avatar">
-          <div style={{ display: 'flex', gap: 8 }}>
-            {avatars.map((a) => (
-              <span
-                key={a}
-                onClick={() => setSettings({ avatar: a })}
-                style={{
-                  fontSize: 22,
-                  cursor: 'pointer',
-                  padding: 4,
-                  borderRadius: 8,
-                  border: settings.avatar === a ? '2px solid var(--wm-accent)' : '1px solid transparent',
-                }}
-              >
-                {a}
-              </span>
-            ))}
-          </div>
-        </Row>
         <Row label="Full name">
           <input className="entry" value={settings.fullName} onChange={(e) => setSettings({ fullName: e.target.value })} style={{ width: 260 }} />
+        </Row>
+        <Row label="Profile colour" hint="Personalises the accent across your whole desktop.">
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {ACCENTS.map(([hex]) => (
+              <span
+                key={hex}
+                onClick={() => setSettings({ accent: hex })}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  background: hex,
+                  border: settings.accent === hex ? '3px solid var(--wm-window-fg)' : '1px solid rgba(0,0,0,0.3)',
+                }}
+              />
+            ))}
+            <input
+              type="color"
+              value={settings.accent}
+              onChange={(e) => setSettings({ accent: e.target.value })}
+              style={{ width: 40, height: 28, border: 'none', background: 'none', cursor: 'pointer' }}
+              title="Custom colour"
+            />
+          </div>
         </Row>
         <Row label="Username">
           <input className="entry" value={settings.username} onChange={(e) => setSettings({ username: e.target.value.replace(/\s/g, '') })} style={{ width: 180 }} />
@@ -780,8 +822,8 @@ function UsersSection() {
           <input className="entry" value={settings.hostname} onChange={(e) => setSettings({ hostname: e.target.value.replace(/\s/g, '-') })} style={{ width: 180 }} />
         </Row>
       </Card>
-      <Card title="Account type" hint="This account can do anything, including run sudo commands in the terminal.">
-        <div style={{ opacity: 0.8 }}>Administrator · groups: adm, cdrom, sudo, audio, video</div>
+      <Card title="Account type" hint="New accounts are standard users. Only the administrator account can run privileged commands.">
+        <div style={{ opacity: 0.8 }}>Standard user · groups: audio, video, plugdev</div>
       </Card>
     </Section>
   )
@@ -823,7 +865,7 @@ function InfoSection() {
           <AppIcon glyph="Compass" color="#61ad2b" color2="#2f6b12" size={54} />
           <div>
             <div style={{ fontSize: 17, fontWeight: 600 }}>Mixt Web OS 1.0 “Mixty”</div>
-            <div style={{ opacity: 0.75 }}>Cinnamon web edition · Mixt-Y theme · GNU/JavaScript</div>
+            <div style={{ opacity: 0.75 }}>Mixt Shell web edition · Mixt-Y theme · pure JavaScript</div>
           </div>
         </div>
         <div className="menu-sep" />

@@ -10,7 +10,7 @@ function PortalHome({ ctx }: { ctx: PageCtx }) {
   const [q, setQ] = React.useState('')
   const go = () => ctx.navigate(`mixtnet://search?q=${encodeURIComponent(q)}`)
   const headlines = [
-    { title: 'Cinnamon 6.4 lands with smoother window animations', href: 'https://mixtnews.com/article/cinnamon-64', tag: 'Desktop' },
+    { title: 'Mixt Shell 6.4 lands with smoother window animations', href: 'https://mixtnews.com/article/mixt-shell-64', tag: 'Desktop' },
     { title: 'MixtNet passes one billion virtual page views', href: 'https://mixtnews.com/article/mixtnet-billion', tag: 'Internet' },
     { title: 'Why the browser is the new operating system', href: 'https://mixtnews.com/article/browser-as-os', tag: 'Opinion' },
   ]
@@ -31,7 +31,7 @@ function PortalHome({ ctx }: { ctx: PageCtx }) {
           <Btn onClick={go}>Search</Btn>
         </div>
         <div style={{ marginTop: 12, display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', fontSize: 12 }}>
-          {['mixt os', 'cinnamon desktop', 'mixt recipes', 'how do browsers work'].map((s) => (
+          {['mixt os', 'mixt-shell desktop', 'mixt recipes', 'how do browsers work'].map((s) => (
             <A key={s} ctx={ctx} href={`mixtnet://search?q=${encodeURIComponent(s)}`} style={{ background: '#eef4e8', borderRadius: 999, padding: '3px 11px', color: '#2c6b12', textDecoration: 'none' }}>
               {s}
             </A>
@@ -120,12 +120,12 @@ export const ARTICLES: Article[] = [
     slug: 'mixt-os',
     title: 'Mixt OS',
     category: 'Operating systems',
-    summary: 'Mixt OS is a community-driven Linux distribution based on Ubuntu and Debian, known for its green branding and its focus on being usable straight out of the box.',
+    summary: 'Mixt OS is a community-driven distribution in the Mixt family, known for its green branding and its focus on being usable straight out of the box.',
     infobox: [
       ['Developer', 'Mixt OS project'],
       ['First release', '27 August 2006'],
-      ['Default desktop', 'Cinnamon, MATE or Xfce'],
-      ['Package manager', 'APT (dpkg)'],
+      ['Default desktop', 'the Mixt Shell'],
+      ['Package manager', 'mixtinstall'],
       ['License', 'GPL and other free licences'],
     ],
     sections: [
@@ -133,13 +133,13 @@ export const ARTICLES: Article[] = [
         h: 'Overview',
         p: [
           'Mixt OS ships a complete set of everyday software, including a web browser, office suite pack, media players and configuration tools, so that a new install is immediately useful.',
-          'Unlike many distributions, Mixt is conservative about change: the Cinnamon desktop keeps familiar desktop metaphors such as a panel, a main menu and virtual workspaces, while adding a modern compositor and applets.',
+          'Unlike many distributions, Mixt is conservative about change: the Mixt Shell keeps familiar desktop metaphors such as a panel, a main menu and virtual workspaces, while adding a modern compositor and applets.',
         ],
       },
       {
         h: 'Release cycle',
         p: [
-          'Mixt follows the Ubuntu long-term support releases for its main editions, publishing point releases roughly every six months that include updated kernels and refreshed artwork.',
+          'Mixt follows long-term support releases for its main editions, publishing point releases roughly every six months that include updated kernels and refreshed artwork.',
           'Each edition is supported for five years with security updates, and the update manager is famous for its tiered safety levels that let users choose how brave to be.',
         ],
       },
@@ -147,17 +147,17 @@ export const ARTICLES: Article[] = [
         h: 'In this operating system',
         p: [
           'Mixt Web OS borrows the Mixt visual language: the mixt green accent, the Mixt-Y window decorations and the three-dollar-bill layout of its window controls.',
-          'The whole distribution here is implemented in TypeScript and React rather than C, but the window manager behaves much like Cinnamon: snapping, workspaces, alt-tab and a panel with applets.',
+          'The whole distribution here is implemented in TypeScript and React rather than C, but the window manager behaves much like the Mixt Shell: snapping, workspaces, alt-tab and a panel with applets.',
         ],
       },
     ],
-    see: ['cinnamon-desktop', 'window-manager', 'virtual-file-system', 'linux-kernel'],
+    see: ['mixt-shell', 'window-manager', 'virtual-file-system', 'mixt-kernel'],
   },
   {
-    slug: 'cinnamon-desktop',
-    title: 'Cinnamon (desktop environment)',
+    slug: 'mixt-shell',
+    title: 'Mixt Shell (desktop environment)',
     category: 'Desktop environments',
-    summary: 'Cinnamon is a desktop environment built on GNOME technologies, providing a panel, a menu, a window manager based on Muffin and a set of applets and desklets.',
+    summary: 'The Mixt Shell is the desktop for Mixt, providing a panel, a menu, a window manager and a set of applets.',
     infobox: [
       ['Developer', 'Mixt OS team'],
       ['First release', '2011'],
@@ -168,8 +168,8 @@ export const ARTICLES: Article[] = [
       {
         h: 'Design',
         p: [
-          'Cinnamon began as a fork of GNOME Shell, but replaced the overview-heavy workflow with a traditional panel and menu. The result is a desktop that feels familiar to anyone who has used a taskbar-based system.',
-          'Its compositor, Muffin, handles window effects, and its settings modules are grouped into a single System Settings application.',
+          'It favours a traditional panel and menu over an overview-heavy workflow, so it feels familiar to anyone who has used a taskbar-based system.',
+          'Its compositor handles window effects, and its settings modules are grouped into a single System Settings application.',
         ],
       },
       {
@@ -203,7 +203,7 @@ export const ARTICLES: Article[] = [
         ],
       },
     ],
-    see: ['linux-kernel', 'localstorage', 'mixt-os'],
+    see: ['mixt-kernel', 'localstorage', 'mixt-os'],
   },
   {
     slug: 'web-browser',
@@ -259,7 +259,7 @@ export const ARTICLES: Article[] = [
         ],
       },
     ],
-    see: ['linux-kernel', 'virtual-file-system'],
+    see: ['mixt-kernel', 'virtual-file-system'],
   },
   {
     slug: 'javascript',
@@ -286,7 +286,7 @@ export const ARTICLES: Article[] = [
         ],
       },
     ],
-    see: ['web-browser', 'cinnamon-desktop'],
+    see: ['web-browser', 'mixt-shell'],
   },
   {
     slug: 'localstorage',
@@ -330,13 +330,13 @@ export const ARTICLES: Article[] = [
         ],
       },
     ],
-    see: ['cinnamon-desktop', 'mixt-os'],
+    see: ['mixt-shell', 'mixt-os'],
   },
   {
-    slug: 'linux-kernel',
-    title: 'Linux kernel',
+    slug: 'mixt-kernel',
+    title: 'Mixt kernel',
     category: 'Operating systems',
-    summary: 'The Linux kernel is the core of Linux-based operating systems, managing processes, memory, devices, filesystems and networking.',
+    summary: 'The Mixt kernel is the core of the Mixt family of systems, managing processes, memory, devices, filesystems and networking.',
     infobox: [
       ['Initial release', '17 September 1991'],
       ['Written in', 'C, assembly, Rust (recently)'],
@@ -497,14 +497,14 @@ interface Story {
 
 export const STORIES: Story[] = [
   {
-    slug: 'cinnamon-64',
-    title: 'Cinnamon 6.4 lands with smoother window animations',
+    slug: 'mixt-shell-64',
+    title: 'Mixt Shell 6.4 lands with smoother window animations',
     section: 'Desktop',
     author: 'Petra Lindgren',
     date: '2 October 2026',
     lead: 'The new release focuses on latency: unmaximising a window now takes a single frame on modest hardware.',
     body: [
-      'After six months of work on the compositor, the Cinnamon team has published 6.4. The headline change is a rewritten window-resize path that avoids a full relayout when only the frame grows.',
+      'After six months of work on the compositor, the Mixt Shell team has published 6.4. The headline change is a rewritten window-resize path that avoids a full relayout when only the frame grows.',
       '"We measured unmaximise latency on a five-year-old laptop," said one maintainer. "It used to spend 42 milliseconds deciding where to put things. Now it is 8."',
       'Also included: a reworked sound applet, a search provider for applets and desklets, and a set of Mixt-Y colour updates that finally make dark titlebars look right on every wallpaper.',
       'Regular users will notice the small things: menus feel attached to their buttons, tooltips no longer appear under the pointer, and the workspace switcher animates in the direction you expect.',
@@ -535,7 +535,7 @@ export const STORIES: Story[] = [
       'Mainframes begat minicomputers, minicomputers begat personal computers, and personal computers begat phones. Each generation kept the previous one inside an emulator at first.',
       'Today the browser ships a sandbox, a storage layer, a graphics pipeline, an audio workstation, a network stack and a scheduler. That is a plausible definition of an operating system, even if it has no ring zero.',
       'The interesting question is not whether a web page can run a desktop, but which parts of the desktop it should keep. Panel? Absolutely. Manpage syntax? Debatable.',
-      'The Mixt Web OS experiment answers by imitation: everything looks like a 2010s Linux desktop, and everything runs in JavaScript.',
+      'The Mixt Web OS experiment answers by imitation: everything looks like a 2010s Mixt desktop, and everything runs in JavaScript.',
     ],
   },
   {
@@ -547,7 +547,7 @@ export const STORIES: Story[] = [
     lead: 'Idle draw drops again, and the scheduler learns a few new tricks for hybrid CPUs.',
     body: [
       'The new kernel improves idle handling for chips with a mix of performance and efficiency cores, and adds a driver for a family of USB-C docks that previously required out-of-tree patches.',
-      'Distributions following Ubuntu-long-term-support cadence will pick the release up in their next point update.',
+      'Distributions following the long-term-support cadence will pick the release up in their next point update.',
     ],
   },
   {
@@ -849,7 +849,7 @@ export const MIXTPEDIA: SiteDef = {
     {
       path: '/article',
       title: 'MixtPedia article',
-      keywords: ['article', 'mixt os', 'cinnamon', 'browser', 'javascript', 'terminal', 'kernel', 'http', 'localstorage'],
+      keywords: ['article', 'mixt os', 'mixt shell', 'browser', 'javascript', 'terminal', 'kernel', 'http', 'localstorage'],
       snippet: 'Encyclopaedia article on computing topics.',
       render: (ctx) => {
         const slug = ctx.path.split('/')[2] ?? 'mixt-os'
@@ -888,7 +888,7 @@ export const MIXTNEWS: SiteDef = {
     {
       path: '/article',
       title: 'MixtNews — story',
-      keywords: ['story', 'article', 'cinnamon', 'kernel', 'browser as operating system'],
+      keywords: ['story', 'article', 'mixt shell', 'kernel', 'browser as operating system'],
       snippet: 'A MixtNews story.',
       render: (ctx) => <NewsArticle ctx={ctx} slug={ctx.path.split('/')[2] ?? STORIES[0].slug} />,
     },

@@ -18,7 +18,7 @@ interface Proc {
 const SYSTEM_PROCS = [
   { pid: 1, user: 'root', name: 'systemd(web)', base: 0.3, mem: 12.4 },
   { pid: 212, user: 'root', name: 'dbus-daemon', base: 0.1, mem: 3.2 },
-  { pid: 388, user: 'mixt', name: 'cinnamon(mixt-shell)', base: 1.4, mem: 46.8 },
+  { pid: 388, user: 'mixt', name: 'mixt-shell', base: 1.4, mem: 46.8 },
   { pid: 402, user: 'mixt', name: 'mixtpanel', base: 0.4, mem: 18.9 },
   { pid: 517, user: 'mixt', name: 'mixtwindowmanager', base: 0.7, mem: 27.6 },
   { pid: 622, user: 'mixt', name: 'pulseaudio(virtual)', base: 0.1, mem: 6.1 },

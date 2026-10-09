@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { useOS } from '../os/store'
-import type { WinState } from '../os/types'
+import type { SnapZone, WinState } from '../os/types'
 import { getApp } from '../apps/registry'
 import { AppIcon, Glyph } from './AppIcon'
 
@@ -12,6 +12,53 @@ const CURSORS: Record<Dir, string> = {
 }
 
 const HANDLE_SIZE = 6
+
+/* How close to an edge counts as "snapping". A corner box wins over an edge
+   strip, so dragging into a corner gives a quarter instead of a half. */
+const EDGE = 34
+const CORNER = 130
+
+export function snapZoneAt(x: number, y: number): SnapZone | null {
+  const W = window.innerWidth
+  const H = window.innerHeight
+  const nearTop = y < CORNER
+  const nearBottom = y > H - CORNER
+  const nearLeft = x < CORNER
+  const nearRight = x > W - CORNER
+  if (nearTop && nearLeft) return 'tl'
+  if (nearTop && nearRight) return 'tr'
+  if (nearBottom && nearLeft) return 'bl'
+  if (nearBottom && nearRight) return 'br'
+  if (y < EDGE) return 'max'
+  if (y > H - EDGE) return 'bottom'
+  if (x < EDGE) return 'left'
+  if (x > W - EDGE) return 'right'
+  return null
+}
+
+/** The rectangle a zone covers, used to draw the snap preview. */
+export function snapRect(zone: SnapZone, panelSize: number, panelTop: boolean) {
+  const W = window.innerWidth
+  const H = window.innerHeight
+  const top = panelTop ? panelSize : 0
+  const usable = Math.max(120, H - panelSize)
+  const halfW = Math.round(W / 2)
+  const halfH = Math.round(usable / 2)
+  const bottomH = usable - halfH
+  const inset = 4
+  const zones: Record<SnapZone, { x: number; y: number; w: number; h: number }> = {
+    max: { x: 0, y: top, w: W, h: usable },
+    left: { x: 0, y: top, w: halfW, h: usable },
+    right: { x: halfW, y: top, w: W - halfW, h: usable },
+    bottom: { x: 0, y: top + halfH, w: W, h: bottomH },
+    tl: { x: 0, y: top, w: halfW, h: halfH },
+    tr: { x: halfW, y: top, w: W - halfW, h: halfH },
+    bl: { x: 0, y: top + halfH, w: halfW, h: bottomH },
+    br: { x: halfW, y: top + halfH, w: W - halfW, h: bottomH },
+  }
+  const r = zones[zone]
+  return { left: r.x + inset, top: r.y + inset, width: Math.max(20, r.w - inset * 2), height: Math.max(20, r.h - inset * 2) }
+}
 
 function handleStyle(d: Dir): React.CSSProperties {
   const s: React.CSSProperties = { cursor: CURSORS[d] }
@@ -32,7 +79,7 @@ export default function WindowFrame({ win, children }: { win: WinState; children
   const settings = useOS((s) => s.settings)
   const activeId = useOS((s) => s.activeId)
   const { focusWindow, minimize, toggleMaximize, closeWindow, setGeometry, snap } = useOS.getState()
-  const [snapHint, setSnapHint] = useState<'left' | 'right' | 'max' | null>(null)
+  const [snapHint, setSnapHint] = useState<SnapZone | null>(null)
   const dragRef = useRef<any>(null)
   const def = getApp(win.appId)
   const focused = activeId === win.id
@@ -66,6 +113,10 @@ export default function WindowFrame({ win, children }: { win: WinState; children
   function onTitlePointerMove(e: React.PointerEvent) {
     const d = dragRef.current
     if (!d) return
+    /* Work out the snap zone first: the un-maximise branch below returns early,
+       and computing the hint afterwards meant a maximised window could never be
+       dragged into a new zone. */
+    setSnapHint(snapZoneAt(e.clientX, e.clientY))
     if (d.wasMax) {
       const r = d.restore ?? { x: 60, y: 40, w: 900, h: 600 }
       const ratio = (e.clientX - d.x) / Math.max(1, d.w)
@@ -78,15 +129,15 @@ export default function WindowFrame({ win, children }: { win: WinState; children
     const nx = Math.min(d.x + (e.clientX - d.mx), window.innerWidth - 90)
     const ny = Math.max(panelOffset, d.y + (e.clientY - d.my))
     setGeometry(win.id, { x: nx, y: ny })
-    setSnapHint(
-      e.clientY < 5 ? 'max' : e.clientX < 5 ? 'left' : e.clientX > window.innerWidth - 5 ? 'right' : null,
-    )
   }
 
   function onTitlePointerUp() {
     if (!dragRef.current) return
     dragRef.current = null
-    if (snapHint && !win.maximized) snap(win.id, snapHint)
+    /* No `!win.maximized` guard here: dragging a maximised window to another
+       edge un-maximises it mid-drag, and reading the flag from this render made
+       the drop a no-op — the window just landed wherever the pointer was. */
+    if (snapHint) snap(win.id, snapHint)
     setSnapHint(null)
   }
 
@@ -138,8 +189,19 @@ export default function WindowFrame({ win, children }: { win: WinState; children
               onClick: () => toggleMaximize(win.id),
             },
             { separator: true },
-            { label: 'Snap to left half', onClick: () => snap(win.id, 'left') },
-            { label: 'Snap to right half', onClick: () => snap(win.id, 'right') },
+            {
+              label: 'Snap / tile',
+              submenu: [
+                { label: 'Maximise', onClick: () => snap(win.id, 'max') },
+                { label: 'Left half', onClick: () => snap(win.id, 'left') },
+                { label: 'Right half', onClick: () => snap(win.id, 'right') },
+                { label: 'Bottom half', onClick: () => snap(win.id, 'bottom') },
+                { label: 'Top-left quarter', onClick: () => snap(win.id, 'tl') },
+                { label: 'Top-right quarter', onClick: () => snap(win.id, 'tr') },
+                { label: 'Bottom-left quarter', onClick: () => snap(win.id, 'bl') },
+                { label: 'Bottom-right quarter', onClick: () => snap(win.id, 'br') },
+              ],
+            },
             {
               label: 'Move to workspace',
               submenu: [0, 1, 2, 3].map((i) => ({
@@ -237,11 +299,7 @@ export default function WindowFrame({ win, children }: { win: WinState; children
             border: '2px solid var(--wm-accent)',
             borderRadius: 6,
             transition: 'all 90ms ease-out',
-            ...(snapHint === 'left'
-              ? { left: 4, top: panelOffset + 4, width: window.innerWidth / 2 - 8, height: window.innerHeight - settings.panelSize - 8 }
-              : snapHint === 'right'
-                ? { left: window.innerWidth / 2 + 4, top: panelOffset + 4, width: window.innerWidth / 2 - 8, height: window.innerHeight - settings.panelSize - 8 }
-                : { left: 4, top: panelOffset + 4, width: window.innerWidth - 8, height: window.innerHeight - settings.panelSize - 8 }),
+            ...snapRect(snapHint, settings.panelSize, settings.panelPosition === 'top'),
           }}
         />
       )}

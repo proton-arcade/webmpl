@@ -37,7 +37,7 @@ export default function AboutApp({ api }: AppProps) {
         <div>
           <div style={{ fontSize: 25, fontWeight: 700 }}>Mixt Web OS 1.0 “Mixty”</div>
           <div style={{ opacity: 0.9 }}>
-            Cinnamon web edition · Mixt-Y theme · GNU/JavaScript · running in {settings.username}@{settings.hostname}
+            Mixt Shell web edition · Mixt-Y theme · pure JavaScript · running in {settings.username}@{settings.hostname}
           </div>
           <div style={{ opacity: 0.75, fontSize: 12.5, marginTop: 4 }}>
             64-bit · 1 virtual CPU socket · no telemetry · no servers involved
@@ -53,7 +53,7 @@ export default function AboutApp({ api }: AppProps) {
               {[
                 ['Operating system', 'Mixt Web OS 1.0 (mixtwebos) · built on Mixt OS design language'],
                 ['Kernel', '6.8.0-mixt #1 SMP PREEMPT_DYNAMIC (simulated)'],
-                ['Desktop environment', 'Cinnamon (web edition) — panel, menu, window manager, applets'],
+                ['Desktop environment', 'Mixt Shell (web edition) — panel, menu, window manager, applets'],
                 ['Window manager', 'mixtwm (React + pointer events)'],
                 ['Processor', `JS Virtual Core × ${navigator.hardwareConcurrency || 4} @ 3.20 GHz`],
                 ['Memory', `${Math.round(380 + windows.length * 34)} MiB of 3939 MiB in use`],
@@ -64,7 +64,7 @@ export default function AboutApp({ api }: AppProps) {
                 ['Resolution', `${window.innerWidth} × ${window.innerHeight} at ${window.devicePixelRatio}×`],
                 ['Locale', navigator.language],
                 ['Theme', `${settings.themeName} · ${settings.iconTheme} icons · accent ${settings.accent}`],
-                ['Browser engine', navigator.userAgent.match(/(Firefox|Chrome|Chromium|Safari|Edg)\/[\d.]+/)?.[0] ?? 'unknown'],
+                ['Browser engine', 'MixtNet renderer'],
               ].map(([k, v]) => (
                 <tr key={k}>
                   <td style={{ padding: '5px 10px 5px 0', opacity: 0.65, width: 150, verticalAlign: 'top' }}>{k}</td>
@@ -76,7 +76,7 @@ export default function AboutApp({ api }: AppProps) {
 
           <h3>Credits</h3>
           <p style={{ lineHeight: 1.7, fontSize: 13.5 }}>
-            Interface inspired by <strong>Mixt OS</strong> and its <strong>Cinnamon</strong> desktop, both of which are
+            Interface inspired by <strong>Mixt OS</strong> and its <strong>Mixt Shell</strong> desktop, both of which are
             excellent and free software. Application icons drawn with <strong>lucide</strong>. Built with{' '}
             <strong>React</strong>, <strong>Vite</strong>, <strong>Tailwind</strong> and <strong>zustand</strong>. The
             MixtNet, the MixtNet sites and every word of their contents were written for this project.
@@ -107,8 +107,8 @@ export default function AboutApp({ api }: AppProps) {
                   '    Y8,          ,8 Kernel: 6.8.0-mixt',
                   '     `8b,,____,,d8" Uptime: ' + `${Math.floor(up / 60)} mins`,
                   '       "Y8b,,d8P"   Shell: bash 5.2.21',
-                  '                    DE: Cinnamon (web edition)',
-                  `                    Packages: ${installCount} (dpkg)`,
+                  '                    DE: Mixt Shell (web edition)',
+                  `                    Packages: ${installCount} (mixtinstall)`,
                 ].join('\n')
                 navigator.clipboard?.writeText(text).catch(() => {})
                 useOS.getState().notify({ title: 'About This Computer', body: 'The neofetch output was copied (or would have been, with clipboard permission).' })

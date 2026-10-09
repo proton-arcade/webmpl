@@ -62,7 +62,7 @@ export default function PaintApp({ win, api }: AppProps) {
       ctx.bezierCurveTo(640, 140, 760, 300, 820, 220)
       ctx.stroke()
       ctx.fillStyle = 'rgba(76,143,31,0.14)'
-      ctx.font = '500 22px Ubuntu, sans-serif'
+      ctx.font = '500 22px system-ui, sans-serif'
       ctx.fillText('Drawing — pick a brush and scribble', 24, 40)
       pushUndo()
     }
@@ -234,7 +234,7 @@ export default function PaintApp({ win, api }: AppProps) {
     const ctx = canvasRef.current!.getContext('2d')!
     pushUndo()
     ctx.fillStyle = colour
-    ctx.font = `500 ${Math.max(14, size * 5)}px Ubuntu, sans-serif`
+    ctx.font = `500 ${Math.max(14, size * 5)}px system-ui, sans-serif`
     ctx.fillText(value, 40, H - 40)
     setTextDraft(null)
   }

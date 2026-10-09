@@ -9,6 +9,7 @@ import { Popup, usePopup, type MenuItem } from './ContextMenu'
 import { AppIcon, FileIcon, Glyph } from './AppIcon'
 import { getApp, APPS } from '../apps/registry'
 import { Dialog } from '../apps/files'
+import { validateUsername, AVATARS, ACCENTS } from '../os/users'
 import { appForFile, launch } from '../os/bus'
 
 export default function Desktop() {
@@ -19,6 +20,7 @@ export default function Desktop() {
   const menuOpen = useOS((s) => s.menuOpen)
   const exposeOpen = useOS((s) => s.exposeOpen)
   const locked = useOS((s) => s.locked)
+  const hasUsers = useOS((s) => s.users.length > 0)
   const runDialogOpen = useOS((s) => s.runDialogOpen)
   const vfsRevision = useVFS((s) => s.revision)
 
@@ -138,6 +140,10 @@ export default function Desktop() {
         e.preventDefault()
         S.snap(S.activeId, 'max')
       }
+      if (e.key === 'ArrowDown' && e.metaKey && S.activeId) {
+        e.preventDefault()
+        S.snap(S.activeId, 'bottom')
+      }
     }
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Alt' && altTabActive) {
@@ -232,11 +238,18 @@ export default function Desktop() {
         fontFamily: 'var(--font-sans)',
       }}
       onContextMenu={(e) => {
-        if ((e.target as HTMLElement).closest('.wm-window')) return
+        const t = e.target as HTMLElement
+        if (t.closest('.wm-window') || t.closest('.wm-shell-ui')) return
         desktopMenu.open(e)
       }}
       onMouseDown={(e) => {
-        if ((e.target as HTMLElement).closest('.wm-window')) return
+        const t = e.target as HTMLElement
+        if (t.closest('.wm-window')) return
+        // The menu, its popups and the panel are part of the shell: closing the
+        // menu on a mousedown inside them unmounts the very element the user is
+        // pressing, and a browser only fires `click` if the element survived —
+        // so every menu item silently did nothing.
+        if (t.closest('.wm-shell-ui')) return
         if (useOS.getState().menuOpen) useOS.getState().setMenuOpen(false)
       }}
     >
@@ -366,6 +379,7 @@ export default function Desktop() {
       {runDialogOpen && <RunDialog onClose={() => useOS.getState().setRunDialog(false)} />}
       {session && <SessionDialog kind={session} onCancel={() => setSession(null)} />}
       {locked && <LockScreen />}
+      {!hasUsers && <FirstBootSetup />}
     </div>
   )
 }
@@ -656,14 +670,34 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
 }
 
 function LockScreen() {
-  const { settings, setLocked } = useOS()
+  const { settings, setLocked, users, activeUserId, loginUser } = useOS()
   const [value, setValue] = useState('')
+  const [error, setError] = useState('')
   const [time, setTime] = useState(new Date())
+  /* Which account is being unlocked. With no accounts created yet the session
+     is a guest session and any password is accepted, as before. */
+  const [pickedId, setPickedId] = useState<string | null>(activeUserId ?? users[0]?.id ?? null)
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
-  const unlock = () => setLocked(false)
+
+  const picked = users.find((u) => u.id === pickedId) ?? null
+
+  const unlock = () => {
+    if (!picked) {
+      setLocked(false)
+      return
+    }
+    if (loginUser(picked.id, value)) {
+      setError('')
+      setValue('')
+      return
+    }
+    setError('Incorrect password.')
+    setValue('')
+  }
+
   return (
     <div
       style={{
@@ -684,33 +718,184 @@ function LockScreen() {
           {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: !settings.clock24 })}
         </div>
         <div style={{ fontSize: 17, opacity: 0.85, marginTop: -6 }}>{time.toDateString()}</div>
+
+        {/* account chooser */}
+        {users.length > 1 && (
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 26, flexWrap: 'wrap' }}>
+            {users.map((u) => (
+              <button
+                key={u.id}
+                className="btn-ghost"
+                onClick={() => {
+                  setPickedId(u.id)
+                  setError('')
+                  setValue('')
+                }}
+                style={{
+                  color: '#e7ece8',
+                  display: 'grid',
+                  placeItems: 'center',
+                  gap: 4,
+                  padding: '8px 12px',
+                  border: u.id === pickedId ? '2px solid var(--wm-accent)' : '2px solid rgba(255,255,255,0.18)',
+                  borderRadius: 12,
+                  minWidth: 82,
+                }}
+              >
+                <span style={{ fontSize: 26 }}>{u.avatar}</span>
+                <span style={{ fontSize: 12.5 }}>{u.fullName}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div style={{ marginTop: 34, display: 'grid', placeItems: 'center', gap: 10 }}>
           <div style={{ width: 84, height: 84, borderRadius: 999, background: 'linear-gradient(135deg,#9ede6a,#3b6f18)', display: 'grid', placeItems: 'center', fontSize: 34 }}>
-            {settings.avatar}
+            {picked?.avatar ?? settings.avatar}
           </div>
-          <div style={{ fontSize: 17 }}>{settings.fullName}</div>
-          <input
-            className="entry"
-            autoFocus
-            type="password"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && unlock()}
-            placeholder="Password (any will do)"
-            style={{ width: 240, textAlign: 'center' }}
-          />
+          <div style={{ fontSize: 17 }}>{picked?.fullName ?? settings.fullName}</div>
+          {picked && !picked.passwordHash ? (
+            <div style={{ fontSize: 12.5, opacity: 0.8 }}>This account has no password.</div>
+          ) : (
+            <input
+              className="entry"
+              autoFocus
+              type="password"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && unlock()}
+              placeholder={users.length ? 'Password' : 'Password (any will do)'}
+              style={{ width: 240, textAlign: 'center' }}
+            />
+          )}
+          {error && <div style={{ color: '#ffb3ad', fontSize: 12.5 }}>{error}</div>}
           <button className="btn-mixt" onClick={unlock}>
             Unlock
           </button>
-          <button
-            className="btn-ghost"
-            style={{ color: '#e7ece8' }}
-            onClick={() => {
-              setLocked(false)
-              useOS.getState().notify({ title: 'Session', body: 'Switch user is not available in the web edition.' })
-            }}
-          >
-            Switch user…
+          {users.length === 0 && (
+            <div style={{ fontSize: 12, opacity: 0.75, maxWidth: 300, lineHeight: 1.5 }}>
+              No accounts yet. Open the Terminal and type <b>/startup</b> to create one — it is
+              saved in this browser.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ----------------------- first-boot account setup ------------------------ */
+/* Shown instead of the desktop until an account exists, mirroring the Linux
+   Mint installer's "who are you?" step: your name, the computer's name, a
+   username and a password. */
+function FirstBootSetup() {
+  const settings = useOS((s) => s.settings)
+  const setSettings = useOS((s) => s.setSettings)
+  const createUser = useOS((s) => s.createUser)
+  const [fullName, setFullName] = useState('')
+  const [hostname, setHostname] = useState('mixt-desktop')
+  const [username, setUsername] = useState('')
+  const [usernameTouched, setUsernameTouched] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [avatar, setAvatar] = useState(AVATARS[0])
+  const [accent, setAccent] = useState(ACCENTS[0])
+  const [error, setError] = useState('')
+
+  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9._-]+/g, '.').replace(/^\.+|\.+$/g, '') || 'mixt'
+  const onName = (v: string) => {
+    setFullName(v)
+    if (!usernameTouched) setUsername(slug(v))
+  }
+
+  const submit = () => {
+    const uErr = validateUsername(username)
+    if (uErr) return setError(uErr)
+    if (password !== confirm) return setError('The passwords do not match.')
+    setSettings({ hostname: hostname.trim().replace(/\s+/g, '-') || 'mixt-desktop', accent })
+    const res = createUser({ username, fullName, password, avatar, accent, wallpaper: settings.wallpaper })
+    if (!('ok' in res) || !res.ok) return setError((res as { error?: string }).error ?? 'Could not create the account.')
+    setError('')
+  }
+
+  const field = (label: string, node: React.ReactNode, hint?: string) => (
+    <label style={{ display: 'grid', gap: 4, textAlign: 'left' }}>
+      <span style={{ fontSize: 12.5, opacity: 0.8 }}>{label}</span>
+      {node}
+      {hint && <span style={{ fontSize: 11, opacity: 0.6 }}>{hint}</span>}
+    </label>
+  )
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 300000,
+        backgroundImage: `url(${settings.wallpaper})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,14,12,0.6)', backdropFilter: 'blur(8px)' }} />
+      <div style={{ position: 'relative', width: 430, maxWidth: '92vw', background: '#fbfbf9', color: '#22261f', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+        <div style={{ background: 'linear-gradient(180deg,#87cf3e,#6fa34c)', color: '#fff', padding: '16px 22px' }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Welcome to Mixt</div>
+          <div style={{ fontSize: 12.5, opacity: 0.95 }}>Let&apos;s set up an account for you, just like a fresh install.</div>
+        </div>
+        <div style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
+          {field('Your name', <input className="entry" value={fullName} onChange={(e) => onName(e.target.value)} placeholder="e.g. Ada Lovelace" />)}
+          {field(
+            "Your computer's name",
+            <input className="entry" value={hostname} onChange={(e) => setHostname(e.target.value)} />,
+            'The name it uses on the network and in the terminal.',
+          )}
+          {field(
+            'Pick a username',
+            <input
+              className="entry"
+              value={username}
+              onChange={(e) => {
+                setUsernameTouched(true)
+                setUsername(e.target.value.toLowerCase())
+              }}
+            />,
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {field('Choose a password', <input className="entry" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />)}
+            {field('Confirm password', <input className="entry" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />)}
+          </div>
+          {field(
+            'Pick an avatar',
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {AVATARS.map((a) => (
+                <span
+                  key={a}
+                  onClick={() => setAvatar(a)}
+                  style={{ fontSize: 20, cursor: 'pointer', padding: 3, borderRadius: 8, border: avatar === a ? '2px solid #6fa34c' : '2px solid transparent' }}
+                >
+                  {a}
+                </span>
+              ))}
+            </div>,
+          )}
+          {field(
+            'Accent colour',
+            <div style={{ display: 'flex', gap: 8 }}>
+              {ACCENTS.map((c) => (
+                <span
+                  key={c}
+                  onClick={() => setAccent(c)}
+                  style={{ width: 24, height: 24, borderRadius: '50%', cursor: 'pointer', background: c, border: accent === c ? '3px solid #22261f' : '1px solid rgba(0,0,0,0.25)' }}
+                />
+              ))}
+            </div>,
+          )}
+          {error && <div style={{ color: '#c0392b', fontSize: 12.5 }}>{error}</div>}
+          <button className="btn-mixt" onClick={submit} style={{ justifyContent: 'center' }}>
+            Create account &amp; start using Mixt
           </button>
         </div>
       </div>

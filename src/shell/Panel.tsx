@@ -4,6 +4,19 @@ import { AppIcon, Glyph } from './AppIcon'
 import { getApp, searchApps } from '../apps/registry'
 import { Popup, type MenuItem } from './ContextMenu'
 import { launch } from '../os/bus'
+import { HOME } from '../os/vfs'
+
+/** Shelf launcher button: a circle with a small grid of dots. */
+function LauncherGlyph() {
+  return (
+    <svg width={22} height={22} viewBox="0 0 22 22">
+      <circle cx={11} cy={11} r={10} fill="none" stroke="#e8ecef" strokeWidth={1.6} />
+      <circle cx={11} cy={7} r={1.6} fill="#e8ecef" />
+      <circle cx={7} cy={12.6} r={1.6} fill="#e8ecef" />
+      <circle cx={15} cy={12.6} r={1.6} fill="#e8ecef" />
+    </svg>
+  )
+}
 
 export default function Panel() {
   const settings = useOS((s) => s.settings)
@@ -37,6 +50,7 @@ export default function Panel() {
   const isHidden = settings.panelAutohide && hidden && !peek
 
   const quickApps = ['nemo', 'browser', 'terminal', 'xed', 'settings']
+  const shelf = settings.desktopStyle === 'shelf'
 
   return (
     <>
@@ -75,9 +89,11 @@ export default function Panel() {
           onClick={() => S.setMenuOpen(!menuOpen)}
           title="Main Menu (Super)"
         >
-          <MixtLogo />
+          {shelf ? <LauncherGlyph /> : <MixtLogo />}
         </div>
 
+        {/* shelf centres the launch row; otherwise layout is unchanged */}
+        <div style={shelf ? { display: 'flex', alignItems: 'center', margin: '0 auto', gap: 3 } : { display: 'contents' }}>
         {/* quick launch */}
         <div style={{ display: 'flex', gap: 2 }}>
           {quickApps.map((id) => {
@@ -94,7 +110,7 @@ export default function Panel() {
         <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.18)', margin: '0 4px' }} />
 
         {/* window list */}
-        <div style={{ display: 'flex', gap: 3, flex: '1 1 auto', overflow: 'hidden', minWidth: 0 }}>
+        <div style={{ display: 'flex', gap: 3, flex: shelf ? '0 1 auto' : '1 1 auto', overflow: 'hidden', minWidth: 0 }}>
           {visible.map((w) => {
             const app = getApp(w.appId)
             const active = activeId === w.id && !w.minimized
@@ -120,8 +136,16 @@ export default function Panel() {
           })}
         </div>
 
+        </div>
+
         {/* right hand applets */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto' }}>
+        <div
+          style={
+            shelf
+              ? { display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '3px 8px' }
+              : { display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto' }
+          }
+        >
           {/* workspace switcher */}
           <div className="panel-item" style={{ gap: 4 }} title="Workspaces (click for all windows)" onClick={() => S.setExposeOpen(true)}>
             {Array.from({ length: workspaceCount }).map((_, i) => (
@@ -230,6 +254,24 @@ export default function Panel() {
           items={[
             { label: `${settings.fullName} (${settings.username})`, disabled: true },
             { separator: true },
+            ...(S.users.length
+              ? ([
+                  { label: 'Switch account', disabled: true },
+                  ...S.users.map((u) => ({
+                    label: `${u.avatar}  ${u.fullName}${u.id === S.activeUserId ? '  ✓' : ''}`,
+                    disabled: u.id === S.activeUserId,
+                    // lock the screen: the account chooser there does the sign-in
+                    onClick: () => S.setLocked(true),
+                  })),
+                  { separator: true },
+                ] as any[])
+              : ([
+                  {
+                    label: 'Create an account…  (/startup)',
+                    onClick: () => launch('terminal', { cwd: HOME }),
+                  },
+                  { separator: true },
+                ] as any[])),
             { label: 'Lock screen', icon: <Glyph name="Lock" size={14} />, onClick: () => S.setLocked(true) },
             { label: 'Log out…', icon: <Glyph name="LogOut" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'logout' })) },
             { label: 'Restart…', icon: <Glyph name="RefreshCw" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'reboot' })) },

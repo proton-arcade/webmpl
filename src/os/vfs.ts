@@ -1,6 +1,7 @@
 /* Mixt Web OS — virtual filesystem (ext4-ish, lives in localStorage)
    Everything inside the OS reads and writes through this module. */
 import { create } from 'zustand'
+import { safeLocal } from './storage'
 
 export interface VFileNode {
   type: 'file'
@@ -85,12 +86,12 @@ export function humanSize(n: number) {
 
 export function nodeSize(n: VNode): number {
   if (n.type === 'file') return (n.url ? 240_000 : 0) + (n.content?.length ?? 0)
-  return Object.values(n.children).reduce((a, c) => a + nodeSize(c), 0)
+  return Object.values(n.children ?? {}).reduce((a, c) => a + nodeSize(c), 0)
 }
 
 export function countNodes(n: VNode): number {
   if (n.type === 'file') return 1
-  return Object.values(n.children).reduce((a, c) => a + countNodes(c), 0)
+  return Object.values(n.children ?? {}).reduce((a, c) => a + countNodes(c), 0)
 }
 
 /* --------------------------------- seeds --------------------------------- */
@@ -103,7 +104,7 @@ function seedTree(): VDirNode {
       type: 'file',
       content: '',
       mime: 'image/jpeg',
-      url: `/wallpapers/${w}`,
+      url: `wallpapers/${w}`,
       created: now(),
       modified: now(),
     }
@@ -112,7 +113,7 @@ function seedTree(): VDirNode {
   return dir({
     etc: dir({
       'os-release': file(
-        `NAME="Mixt Web OS"\nVERSION="1.0 (Mixty)"\nID=mixtwebos\nID_LIKE=mixtos ubuntu debian\nPRETTY_NAME="Mixt Web OS 1.0"\nVERSION_ID="1.0"\nHOME_URL="https://mixt.local/"\nSUPPORT_URL="https://mixt.local/help"\nBUG_REPORT_URL="https://mixt.local/bugs"\nUBUNTU_CODENAME=jammy\n`,
+        `NAME="Mixt Web OS"\nVERSION="1.0 (Mixty)"\nID=mixtwebos\nID_LIKE=mixtos\nPRETTY_NAME="Mixt Web OS 1.0"\nVERSION_ID="1.0"\nHOME_URL="https://mixt.local/"\nSUPPORT_URL="https://mixt.local/help"\nBUG_REPORT_URL="https://mixt.local/bugs"\n`,
       ),
       hostname: file('mixt-web\n'),
       shells: file('/bin/sh\n/bin/bash\n/bin/dash\n'),
@@ -160,9 +161,9 @@ The whole filesystem lives in your browser's localStorage at
     var: dir({
       log: dir({
         'boot.log': file(
-          `[    0.000000] Mixt Web OS 1.0 (mixt) booting on JavaScript kernel\n[    0.012884] cpu: 2 virtual cores detected\n[    0.104331] memory: 3.9 GiB available\n[    0.402117] vfs: mounted local filesystem at /\n[    0.611003] wm: Cinnamon-compatible window manager ready\n[    0.883440] panel: applets loaded (menu, windows, tray, clock)\n[    1.002991] browser: mixtnet resolver online\n[    1.201554] systemd: Reached target Graphical Interface\n`,
+          `[    0.000000] Mixt Web OS 1.0 (mixt) booting on JavaScript kernel\n[    0.012884] cpu: 2 virtual cores detected\n[    0.104331] memory: 3.9 GiB available\n[    0.402117] vfs: mounted local filesystem at /\n[    0.611003] wm: Mixt Shell window manager ready\n[    0.883440] panel: applets loaded (menu, windows, tray, clock)\n[    1.002991] browser: mixtnet resolver online\n[    1.201554] init: Reached target Graphical Interface\n`,
         ),
-        'dpkg.log': file('2026-09-30 09:12:44 install mixt-shell:all <none> 1.0\n2026-09-30 09:12:44 status half-installed mixt-shell:all 1.0\n2026-09-30 09:12:45 status installed mixt-shell:all 1.0\n'),
+        'mixtinstall.log': file('2026-09-30 09:12:44 install mixt-shell:all <none> 1.0\n2026-09-30 09:12:44 status half-installed mixt-shell:all 1.0\n2026-09-30 09:12:45 status installed mixt-shell:all 1.0\n'),
       }),
       cache: dir({}),
       tmp: dir({}),
@@ -197,13 +198,8 @@ Everything you create is saved in your browser and survives a reboot.
             '# Mixt lemonade\n\n- 2 limes\n- 1 lemon\n- 8 fresh mixt leaves\n- 60 g sugar\n- 1 l sparkling water\n\nMuddle mixt with sugar, add citrus juice, top with sparkling water and ice.\n',
           ),
         }),
-        Downloads: dir({
-          'README.txt': file(
-            'Downloads from the MixtNet browser end up here.\n',
-          ),
-          'mixt-wallpapers.zip': file('PK\u0003\u0004 (fake archive placeholder)\n', 'application/zip'),
-          'firefox-129.0.tar.bz2': file('BZh9 fake tarball placeholder\n', 'application/x-bzip2'),
-        }),
+        // Downloads starts out empty: it fills up as you download things.
+        Downloads: dir({}),
         Music: dir({
           'Mixty Fresh Waves.ogg': file(
             JSON.stringify({
@@ -216,7 +212,7 @@ Everything you create is saved in your browser and survives a reboot.
             }),
             'audio/ogg',
           ),
-          'Cinnamon Dreams.ogg': file(
+          'Mixt Dreams.ogg': file(
             JSON.stringify({
               kind: 'synth',
               bpm: 78,
@@ -255,7 +251,7 @@ Everything you create is saved in your browser and survives a reboot.
             'XDG_DESKTOP_DIR="$HOME/Desktop"\nXDG_DOWNLOAD_DIR="$HOME/Downloads"\nXDG_TEMPLATES_DIR="$HOME/Templates"\nXDG_PUBLICSHARE_DIR="$HOME/Public"\nXDG_DOCUMENTS_DIR="$HOME/Documents"\nXDG_MUSIC_DIR="$HOME/Music"\nXDG_PICTURES_DIR="$HOME/Pictures"\nXDG_VIDEOS_DIR="$HOME/Videos"\n',
           ),
           'mixt-web-os.conf': file(
-            '[desktop]\nwallpaper=/wallpapers/mixt-wave.jpg\nscheme=light\n\n[panel]\nposition=bottom\nsize=40\n',
+            '[desktop]\nwallpaper=wallpapers/mixt-wave.jpg\nscheme=light\n\n[panel]\nposition=bottom\nsize=40\n',
           ),
         }),
         '.bashrc': file(
@@ -297,29 +293,83 @@ interface VFSState {
   persist: () => void
 }
 
-function loadRoot(): VDirNode {
-  try {
-    const raw = localStorage.getItem(LS_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (parsed && parsed.type === 'dir') return parsed as VDirNode
+/* ------------------------- reading a saved tree --------------------------- */
+/* A saved tree is JSON that some other build wrote. It can be truncated by an
+ * interrupted write, edited by hand, or written by an older release with a
+ * different shape. A directory without a `children` map used to crash the very
+ * first render — which is a white page on every boot until the browser is
+ * cleared. So the blob is checked node by node on the way in: junk is dropped,
+ * every directory gets a children map, and a blob that cannot be understood
+ * falls back to the seed filesystem. */
+
+const MAX_DEPTH = 64
+const stamp = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : now())
+
+/** Asset urls point at files that ship next to index.html. Older builds saved
+ *  them root-absolute ('/wallpapers/…'), which breaks when the site is served
+ *  from a subdirectory, so they are kept relative. */
+const assetUrl = (url: string) => url.replace(/^\/(?=wallpapers\/|logo\.svg)/, '')
+
+export function sanitizeNode(raw: any, depth = 0): VNode | null {
+  if (!raw || typeof raw !== 'object') return null
+
+  if (raw.type === 'file') {
+    return {
+      type: 'file',
+      content: typeof raw.content === 'string' ? raw.content : '',
+      mime: typeof raw.mime === 'string' ? raw.mime : 'text/plain',
+      url: typeof raw.url === 'string' ? assetUrl(raw.url) : undefined,
+      created: stamp(raw.created),
+      modified: stamp(raw.modified),
     }
-  } catch {
-    /* corrupted store — start fresh */
+  }
+
+  if (raw.type === 'dir' || (!raw.type && typeof raw.children === 'object' && raw.children)) {
+    const children: Record<string, VNode> = {}
+    if (depth <= MAX_DEPTH) {
+      for (const [name, child] of Object.entries(raw.children ?? {})) {
+        if (!name || name === '.' || name === '..' || name.includes('/')) continue
+        const node = sanitizeNode(child, depth + 1)
+        if (node) children[name] = node
+      }
+    }
+    return { type: 'dir', children, created: stamp(raw.created), modified: stamp(raw.modified) }
+  }
+
+  return null
+}
+
+/** Parses a persisted tree, returning something the OS can always walk. */
+export function parseTree(raw: string | null | undefined): VDirNode {
+  if (raw) {
+    try {
+      const tree = sanitizeNode(JSON.parse(raw))
+      if (tree && tree.type === 'dir') return tree
+    } catch {
+      /* corrupted store — start fresh */
+    }
   }
   return seedTree()
+}
+
+function loadRoot(): VDirNode {
+  return parseTree(safeLocal.getItem(LS_KEY))
 }
 
 let persistTimer: any = null
 function schedulePersist(get: () => VFSState) {
   clearTimeout(persistTimer)
   persistTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(get().root))
-    } catch {
-      /* quota exceeded — ignore */
-    }
+    safeLocal.setItem(LS_KEY, JSON.stringify(get().root))
   }, 350)
+}
+
+/** Directories read from storage always carry a children map, but a tree can
+ *  also be handed in programmatically (imports, archives, tests). Repair it on
+ *  first write instead of throwing on `undefined[name]`. */
+function ensureChildren(dirNode: VDirNode): Record<string, VNode> {
+  if (!dirNode.children) dirNode.children = {}
+  return dirNode.children
 }
 
 export const useVFS = create<VFSState>()((set, get) => ({
@@ -331,7 +381,9 @@ export const useVFS = create<VFSState>()((set, get) => ({
     let node: VNode = get().root
     for (const seg of splitPath(path)) {
       if (node.type !== 'dir') return null
-      const next = node.children[seg]
+      // `children` is guaranteed by parseTree(), but a tree can also be set
+      // programmatically — a missing map means "no such file", not a crash.
+      const next = node.children?.[seg]
       if (!next) return null
       node = next
     }
@@ -341,7 +393,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
   list: (path) => {
     const node = get().getNode(path)
     if (!node || node.type !== 'dir') return null
-    return Object.entries(node.children)
+    return Object.entries(node.children ?? {})
       .map(([name, n]) => ({ name, node: n }))
       .sort((a, b) => {
         if (a.node.type !== b.node.type) return a.node.type === 'dir' ? -1 : 1
@@ -353,8 +405,10 @@ export const useVFS = create<VFSState>()((set, get) => ({
     const parent = parentPath(path)
     const name = baseName(path)
     const p = get().getNode(parent)
-    if (!p || p.type !== 'dir' || p.children[name]) return false
-    p.children[name] = dir({})
+    if (!p || p.type !== 'dir') return false
+    const children = ensureChildren(p)
+    if (children[name]) return false
+    children[name] = dir({})
     p.modified = now()
     set((s) => ({ revision: s.revision + 1 }))
     schedulePersist(get)
@@ -366,7 +420,8 @@ export const useVFS = create<VFSState>()((set, get) => ({
     const name = baseName(path)
     const p = get().getNode(parent)
     if (!p || p.type !== 'dir') return false
-    const existing = p.children[name]
+    const children = ensureChildren(p)
+    const existing = children[name]
     if (existing && existing.type === 'dir') return false
     if (existing && existing.type === 'file') {
       existing.content = content
@@ -374,7 +429,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
       if (url !== undefined) existing.url = url
       existing.modified = now()
     } else {
-      p.children[name] = { type: 'file', content, mime, url, created: now(), modified: now() }
+      children[name] = { type: 'file', content, mime, url, created: now(), modified: now() }
     }
     p.modified = now()
     set((s) => ({ revision: s.revision + 1 }))
@@ -387,8 +442,9 @@ export const useVFS = create<VFSState>()((set, get) => ({
     const name = baseName(path)
     const p = get().getNode(parent)
     if (!p || p.type !== 'dir') return false
-    if (!p.children[name]) {
-      p.children[name] = file('')
+    const children = ensureChildren(p)
+    if (!children[name]) {
+      children[name] = file('')
       set((s) => ({ revision: s.revision + 1 }))
       schedulePersist(get)
     }
@@ -398,8 +454,10 @@ export const useVFS = create<VFSState>()((set, get) => ({
   remove: (path) => {
     const p = get().getNode(parentPath(path))
     const name = baseName(path)
-    if (!p || p.type !== 'dir' || !p.children[name]) return false
-    delete p.children[name]
+    if (!p || p.type !== 'dir') return false
+    const children = ensureChildren(p)
+    if (!children[name]) return false
+    delete children[name]
     p.modified = now()
     set((s) => ({ revision: s.revision + 1 }))
     schedulePersist(get)
@@ -416,8 +474,8 @@ export const useVFS = create<VFSState>()((set, get) => ({
     }
     const dstParent = get().getNode(parentPath(destPath))
     if (!dstParent || dstParent.type !== 'dir') return false
-    delete srcParent.children[baseName(from)]
-    dstParent.children[baseName(destPath)] = node
+    delete ensureChildren(srcParent)[baseName(from)]
+    ensureChildren(dstParent)[baseName(destPath)] = node
     node.modified = now()
     set((s) => ({ revision: s.revision + 1 }))
     schedulePersist(get)
@@ -431,7 +489,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
     if (get().getNode(to)?.type === 'dir') destPath = join(to, baseName(from))
     const dstParent = get().getNode(parentPath(destPath))
     if (!dstParent || dstParent.type !== 'dir') return false
-    dstParent.children[baseName(destPath)] = JSON.parse(JSON.stringify(node))
+    ensureChildren(dstParent)[baseName(destPath)] = JSON.parse(JSON.stringify(node))
     set((s) => ({ revision: s.revision + 1 }))
     schedulePersist(get)
     return true
@@ -442,11 +500,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
   reset: () => {
     const root = seedTree()
     set((s) => ({ root, revision: s.revision + 1 }))
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(root))
-    } catch {
-      /* ignore */
-    }
+    safeLocal.setItem(LS_KEY, JSON.stringify(root))
   },
 
   persist: () => schedulePersist(get),

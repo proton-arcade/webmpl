@@ -1,14 +1,4 @@
 import './os/migrate' // must run before the stores read localStorage
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import './index.css'
-import Desktop from './shell/Desktop'
-import { bootstrap } from './os/bootstrap'
+import { startDesktop } from './os/start'
 
-bootstrap()
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <Desktop />
-  </React.StrictMode>,
-)
+startDesktop()

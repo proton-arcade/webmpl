@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../os/store'
 import { HOME, join, splitPath, normalizePath, vfs, humanSize, countNodes, nodeSize } from '../os/vfs'
 import { APPS, getApp } from './registry'
+import { ACCENTS, AVATARS, validateUsername } from '../os/users'
 import {
   addressFor,
   dnsStatus,
@@ -40,12 +41,12 @@ const COMMANDS = [
   'ln', 'tree', 'find', 'grep', 'wc', 'head', 'tail', 'sort', 'uniq', 'sed', 'awk', 'less',
   'more', 'nano', 'vim', 'xed', 'open', 'xdg-open', 'clear', 'history', 'whoami', 'id', 'groups',
   'uname', 'hostname', 'date', 'cal', 'uptime', 'free', 'df', 'du', 'ps', 'top', 'htop', 'kill',
-  'apt', 'apt-get', 'dpkg', 'snap', 'flatpak', 'sudo', 'su', 'neofetch', 'inxi', 'lscpu', 'lsblk',
+  'sudo', 'su', 'neofetch', 'inxi', 'lscpu', 'lsblk',
   'lsusb', 'lspci', 'ifconfig', 'ip', 'ping', 'curl', 'wget', 'ssh', 'scp', 'git', 'python3',
   'node', 'npm', 'which', 'whereis', 'man', 'info', 'fortune', 'cowsay', 'sl', 'yes', 'seq',
   'env', 'export', 'alias', 'uname', 'notify-send', 'theme', 'wallpaper', 'lock', 'logout',
   'reboot', 'shutdown', 'poweroff', 'exit', 'screenshot', 'xrandr', 'battery', 'volume', 'mixtupdate',
-  'mixtinstall', 'nemo', 'xed', 'firefox', 'top', 'killall', 'chmod', 'chown', 'stat', 'file',
+  'mixtinstall', 'nemo', 'xed', 'mixtsfox', 'users', 'login', 'logout', '/startup', 'top', 'killall', 'chmod', 'chown', 'stat', 'file',
   'basename', 'dirname', 'realpath', 'sleep', 'true', 'false', 'time', 'watch', 'diff', 'tar',
   'zip', 'unzip', 'gzip', 'sha256sum', 'md5sum', 'base64', 'rev', 'tac', 'cut', 'tr', 'echo',
 ]
@@ -58,7 +59,7 @@ const FORTUNES = [
   'Unix is user friendly. It is just picky about its friends.',
   'A clean desk is a sign of a cluttered drawer.',
   'sudo make me a sandwich.',
-  'Mixt condition: a computer that has never been rebooted into Windows.',
+  "Mixt condition: a computer that has never been rebooted into someone else's OS.",
   'The best way to accelerate a browser is at 9.8 m/s².',
   'Documentation is like a love letter to your future self.',
   'rm -rf is the fastest way to free disk space and regret.',
@@ -85,6 +86,10 @@ export default function TerminalApp({ win, api }: AppProps) {
   const [histIdx, setHistIdx] = useState(-1)
   const [root, setRoot] = useState(false)
   const [busy, setBusy] = useState(false)
+  /* An interactive command (the `/startup` wizard) parks a resolver here; the
+     next line typed answers it instead of running as a command. */
+  const [asking, setAsking] = useState<{ prompt: string; hidden: boolean } | null>(null)
+  const askRef = useRef<((value: string) => void) | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -109,6 +114,15 @@ export default function TerminalApp({ win, api }: AppProps) {
   function push(kind: Line['kind'], text: string) {
     setLines((ls) => [...ls, { id: lineId++, kind, text }])
   }
+  /** Print a question and wait for the next line typed. */
+  function ask(question: string, opts: { hidden?: boolean } = {}): Promise<string> {
+    push('out', question)
+    setAsking({ prompt: question, hidden: !!opts.hidden })
+    return new Promise((resolve) => {
+      askRef.current = resolve
+    })
+  }
+
   function pushMany(items: [Line['kind'], string][]) {
     setLines((ls) => [...ls, ...items.map(([kind, text]) => ({ id: lineId++, kind, text }))])
   }
@@ -213,7 +227,7 @@ export default function TerminalApp({ win, api }: AppProps) {
           ['ok', 'Mixt Web OS shell — available commands'],
           ['out', '  Files      ls, cd, pwd, cat, tree, find, grep, wc, head, tail, mkdir, touch, rm, mv, cp, du, df, stat, file'],
           ['out', '  System     uname, hostname, date, cal, uptime, free, ps, top, kill, neofetch, inxi, lscpu, lsblk, whoami, id'],
-          ['out', '  Packages   apt search|install|remove|list, dpkg -l, mixtinstall, mixtupdate'],
+          ['out', '  Packages   mixtinstall search|install|remove|list, mixtinstall, mixtupdate'],
           ['out', '  Network    ping, curl, wget, dig, host, nslookup, getent, nmap, ifconfig, ssh, git'],
           ['out', '  Desktop    open, xed, nano, nemo, theme, wallpaper, notify-send, lock, screenshot, volume'],
           ['out', '  Session    history, clear, fortune, cowsay, exit, reboot, shutdown'],
@@ -459,8 +473,8 @@ export default function TerminalApp({ win, api }: AppProps) {
       case 'uname':
         return out(
           args.includes('-a')
-            ? `Linux ${settings.hostname} 6.8.0-mixt #1 SMP PREEMPT_DYNAMIC ${new Date().toDateString()} x86_64 GNU/JavaScript`
-            : 'Linux',
+            ? `Mixt ${settings.hostname} 6.8.0 #1 SMP PREEMPT_DYNAMIC ${new Date().toDateString()} x86_64 JavaScript`
+            : 'Mixt',
         )
       case 'hostname':
         return out(settings.hostname)
@@ -503,7 +517,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         const wins = useOS.getState().windows
         const rows = ['  PID TTY          TIME CMD']
         rows.push(`    1 ?        00:00:01 systemd(web)`)
-        rows.push(`  512 ?        00:00:02 cinnamon(mixt-shell)`)
+        rows.push(`  512 ?        00:00:02 mixt-shell`)
         wins.forEach((w, i) => rows.push(`${(900 + i * 7).toString().padStart(5)} pts/0    00:0${i}:0${(i + 1) % 9} ${w.appId}`))
         rows.push('')
         rows.push(`Tasks: ${wins.length + 2} total, 1 running, ${wins.length + 1} sleeping`)
@@ -803,10 +817,10 @@ export default function TerminalApp({ win, api }: AppProps) {
           `Host: ${navigator.vendor || 'Mixt'} ${navigator.platform}`,
           `Kernel: 6.8.0-mixt`,
           `Uptime: ${Math.max(1, Math.round((Date.now() - useOS.getState().bootTime) / 60000))} mins`,
-          `Packages: ${APPS.filter((a) => (a.preinstalled !== false ? true : installed[a.id])).length} (dpkg), 4 (snap)`,
+          `Packages: ${APPS.filter((a) => (a.preinstalled !== false ? true : installed[a.id])).length} (mixtinstall)`,
           `Shell: bash 5.2.21`,
           `Resolution: ${window.innerWidth}x${window.innerHeight}`,
-          `DE: Cinnamon (web edition)`,
+          `DE: Mixt Shell (web edition)`,
           `WM: mixtwm (React)`,
           `Theme: ${settings.themeName} [GTK3]`,
           `Icons: ${settings.iconTheme} [GTK3]`,
@@ -878,6 +892,129 @@ export default function TerminalApp({ win, api }: AppProps) {
         push('dim', `usage: ${cmd} {update|upgrade|search|install|remove|list}`)
         return
       }
+      case '/startup': {
+        const S = useOS.getState()
+        pushMany([
+          ['out', 'Mixt Web OS — account setup'],
+          ['dim', 'Accounts are saved in this browser, so they are still here after a reload.'],
+          ['dim', 'Press Ctrl-C at any point to cancel.'],
+          ['out', ''],
+        ])
+
+        let username = ''
+        for (;;) {
+          const answer = await ask('New username:')
+          if (!answer.trim()) {
+            push('err', 'Cancelled — no account was created.')
+            return
+          }
+          const problem = validateUsername(answer)
+          if (problem) {
+            push('err', `  ${problem}. Try again.`)
+            continue
+          }
+          const taken = useOS.getState().users.some((u) => u.username === answer.trim().toLowerCase())
+          if (taken) {
+            push('err', `  An account called “${answer.trim().toLowerCase()}” already exists. Try again.`)
+            continue
+          }
+          username = answer.trim().toLowerCase()
+          break
+        }
+
+        const fullNameRaw = await ask(`Full name [${username}]:`)
+        const fullName = fullNameRaw.trim() || username
+
+        let password = ''
+        for (;;) {
+          const first = await ask('Password (leave empty for none):', { hidden: true })
+          if (!first) break
+          if (first.length < 4) {
+            push('err', '  A password needs at least 4 characters. Try again.')
+            continue
+          }
+          const second = await ask('Repeat password:', { hidden: true })
+          if (first !== second) {
+            push('err', '  The passwords did not match. Try again.')
+            continue
+          }
+          password = first
+          break
+        }
+
+        push('out', '')
+        push('out', 'Choose an avatar:')
+        AVATARS.forEach((a, i) => push('dim', `  ${String(i + 1).padStart(2)}. ${a}`))
+        const avatarRaw = await ask(`Avatar [1-${AVATARS.length}, default 1]:`)
+        const avatarIdx = Math.min(AVATARS.length, Math.max(1, Number(avatarRaw) || 1)) - 1
+
+        push('out', 'Choose an accent colour:')
+        ACCENTS.forEach((c, i) => push('dim', `  ${String(i + 1).padStart(2)}. ${c}`))
+        const accentRaw = await ask(`Accent [1-${ACCENTS.length}, default 1]:`)
+        const accentIdx = Math.min(ACCENTS.length, Math.max(1, Number(accentRaw) || 1)) - 1
+
+        const result = S.createUser({
+          username,
+          fullName,
+          password,
+          avatar: AVATARS[avatarIdx],
+          accent: ACCENTS[accentIdx],
+          wallpaper: useOS.getState().settings.wallpaper,
+        })
+        push('out', '')
+        if (!result.ok) throw new Error(`could not create the account: ${'error' in result ? result.error : 'unknown error'}`)
+        const created = result.user
+        pushMany([
+          ['ok', `Account “${created.username}” created.`],
+          ['out', `  name      ${created.fullName}`],
+          ['out', `  avatar    ${created.avatar}`],
+          ['out', `  accent    ${created.accent}`],
+          ['out', `  password  ${password ? 'set' : 'none'}`],
+          ['out', ''],
+          ['ok', `You are now signed in as ${created.fullName}.`],
+          ['dim', 'Use `users` to list accounts, `login <name>` to switch, `logout` to sign out.'],
+        ])
+        return
+      }
+
+      case 'users': {
+        const S = useOS.getState()
+        if (!S.users.length) {
+          push('dim', 'No accounts yet — type /startup to create one.')
+          return
+        }
+        for (const u of S.users) {
+          const active = u.id === S.activeUserId ? '*' : ' '
+          push('out', `${active} ${u.username.padEnd(16)} ${u.fullName.padEnd(22)} ${u.avatar}  ${u.passwordHash ? 'password set' : 'no password'}`)
+        }
+        push('dim', '  (* = signed in)')
+        return
+      }
+
+      case 'login': {
+        const S = useOS.getState()
+        const name = (args[0] ?? '').trim().toLowerCase()
+        if (!name) throw new Error('usage: login <username>')
+        const user = S.users.find((u) => u.username === name)
+        if (!user) throw new Error(`login: user ${name} does not exist`)
+        let password = ''
+        if (user.passwordHash) password = await ask(`Password for ${name}:`, { hidden: true })
+        if (!S.loginUser(user.id, password)) throw new Error('Incorrect password.')
+        push('ok', `Signed in as ${user.fullName}.`)
+        return
+      }
+
+      case 'logout': {
+        const S = useOS.getState()
+        if (!S.activeUserId) {
+          push('dim', 'No account is signed in.')
+          return
+        }
+        push('ok', 'Signing out — the screen is now locked.')
+        setTimeout(() => S.signOut(), 200)
+        return
+      }
+
       case 'mixtinstall':
         launch('mixtinstall')
         push('dim', 'Opening the Software Manager…')
@@ -914,7 +1051,7 @@ export default function TerminalApp({ win, api }: AppProps) {
       case 'nemo':
         launch('nemo', args[0] ? { path: normalizePath(args[0], cwd, HOME) } : { path: cwd })
         return
-      case 'firefox':
+      case 'mixtsfox':
       case 'browser':
         launch('browser', args[0] ? { url: args[0] } : {})
         return
@@ -933,7 +1070,7 @@ export default function TerminalApp({ win, api }: AppProps) {
             `PWD=${cwd}`,
             `HOSTNAME=${settings.hostname}`,
             `TERM=xterm-256color`,
-            `DESKTOP_SESSION=cinnamon`,
+            `DESKTOP_SESSION=mixt-shell`,
             `LANG=en_GB.UTF-8`,
           ].join('\n'),
         )
@@ -959,7 +1096,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         if (!v) return out(list.map((l, i) => `${i + 1}. ${l}`).join('\n'))
         const file2 = list.find((l) => l === v || l.startsWith(v)) ?? list[Number(v) - 1]
         if (!file2) throw new Error(`wallpaper: '${v}' not found`)
-        setSettings({ wallpaper: `/wallpapers/${file2}` })
+        setSettings({ wallpaper: `wallpapers/${file2}` })
         push('ok', `Background set to ${file2}.`)
         return
       }
@@ -1072,6 +1209,16 @@ export default function TerminalApp({ win, api }: AppProps) {
       const value = input
       setInput('')
       setHistIdx(-1)
+      const answer = askRef.current
+      if (answer) {
+        askRef.current = null
+        const hidden = asking?.hidden ?? false
+        setAsking(null)
+        // echo the question and answer like a real terminal would
+        setLines((ls) => [...ls, { id: lineId++, kind: 'in', text: `${prompt}$ ${hidden ? '•'.repeat(value.length) : value}` }])
+        answer(value)
+        return
+      }
       void run(value)
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
@@ -1096,6 +1243,11 @@ export default function TerminalApp({ win, api }: AppProps) {
     } else if (e.ctrlKey && e.key.toLowerCase() === 'c') {
       e.preventDefault()
       setLines((ls) => [...ls, { id: lineId++, kind: 'in', text: `${prompt}${root ? '#' : '$'} ${input}^C` }])
+      if (askRef.current) {
+        askRef.current('')
+        askRef.current = null
+        setAsking(null)
+      }
       setInput('')
     } else if (e.ctrlKey && e.key.toLowerCase() === 'l') {
       e.preventDefault()

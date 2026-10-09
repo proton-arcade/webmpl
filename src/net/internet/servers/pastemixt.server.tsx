@@ -12,6 +12,7 @@ import React from 'react'
 import { defineServer } from '../types'
 import { SiteShell, Btn, H, Pill, Meta } from '../../sitekit'
 import type { PageCtx, SiteDef } from '../../types'
+import { safeLocal } from '../../../os/storage'
 
 interface Paste {
   id: string
@@ -27,7 +28,7 @@ const ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'
 
 function load(): Paste[] {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = safeLocal.getItem(KEY)
     const parsed = raw ? JSON.parse(raw) : []
     return Array.isArray(parsed) ? (parsed as Paste[]) : []
   } catch {
@@ -36,11 +37,8 @@ function load(): Paste[] {
 }
 
 function save(pastes: Paste[]) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(pastes.slice(0, 60)))
-  } catch {
-    /* the disk is full of imaginary bytes */
-  }
+  /* safeLocal never throws — a blocked or full store keeps pastes in memory */
+  safeLocal.setItem(KEY, JSON.stringify(pastes.slice(0, 60)))
 }
 
 function newId(): string {

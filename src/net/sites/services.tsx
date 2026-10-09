@@ -35,7 +35,7 @@ interface CartLine {
 }
 
 function money(n: number) {
-  return n === 0 ? 'Free' : `£${n.toFixed(2)}`
+  return n === 0 ? 'Free' : `$${n.toFixed(2)}`
 }
 
 function CartContext(ctx: PageCtx) {
@@ -268,7 +268,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm2',
-    from: 'Cinnamon Team <hello@cinnamon.dev>',
+    from: 'Mixt Shell Team <hello@mixt-shell.dev>',
     subject: 'Your window snapped correctly',
     time: 'Yesterday, 18:40',
     folder: 'inbox',
@@ -443,7 +443,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
 
 const PLACES: { name: string; kind: string; x: number; y: number; info: string }[] = [
   { name: 'Mixtville Centre', kind: 'Town', x: 0.5, y: 0.5, info: 'The greenest roundabout on the MixtNet.' },
-  { name: 'Cinnamon Park', kind: 'Park', x: 0.22, y: 0.3, info: 'Trees, benches and one extremely relaxed duck.' },
+  { name: 'Mixt Park', kind: 'Park', x: 0.22, y: 0.3, info: 'Trees, benches and one extremely relaxed duck.' },
   { name: 'Kernel Street', kind: 'Road', x: 0.62, y: 0.36, info: 'Runs north to south, never blocks.' },
   { name: 'Daemon Docks', kind: 'Harbour', x: 0.76, y: 0.72, info: 'Ships in the night, cleaned up by systemd.' },
   { name: 'Terminal Station', kind: 'Station', x: 0.4, y: 0.66, info: 'Platforms named after shells. No services run here.' },
@@ -529,7 +529,7 @@ function MapCanvas({ focus, onPick }: { focus: { x: number; y: number } | null; 
       ctx.arc(px, py, Math.max(3, scale * 0.011), 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#25302a'
-      ctx.font = `${Math.max(10, Math.min(13, scale * 0.03))}px Ubuntu, sans-serif`
+      ctx.font = `${Math.max(10, Math.min(13, scale * 0.03))}px system-ui, sans-serif`
       ctx.fillText(p.name, px + 8, py + 4)
     }
 
@@ -604,7 +604,7 @@ function MapsHome({ ctx }: { ctx: PageCtx }) {
     ? [
         `Leave ${route.from} heading towards the main road (north-east).`,
         'At the Mixtville roundabout take the second exit onto Kernel Street.',
-        'Continue straight for about 900 m — you will pass Cinnamon Park on your left.',
+        'Continue straight for about 900 m — you will pass Mixt Park on your left.',
         route.to.includes('Docks') ? 'Turn right at the harbour sign and follow the quay.' : `Arrive at ${route.to} on your right.`,
       ]
     : []
@@ -620,7 +620,7 @@ function MapsHome({ ctx }: { ctx: PageCtx }) {
           className="entry"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search places, e.g. Cinnamon Park"
+          placeholder="Search places, e.g. Mixt Park"
           style={{ width: 340 }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && found[0]) {
@@ -779,12 +779,12 @@ export const MIXTMAIL: SiteDef = {
     { path: '/', title: 'MixtMail — inbox', keywords: ['email', 'inbox', 'messages', 'compose', 'send'], snippet: 'Read your inbox, compose and send messages.', render: (ctx) => <MailApp ctx={ctx} /> },
     { path: '/compose', title: 'MixtMail — compose', keywords: ['compose', 'new message', 'write'], snippet: 'Write a new message.', render: (ctx) => <MailApp ctx={ctx} /> },
   ],
-  text: () => ['MixtMail — inbox', '================', '1. 3 optional applications are available        — updates@mixtnet.com', '2. Your window snapped correctly                 — hello@cinnamon.dev', '3. Your digital downloads are ready              — orders@mixtcart.com', '', 'Open https://mixtmail.com/ in the browser to read them.'].join('\n'),
+  text: () => ['MixtMail — inbox', '================', '1. 3 optional applications are available        — updates@mixtnet.com', '2. Your window snapped correctly                 — hello@mixt-shell.dev', '3. Your digital downloads are ready              — orders@mixtcart.com', '', 'Open https://mixtmail.com/ in the browser to read them.'].join('\n'),
 }
 
 export const MIXTMAPS: SiteDef = {
   domain: 'mixtmaps.com',
-  aliases: ['maps.google.com', 'openstreetmap.org'],
+  aliases: ['maps.mixtnet', 'atlas.mixtnet'],
   title: 'MixtMaps',
   glyph: 'Map',
   color: '#4a8f3f',
@@ -798,7 +798,7 @@ export const MIXTMAPS: SiteDef = {
     {
       path: '/place',
       title: 'MixtMaps — place',
-      keywords: ['place', 'cinnamon park', 'kernel street'],
+      keywords: ['place', 'mixt park', 'kernel street'],
       snippet: 'Information about a place in Mixtville.',
       render: (ctx) => {
         const name = decodeURIComponent(ctx.path.split('/')[2] ?? '')

@@ -3,7 +3,7 @@ import {
   Clipboard,
   Activity, AppWindow, Archive, ArrowLeftRight, Award, Battery, BatteryCharging, Bell, Book,
   BookOpen, Box, Bug, Calculator, Calendar, Camera, Check, ChevronDown, ChevronLeft, ChevronRight,
-  ChevronUp, Circle, Clock, Cloud, CloudRain, CloudSun, Code, Compass, Copy, Cpu, CreditCard,
+  ChevronUp, Circle, Clock, Cloud, CloudRain, CloudSun, Code, Compass, Cone, Copy, Cpu, CreditCard,
   Download, File, FileCode, FileText, Folder, FolderOpen, Gamepad2, Globe, Grid3x3, HardDrive,
   Heart, HelpCircle, Home, Image, Info, Layers, LayoutGrid, Lightbulb, Link, List, Lock, LogOut,
   Mail, Map, MapPin, Maximize2, MemoryStick, MessageSquare, Mic, Minus, Monitor, Moon, MoreVertical,
@@ -18,7 +18,7 @@ import {
 export const GLYPHS: Record<string, LucideIcon> = {
   Activity, AppWindow, Archive, ArrowLeftRight, Award, Battery, BatteryCharging, Bell, Book, BookOpen,
   Box, Bug, Calculator, Calendar, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
-  Circle, Clipboard, Clock, Cloud, CloudRain, CloudSun, Code, Compass, Copy, Cpu, CreditCard, Download, File,
+  Circle, Clipboard, Clock, Cloud, CloudRain, CloudSun, Code, Compass, Cone, Copy, Cpu, CreditCard, Download, File,
   FileCode, FileText, Folder, FolderOpen, Gamepad2, Globe, Grid3x3, HardDrive, Heart, HelpCircle,
   Home, Image, Info, Layers, LayoutGrid, Lightbulb, Link, List, Lock, LogOut, Mail, Map, MapPin,
   Maximize2, MemoryStick, MessageSquare, Mic, Minus, Monitor, Moon, MoreVertical, MousePointer,

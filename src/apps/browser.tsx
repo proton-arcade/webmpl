@@ -947,7 +947,7 @@ function SearchResults({ query, ctx, navigate }: { query: string; ctx: PageCtx; 
             </p>
             <ul style={{ color: '#39413b', lineHeight: 1.8 }}>
               <li>Check your spelling.</li>
-              <li>Try a broader term, such as “linux” or “browser”.</li>
+              <li>Try a broader term, such as “mixt” or “browser”.</li>
               <li>Browse the directory at <a onClick={() => navigate('https://mixtnet.com/')}>mixtnet.com</a>.</li>
             </ul>
           </div>

@@ -38,8 +38,8 @@ const SEED: Message[] = [
   },
   {
     id: 'm2',
-    from: 'hello@cinnamon.dev',
-    fromName: 'Cinnamon Team',
+    from: 'hello@mixt.dev',
+    fromName: 'Mixt Team',
     to: 'you@mixtmail.com',
     subject: 'Your window snapped correctly',
     date: Date.now() - 26 * 3600_000,

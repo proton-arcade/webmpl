@@ -297,7 +297,7 @@ contract.
 | Browser opens a "real internet" page instead | the name is unclaimed **and** ends in a public TLD (`.com`, `.org`, `.io`…) | claim the name on a machine, or move it under `.mixtnet` |
 | Search does not find my page | no `keywords`/`snippet`, or the item is in a list rather than a page | add both; for list items add a `deepEntries` entry |
 | `curl` prints the "no plain-text version" note | no `text()` on the site | add `text: (path, query) => '…'` |
-| A name resolves, a page loads, but the layout is bare | the page is not wrapped in `SiteShell` | wrap it — that is what applies the site chrome |
+| A name resolves, a page loads, but the layout is bare | the page is not wrapped in `SiteShell` | wrap it — that is what applies the site frame |
 
 ---
 
