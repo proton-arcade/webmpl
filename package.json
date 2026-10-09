@@ -13,7 +13,8 @@
     "interact": "node scripts/interact.mjs",
     "static": "node scripts/static.mjs",
     "explore": "node scripts/explore.mjs",
-    "served": "node scripts/served.mjs"
+    "served": "node scripts/served.mjs",
+    "session": "node scripts/session.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

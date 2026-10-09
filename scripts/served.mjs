@@ -137,6 +137,20 @@ async function checkBoot(base) {
     { ok: !!root && root.children.length > 0, name: '#root has children', detail: root ? `innerHTML ${rendered.length} chars` : 'no #root element' },
     { ok: rendered.includes('panel'), name: 'panel is rendered', detail: 'desktop mounted but the panel is missing' },
     { ok: rendered.length > 4000, name: 'desktop is fully populated', detail: `only ${rendered.length} chars rendered` },
+    ...noAccountAvatars(bundle, rendered),
+  ]
+}
+
+/* Accounts have no avatars: no picker, no emoji, nothing carried per user. These
+ * twelve were the entire picker, and none of them is used anywhere else in the
+ * app — if one is back in the bundle, an avatar UI came back with it. */
+const ACCOUNT_AVATARS = ['🦊', '🐧', '🌿', '🚀', '🎧', '🐙', '🍋', '🌙', '🔥', '🧊', '🐝', '🎲']
+function noAccountAvatars(bundle, rendered) {
+  const present = ACCOUNT_AVATARS.filter((a) => bundle.includes(a))
+  const found = ACCOUNT_AVATARS.filter((a) => rendered.includes(a))
+  return [
+    { ok: present.length === 0, name: 'bundle has no account avatars', detail: `still contains ${present.join(' ')}` },
+    { ok: found.length === 0, name: 'rendered desktop shows no avatar', detail: `on screen: ${found.join(' ')}` },
   ]
 }
 

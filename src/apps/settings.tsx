@@ -6,6 +6,7 @@ import { Dialog } from './files'
 import { APPS } from './registry'
 import { notify } from '../os/bus'
 import type { AppProps } from '../os/types'
+import * as backend from '../os/api'
 
 const SECTIONS = [
   { id: 'appearance', label: 'Appearance', glyph: 'Palette', group: 'Look and feel' },
@@ -822,8 +823,17 @@ function UsersSection() {
           <input className="entry" value={settings.hostname} onChange={(e) => setSettings({ hostname: e.target.value.replace(/\s/g, '-') })} style={{ width: 180 }} />
         </Row>
       </Card>
-      <Card title="Account type" hint="New accounts are standard users. Only the administrator account can run privileged commands.">
-        <div style={{ opacity: 0.8 }}>Standard user · groups: audio, video, plugdev</div>
+      <Card
+        title="Account type"
+        hint={
+          backend.getSession()?.role === 'admin'
+            ? 'Signed in to the server administrator account. Privileged actions — approving published apps, adding whitelisted users — are available.'
+            : 'New accounts are standard users. Only the administrator account can run privileged commands.'
+        }
+      >
+        <div style={{ opacity: 0.8 }}>
+          {backend.roleLabel()} · groups: {backend.groups()}
+        </div>
       </Card>
     </Section>
   )

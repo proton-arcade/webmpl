@@ -3,7 +3,7 @@
  * Created from the terminal with `/startup`. Accounts live in localStorage next
  * to everything else the OS saves, so they survive a reload — that is the
  * "saved in your cookies" part. Each account carries its own identity (name,
- * avatar, accent, wallpaper); logging in applies it to the session.
+ * accent, wallpaper); logging in applies it to the session.
  *
  * Passwords are stored as a salted hash rather than in plain text. This is a
  * browser toy with no server, so it keeps honest secrets out of a JSON blob —
@@ -63,7 +63,6 @@ function isUser(v: any): v is User {
     /^[a-z0-9._-]+$/.test(v.username) &&
     typeof v.fullName === 'string' &&
     typeof v.passwordHash === 'string' &&
-    typeof v.avatar === 'string' &&
     typeof v.accent === 'string' &&
     typeof v.wallpaper === 'string' &&
     typeof v.created === 'number'
@@ -121,7 +120,5 @@ export function checkPassword(user: User, password: string): boolean {
   const salt = user.id
   return hashPassword(password, salt) === user.passwordHash
 }
-
-export const AVATARS = ['🦊', '🐧', '🌿', '🚀', '🎧', '🐙', '🍋', '🌙', '🔥', '🧊', '🐝', '🎲']
 
 export const ACCENTS = ['#8ab658', '#5b8def', '#d98b3a', '#c2554f', '#8a6fd1', '#3fa79f']

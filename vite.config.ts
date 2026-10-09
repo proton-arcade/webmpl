@@ -82,6 +82,13 @@ export default defineConfig({
     // accept proxied hosts/origins (sandboxed preview panes)
     allowedHosts: true,
     cors: true,
+    /* Forward the API to the backend. Without this the dev server answers
+     * /api/health with index.html (200, text/html), so the client believes a
+     * backend is present, shows the login gate, and then gets a 404 for the
+     * login itself — every account "fails", including the administrator. */
+    proxy: {
+      '/api': { target: process.env.MIXT_API ?? 'http://127.0.0.1:8080', changeOrigin: true },
+    },
   },
   preview: {
     host: true,

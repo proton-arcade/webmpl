@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../os/store'
 import { HOME, join, splitPath, normalizePath, vfs, humanSize, countNodes, nodeSize } from '../os/vfs'
 import { APPS, getApp } from './registry'
-import { ACCENTS, AVATARS, validateUsername } from '../os/users'
+import { ACCENTS, validateUsername } from '../os/users'
 import {
   addressFor,
   dnsStatus,
@@ -943,11 +943,6 @@ export default function TerminalApp({ win, api }: AppProps) {
         }
 
         push('out', '')
-        push('out', 'Choose an avatar:')
-        AVATARS.forEach((a, i) => push('dim', `  ${String(i + 1).padStart(2)}. ${a}`))
-        const avatarRaw = await ask(`Avatar [1-${AVATARS.length}, default 1]:`)
-        const avatarIdx = Math.min(AVATARS.length, Math.max(1, Number(avatarRaw) || 1)) - 1
-
         push('out', 'Choose an accent colour:')
         ACCENTS.forEach((c, i) => push('dim', `  ${String(i + 1).padStart(2)}. ${c}`))
         const accentRaw = await ask(`Accent [1-${ACCENTS.length}, default 1]:`)
@@ -957,7 +952,6 @@ export default function TerminalApp({ win, api }: AppProps) {
           username,
           fullName,
           password,
-          avatar: AVATARS[avatarIdx],
           accent: ACCENTS[accentIdx],
           wallpaper: useOS.getState().settings.wallpaper,
         })
@@ -967,7 +961,6 @@ export default function TerminalApp({ win, api }: AppProps) {
         pushMany([
           ['ok', `Account “${created.username}” created.`],
           ['out', `  name      ${created.fullName}`],
-          ['out', `  avatar    ${created.avatar}`],
           ['out', `  accent    ${created.accent}`],
           ['out', `  password  ${password ? 'set' : 'none'}`],
           ['out', ''],
@@ -985,7 +978,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         }
         for (const u of S.users) {
           const active = u.id === S.activeUserId ? '*' : ' '
-          push('out', `${active} ${u.username.padEnd(16)} ${u.fullName.padEnd(22)} ${u.avatar}  ${u.passwordHash ? 'password set' : 'no password'}`)
+          push('out', `${active} ${u.username.padEnd(16)} ${u.fullName.padEnd(22)} ${u.passwordHash ? 'password set' : 'no password'}`)
         }
         push('dim', '  (* = signed in)')
         return

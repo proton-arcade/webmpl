@@ -21,7 +21,6 @@ export const DEFAULT_SETTINGS: Settings = {
   username: 'mixt',
   fullName: 'Mixt User',
   hostname: 'mixt-web',
-  avatar: '🪴',
   scheme: 'light',
   accent: '#9ede6a',
   wallpaper: 'wallpapers/mixt-wave.jpg',
@@ -165,7 +164,6 @@ interface OSState {
     username: string
     fullName: string
     password: string
-    avatar: string
     accent: string
     wallpaper: string
   }) => { ok: true; user: User } | { ok: false; error: string }
@@ -440,7 +438,7 @@ export const useOS = create<OSState>()((set, get) => ({
   closeAll: () => set({ windows: [], activeId: null }),
 
   /* ------------------------------- accounts ------------------------------- */
-  createUser: ({ username, fullName, password, avatar, accent, wallpaper }) => {
+  createUser: ({ username, fullName, password, accent, wallpaper }) => {
     const name = username.trim().toLowerCase()
     const problem = validateUsername(name)
     if (problem) return { ok: false, error: problem }
@@ -453,7 +451,6 @@ export const useOS = create<OSState>()((set, get) => ({
       username: name,
       fullName: fullName.trim() || name,
       passwordHash: password ? hashPassword(password, id) : '',
-      avatar: avatar || '🦊',
       accent: accent || DEFAULT_SETTINGS.accent,
       wallpaper: wallpaper || DEFAULT_SETTINGS.wallpaper,
       created: Date.now(),
@@ -498,7 +495,6 @@ function applyUser(settings: Settings, user: User): Settings {
     ...settings,
     username: user.username,
     fullName: user.fullName,
-    avatar: user.avatar,
     accent: user.accent,
     wallpaper: user.wallpaper,
   }

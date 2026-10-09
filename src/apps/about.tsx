@@ -130,9 +130,6 @@ export default function AboutApp({ api }: AppProps) {
           >
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Session</div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <div style={{ width: 52, height: 52, borderRadius: 999, background: 'linear-gradient(135deg,#9ede6a,#3b6f18)', display: 'grid', placeItems: 'center', fontSize: 24 }}>
-                {settings.avatar}
-              </div>
               <div>
                 <div style={{ fontWeight: 600 }}>{settings.fullName}</div>
                 <div style={{ opacity: 0.7, fontSize: 12.5 }}>

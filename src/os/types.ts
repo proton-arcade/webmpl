@@ -9,7 +9,6 @@ export interface User {
   fullName: string
   /** '' means no password. Stored hashed; this is a demo, not real security. */
   passwordHash: string
-  avatar: string
   accent: string
   wallpaper: string
   created: number
@@ -53,7 +52,6 @@ export interface Settings {
   username: string
   fullName: string
   hostname: string
-  avatar: string
   scheme: Scheme
   accent: string
   wallpaper: string

@@ -200,7 +200,7 @@ export default function Panel() {
             title={`${settings.username}@${settings.hostname}`}
             onClick={() => setPopup({ kind: 'session', x: window.innerWidth - 210, y: top ? size : window.innerHeight - size - 250 })}
           >
-            <span style={{ fontSize: 15 }}>{settings.avatar}</span>
+            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{settings.username}</span>
           </div>
         </div>
       </div>
@@ -258,7 +258,7 @@ export default function Panel() {
               ? ([
                   { label: 'Switch account', disabled: true },
                   ...S.users.map((u) => ({
-                    label: `${u.avatar}  ${u.fullName}${u.id === S.activeUserId ? '  ✓' : ''}`,
+                    label: `${u.fullName}${u.id === S.activeUserId ? '  ✓' : ''}`,
                     disabled: u.id === S.activeUserId,
                     // lock the screen: the account chooser there does the sign-in
                     onClick: () => S.setLocked(true),

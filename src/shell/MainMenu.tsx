@@ -89,9 +89,6 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
       >
         {/* search */}
         <div style={{ padding: 10, backgroundImage: 'linear-gradient(to bottom,#4b5054,#35393c)', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ width: 34, height: 34, borderRadius: 999, background: 'linear-gradient(135deg,#9ede6a,#3b6f18)', display: 'grid', placeItems: 'center', fontSize: 17 }}>
-            {settings.avatar}
-          </div>
           <div style={{ color: '#eef2ef', fontSize: 12.5, lineHeight: 1.25 }}>
             <div style={{ fontWeight: 600 }}>{settings.fullName}</div>
             <div style={{ opacity: 0.8 }}>
@@ -399,9 +396,6 @@ function AppLauncher({ onClose, available }: { onClose: () => void; available: A
       >
         {/* search */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ width: 30, height: 30, borderRadius: 999, background: 'linear-gradient(135deg,#9ede6a,#3b6f18)', display: 'grid', placeItems: 'center', fontSize: 15 }}>
-            {useOS.getState().settings.avatar}
-          </div>
           <input
             ref={inputRef}
             value={query}

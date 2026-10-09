@@ -197,7 +197,7 @@ ping nope.mixtnet          # NXDOMAIN, honestly`}</Pre>
             'Backgrounds: three wallpapers plus any PNG/JPG stored in ~/Pictures.',
             'Panel: move it to the top, resize it, auto-hide it, and change the clock format.',
             'Desktop: choose which applications get a desktop icon.',
-            'Users: change your name, hostname and avatar — the terminal prompt follows along.',
+            'Users: change your name and hostname — the terminal prompt follows along.',
           ]}
         />
         <Actions items={[['Open System Settings', () => launch('settings', {})]]} />

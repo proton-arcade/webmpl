@@ -735,6 +735,31 @@ export async function runSmoke() {
     host.innerHTML = ''
   })
 
+  /* Accounts have no avatars: nothing to pick, nothing stored, nothing drawn. */
+  await check('an account is created with no avatar, and none is drawn', () => {
+    const S = useOS.getState()
+    const before = S.users.length
+    const res = S.createUser({
+      username: 'smoke.user',
+      fullName: 'Smoke User',
+      password: 'secret',
+      accent: DEFAULT_SETTINGS.accent,
+      wallpaper: DEFAULT_SETTINGS.wallpaper,
+    })
+    assert(res.ok, 'creating an account failed')
+    if (!res.ok) return
+    assert((res.user as any).avatar === undefined, `the account still carries an avatar: ${(res.user as any).avatar}`)
+    assert(useOS.getState().users.length === before + 1, 'the account was not added')
+    assert(useOS.getState().settings.username === 'smoke.user', 'creating an account did not sign in as it')
+    assert((useOS.getState().settings as any).avatar === undefined, 'the session still carries an avatar')
+
+    const picker = ['🦊', '🐧', '🌿', '🚀', '🎧', '🐙', '🍋', '🌙', '🔥', '🧊', '🐝', '🎲']
+    const drawn = picker.filter((a) => container.innerHTML.includes(a))
+    assert(drawn.length === 0, `avatar emoji are on screen: ${drawn.join(' ')}`)
+
+    useOS.getState().removeUser(res.user.id)
+  })
+
   await check('desktop unmounts cleanly', () => {
     root?.unmount()
     container.remove()

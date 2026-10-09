@@ -9,7 +9,7 @@ import { Popup, usePopup, type MenuItem } from './ContextMenu'
 import { AppIcon, FileIcon, Glyph } from './AppIcon'
 import { getApp, APPS } from '../apps/registry'
 import { Dialog } from '../apps/files'
-import { validateUsername, AVATARS, ACCENTS } from '../os/users'
+import { validateUsername, ACCENTS } from '../os/users'
 import * as api from '../os/api'
 import { setPersistenceEnabled } from '../os/storage'
 import { appForFile, launch } from '../os/bus'
@@ -32,12 +32,35 @@ export default function Desktop() {
   const [altTab, setAltTab] = useState<{ open: boolean; index: number }>({ open: false, index: 0 })
   const [showIcons, setShowIcons] = useState(true)
   const [authGate, setAuthGate] = useState(false)
+  const [serverSession, setServerSession] = useState<api.Session | null>(() => api.getSession())
   const [, bump] = useState(0)
+
+  /* A backend account IS the account. Without adopting it, signing in as the
+     administrator still showed the first-boot "create an account" form, and the
+     panel, menu and settings kept showing the default local user instead. */
+  const adoptServerSession = (s: api.Session | null) => {
+    setServerSession(s)
+    if (!s) return
+    setPersistenceEnabled(s.role !== 'guest')
+    const st = useOS.getState()
+    if (st.settings.username !== s.username) st.setSettings({ username: s.username, fullName: s.username })
+  }
+
   useEffect(() => {
-    api.online().then((ok) => {
-      if (ok && !api.getSession()) setAuthGate(true)
-      else if (ok) setPersistenceEnabled(api.getSession()!.role !== 'guest')
-    })
+    const refresh = () =>
+      api.online().then((ok) => {
+        const s = api.getSession()
+        if (ok && !s) {
+          setAuthGate(true)
+          return
+        }
+        setAuthGate(false)
+        if (ok && s) adoptServerSession(s)
+      })
+    refresh()
+    // logging out (or the server going away) re-opens the login gate
+    window.addEventListener('mixt:authchanged', refresh)
+    return () => window.removeEventListener('mixt:authchanged', refresh)
   }, [])
 
   const desktopFiles = useMemo(() => {
@@ -71,6 +94,7 @@ export default function Desktop() {
       const detail = e.detail
       if (detail === 'shutdown' || detail === 'poweroff') setSession('shutdown')
       else if (detail === 'reboot') setSession('reboot')
+      else if (detail === 'logout') setSession('logout')
     }
     window.addEventListener('mixt:windowmenu', onWindowMenu)
     window.addEventListener('mixt:launch', onLaunch)
@@ -389,8 +413,8 @@ export default function Desktop() {
       {runDialogOpen && <RunDialog onClose={() => useOS.getState().setRunDialog(false)} />}
       {session && <SessionDialog kind={session} onCancel={() => setSession(null)} />}
       {locked && <LockScreen />}
-      {authGate && !api.getSession() && <AuthGate onDone={() => { const sess = api.getSession(); setPersistenceEnabled(!!sess && sess.role !== 'guest'); setAuthGate(false); bump((x) => x + 1) }} />}
-      {!hasUsers && !authGate && <FirstBootSetup />}
+      {authGate && !api.getSession() && <AuthGate onDone={() => { adoptServerSession(api.getSession()); setAuthGate(false); bump((x) => x + 1) }} />}
+      {!hasUsers && !authGate && !serverSession && <FirstBootSetup />}
     </div>
   )
 }
@@ -635,7 +659,15 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
       if (kind === 'logout') {
         S.closeAll()
         S.setLocked(true)
-        S.notify({ title: 'Logged out', body: 'Your session is locked. Log back in from the lock screen.' })
+        const had = api.getSession()
+        if (had) {
+          api.setSession(null) // end the server session, not just the local lock
+          window.dispatchEvent(new CustomEvent('mixt:authchanged'))
+        }
+        S.notify({
+          title: 'Logged out',
+          body: had ? `Signed out of ${had.username}. Log back in to continue.` : 'Your session is locked. Log back in from the lock screen.',
+        })
         onCancel()
         return
       }
@@ -753,7 +785,6 @@ function LockScreen() {
                   minWidth: 82,
                 }}
               >
-                <span style={{ fontSize: 26 }}>{u.avatar}</span>
                 <span style={{ fontSize: 12.5 }}>{u.fullName}</span>
               </button>
             ))}
@@ -761,9 +792,6 @@ function LockScreen() {
         )}
 
         <div style={{ marginTop: 34, display: 'grid', placeItems: 'center', gap: 10 }}>
-          <div style={{ width: 84, height: 84, borderRadius: 999, background: 'linear-gradient(135deg,#9ede6a,#3b6f18)', display: 'grid', placeItems: 'center', fontSize: 34 }}>
-            {picked?.avatar ?? settings.avatar}
-          </div>
           <div style={{ fontSize: 17 }}>{picked?.fullName ?? settings.fullName}</div>
           {picked && !picked.passwordHash ? (
             <div style={{ fontSize: 12.5, opacity: 0.8 }}>This account has no password.</div>
@@ -809,7 +837,6 @@ function FirstBootSetup() {
   const [usernameTouched, setUsernameTouched] = useState(false)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [avatar, setAvatar] = useState(AVATARS[0])
   const [accent, setAccent] = useState(ACCENTS[0])
   const [error, setError] = useState('')
 
@@ -824,7 +851,7 @@ function FirstBootSetup() {
     if (uErr) return setError(uErr)
     if (password !== confirm) return setError('The passwords do not match.')
     setSettings({ hostname: hostname.trim().replace(/\s+/g, '-') || 'mixt-desktop', accent })
-    const res = createUser({ username, fullName, password, avatar, accent, wallpaper: settings.wallpaper })
+    const res = createUser({ username, fullName, password, accent, wallpaper: settings.wallpaper })
     if (!('ok' in res) || !res.ok) return setError((res as { error?: string }).error ?? 'Could not create the account.')
     setError('')
   }
@@ -879,20 +906,6 @@ function FirstBootSetup() {
             {field('Confirm password', <input className="entry" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />)}
           </div>
           {field(
-            'Pick an avatar',
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {AVATARS.map((a) => (
-                <span
-                  key={a}
-                  onClick={() => setAvatar(a)}
-                  style={{ fontSize: 20, cursor: 'pointer', padding: 3, borderRadius: 8, border: avatar === a ? '2px solid #6fa34c' : '2px solid transparent' }}
-                >
-                  {a}
-                </span>
-              ))}
-            </div>,
-          )}
-          {field(
             'Accent colour',
             <div style={{ display: 'flex', gap: 8 }}>
               {ACCENTS.map((c) => (
@@ -927,9 +940,9 @@ function AuthGate({ onDone }: { onDone: () => void }) {
 
   const doLogin = async () => {
     setBusy(true)
-    const sess = await api.login(username, password)
+    const res = await api.login(username, password)
     setBusy(false)
-    if (!sess) return setError('Wrong username or password.')
+    if (!res.ok) return setError(res.error ?? 'Could not sign in.')
     onDone()
   }
   const doGuest = async () => {
