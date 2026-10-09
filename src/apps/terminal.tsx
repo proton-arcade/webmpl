@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../os/store'
 import { HOME, join, splitPath, normalizePath, vfs, humanSize, countNodes, nodeSize } from '../os/vfs'
-import { APPS, getApp } from './registry'
+import { getApp, visibleApps } from './registry'
 import { ACCENTS, validateUsername } from '../os/users'
 import {
   addressFor,
@@ -817,7 +817,7 @@ export default function TerminalApp({ win, api }: AppProps) {
           `Host: ${navigator.vendor || 'Mixt'} ${navigator.platform}`,
           `Kernel: 6.8.0-mixt`,
           `Uptime: ${Math.max(1, Math.round((Date.now() - useOS.getState().bootTime) / 60000))} mins`,
-          `Packages: ${APPS.filter((a) => (a.preinstalled !== false ? true : installed[a.id])).length} (mixtinstall)`,
+          `Packages: ${visibleApps().filter((a) => (a.preinstalled !== false ? true : installed[a.id])).length} (mixtinstall)`,
           `Shell: bash 5.2.21`,
           `Resolution: ${window.innerWidth}x${window.innerHeight}`,
           `DE: Mixt Shell (web edition)`,
@@ -840,7 +840,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         const sub = args[0]
         if (cmd === 'dpkg' && (args[0] === '-l' || args[0] === '--list')) {
           const rows = ['Desired=Unknown/Install/Remove/Purge/Hold', '||/ Name                 Version        Description', '+++-====================-==============-=========================']
-          APPS.filter((a) => a.preinstalled !== false || installed[a.id]).forEach((a) =>
+          visibleApps().filter((a) => a.preinstalled !== false || installed[a.id]).forEach((a) =>
             rows.push(`ii  ${a.id.padEnd(20)} ${'1.0.0'.padEnd(14)} ${a.comment}`),
           )
           return out(rows.join('\n'))
@@ -853,7 +853,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         }
         if (sub === 'search' || (cmd === 'apt' && sub === 'list')) {
           const q = (args[1] ?? '').toLowerCase()
-          const found = APPS.filter((a) => a.id.includes(q) || a.name.toLowerCase().includes(q) || a.comment.toLowerCase().includes(q))
+          const found = visibleApps().filter((a) => a.id.includes(q) || a.name.toLowerCase().includes(q) || a.comment.toLowerCase().includes(q))
           if (!found.length) throw new Error(`E: Unable to locate package ${args[1]}`)
           return out(
             found
@@ -866,9 +866,9 @@ export default function TerminalApp({ win, api }: AppProps) {
           if (!names.length) throw new Error('apt install: no package specified')
           for (const name of names) {
             const def =
-              APPS.find((a) => a.id === name) ??
-              APPS.find((a) => a.name.toLowerCase().replace(/\s/g, '-') === name) ??
-              APPS.find((a) => a.id.startsWith(name))
+              visibleApps().find((a) => a.id === name) ??
+              visibleApps().find((a) => a.name.toLowerCase().replace(/\s/g, '-') === name) ??
+              visibleApps().find((a) => a.id.startsWith(name))
             if (!def) throw new Error(`E: Unable to locate package ${name}`)
             if (def.preinstalled !== false || installed[def.id]) {
               push('out', `${def.id} is already the newest version (1.0.0).`)
@@ -882,7 +882,7 @@ export default function TerminalApp({ win, api }: AppProps) {
         }
         if (sub === 'remove' || sub === 'purge' || sub === 'uninstall') {
           const name = args.slice(1).find((a) => !a.startsWith('-'))
-          const def = APPS.find((a) => a.id === name || a.name.toLowerCase() === name)
+          const def = visibleApps().find((a) => a.id === name || a.name.toLowerCase() === name)
           if (!def) throw new Error(`E: Unable to locate package ${name}`)
           if (def.preinstalled !== false) throw new Error(`E: ${name} is a core system package and cannot be removed in the web edition.`)
           setInstalled(def.id, false)

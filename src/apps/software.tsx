@@ -12,7 +12,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react'
 import { useOS } from '../os/store'
-import { APPS, CATEGORIES, getApp, searchApps } from './registry'
+import { CATEGORIES, getApp, searchApps, visibleApps } from './registry'
 import * as backend from '../os/api'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { launch, notify } from '../os/bus'
@@ -233,7 +233,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
   const isInstalled = (app: AppDef) => app.preinstalled !== false || !!installed[app.id]
 
   const list = useMemo(() => {
-    let items = [...APPS]
+    let items = [...visibleApps()]
     if (query.trim()) items = searchApps(query)
     else if (category === 'Featured') items = items.filter((a) => a.preinstalled !== false)
     else if (category === 'Installed') items = items.filter(isInstalled)
@@ -304,8 +304,8 @@ export default function SoftwareApp({ win, api }: AppProps) {
     api.setTitle(current ? `${current.name} — Software Manager` : 'Software Manager')
   }, [current?.id])
 
-  const updates = APPS.filter((a) => a.preinstalled === false && !installed[a.id])
-  const picks = useMemo(() => [...APPS].sort((a, b) => ratingOf(b) - ratingOf(a)).slice(0, 4), [])
+  const updates = visibleApps().filter((a) => a.preinstalled === false && !installed[a.id])
+  const picks = useMemo(() => [...visibleApps()].sort((a, b) => ratingOf(b) - ratingOf(a)).slice(0, 4), [])
   const featured = picks[0]
 
   return (
@@ -330,7 +330,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
             <Glyph name={glyph} size={15} />
             <span style={{ flex: 1 }}>{label}</span>
             <span style={{ fontSize: 10.5, opacity: 0.6 }}>
-              {label === 'Installed' ? APPS.filter(isInstalled).length : label === 'Available' ? APPS.filter((a) => !isInstalled(a)).length : ''}
+              {label === 'Installed' ? visibleApps().filter(isInstalled).length : label === 'Available' ? visibleApps().filter((a) => !isInstalled(a)).length : ''}
             </span>
           </div>
         ))}
@@ -363,7 +363,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
         <div className="menu-sep" />
         <div style={{ fontSize: 10.5, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 0.5, padding: '4px 9px' }}>Categories</div>
         {CATEGORIES.filter((c) => !['All Applications', 'Favourites'].includes(c)).map((c) => {
-          const count = APPS.filter((a) => a.categories.includes(c)).length
+          const count = visibleApps().filter((a) => a.categories.includes(c)).length
           return (
             <div
               key={c}
@@ -402,7 +402,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
               <option value="size">Sort: Size</option>
             </select>
           )}
-          <span style={{ opacity: 0.7, fontSize: 12 }}>{APPS.filter(isInstalled).length} installed · {APPS.length} in the repository</span>
+          <span style={{ opacity: 0.7, fontSize: 12 }}>{visibleApps().filter(isInstalled).length} installed · {visibleApps().length} in the repository</span>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 14 }}>
@@ -417,7 +417,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
               onClear={() => clearRating(current.id)}
               onRemove={() => setConfirmRemove(current.id)}
               onPick={setSelected}
-              related={APPS.filter((a) => a.id !== current.id && a.categories.some((c) => current.categories.includes(c))).slice(0, 4)}
+              related={visibleApps().filter((a) => a.id !== current.id && a.categories.some((c) => current.categories.includes(c))).slice(0, 4)}
             />
           ) : tab === 'updates' ? (
             <UpdatesPanel updates={updates} onInstall={install} installing={installing} onOpen={setSelected} />

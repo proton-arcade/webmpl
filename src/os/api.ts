@@ -151,3 +151,79 @@ export async function putSettings(obj: unknown): Promise<void> {
     /* offline: keep local-only */
   }
 }
+
+/* --------------------------- administrator API --------------------------- */
+/* Every call here is admin-only on the server; they return null/[] for anyone
+   else so the console can render "not permitted" instead of guessing. */
+
+export interface ServerUser {
+  username: string
+  role: 'admin' | 'user'
+}
+export interface ServerStats {
+  users: number
+  admins: number
+  sessions: number
+  appsPending: number
+  appsApproved: number
+  mailboxes: number
+  savedSettings: number
+}
+
+export async function allUsers(): Promise<ServerUser[] | null> {
+  try {
+    const r = await fetch('/api/users', { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    const d = await r.json()
+    return Array.isArray(d) ? d : null
+  } catch {
+    return null
+  }
+}
+
+export async function addUser(username: string, password: string, admin: boolean): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const r = await fetch('/api/users', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ username, password, role: admin ? 'admin' : 'user' }),
+    })
+    if (!isJson(r)) return { ok: false, error: 'The Mixt server is not answering.' }
+    const d = await r.json()
+    if (r.ok && d.ok) return { ok: true }
+    return { ok: false, error: d.error === 'exists' ? 'That username already exists.' : d.error === 'bad username' ? 'Usernames are 2-24 letters, digits, dot, dash or underscore.' : `The server refused it (${r.status}).` }
+  } catch {
+    return { ok: false, error: 'Cannot reach the Mixt server.' }
+  }
+}
+
+export async function removeUser(username: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const r = await fetch(`/api/users/${encodeURIComponent(username)}/remove`, { method: 'POST', headers: headers() })
+    if (!isJson(r)) return { ok: false, error: 'The Mixt server is not answering.' }
+    const d = await r.json()
+    if (r.ok && d.ok) return { ok: true }
+    return { ok: false, error: d.error === 'that is the only administrator' ? 'That is the only administrator account.' : d.error === 'you cannot remove your own account' ? 'You cannot remove your own account.' : `The server refused it (${r.status}).` }
+  } catch {
+    return { ok: false, error: 'Cannot reach the Mixt server.' }
+  }
+}
+
+export async function rejectApp(id: string): Promise<boolean> {
+  try {
+    const r = await fetch(`/api/apps/${id}/reject`, { method: 'POST', headers: headers() })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
+export async function stats(): Promise<ServerStats | null> {
+  try {
+    const r = await fetch('/api/stats', { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    return (await r.json()) as ServerStats
+  } catch {
+    return null
+  }
+}

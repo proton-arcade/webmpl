@@ -3,7 +3,7 @@ import { useOS, DEFAULT_SETTINGS } from '../os/store'
 import { useVFS, vfs, HOME, humanSize, nodeSize, join } from '../os/vfs'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { Dialog } from './files'
-import { APPS } from './registry'
+import { visibleApps } from './registry'
 import { notify } from '../os/bus'
 import type { AppProps } from '../os/types'
 import * as backend from '../os/api'
@@ -294,7 +294,7 @@ function Appearance() {
         </Row>
         <Row label="Favourite applications" hint="Shown on the desktop">
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {APPS.map((a) => (
+            {visibleApps().map((a) => (
               <span
                 key={a.id}
                 onClick={() =>
@@ -531,7 +531,7 @@ function DesktopSection() {
       </Card>
       <Card title="Desktop icons">
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {APPS.map((a) => (
+          {visibleApps().map((a) => (
             <span
               key={a.id}
               onClick={() =>

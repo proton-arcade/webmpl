@@ -110,4 +110,6 @@ export interface AppDef {
   singleton?: boolean
   desktop?: boolean
   resident?: boolean
+  /** true => only listed for the signed-in administrator account */
+  adminOnly?: boolean
 }

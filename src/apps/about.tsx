@@ -2,7 +2,7 @@ import React from 'react'
 import { useOS } from '../os/store'
 import { useVFS, nodeSize, humanSize, countNodes } from '../os/vfs'
 import { AppIcon, Glyph } from '../shell/AppIcon'
-import { APPS } from './registry'
+import { visibleApps } from './registry'
 import { openUrl } from '../os/bus'
 import type { AppProps } from '../os/types'
 
@@ -19,7 +19,8 @@ export default function AboutApp({ api }: AppProps) {
     api.setTitle('About This Computer')
   }, [])
 
-  const installCount = APPS.filter((a) => a.preinstalled !== false || installed[a.id]).length
+  const list = visibleApps()
+  const installCount = list.filter((a) => a.preinstalled !== false || installed[a.id]).length
 
   return (
     <div style={{ flex: 1, overflow: 'auto', background: 'var(--wm-window-bg)' }}>
@@ -59,7 +60,7 @@ export default function AboutApp({ api }: AppProps) {
                 ['Memory', `${Math.round(380 + windows.length * 34)} MiB of 3939 MiB in use`],
                 ['Graphics', 'WebGPU Virtual Display Adapter · CSS compositor'],
                 ['Storage', `${humanSize(nodeSize(root))} used across ${countNodes(root)} files (localStorage filesystem)`],
-                ['Packages', `${installCount} installed of ${APPS.length} available · filesystem revision ${revision}`],
+                ['Packages', `${installCount} installed of ${list.length} available · filesystem revision ${revision}`],
                 ['Uptime', `${Math.floor(up / 60)} min ${up % 60} s since boot`],
                 ['Resolution', `${window.innerWidth} × ${window.innerHeight} at ${window.devicePixelRatio}×`],
                 ['Locale', navigator.language],

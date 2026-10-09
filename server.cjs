@@ -103,8 +103,10 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/session') return json(res, 200, sess ? { ok: true, ...sess } : { ok: false })
 
-    if (p === '/api/users' && req.method === 'GET')
+    if (p === '/api/users' && req.method === 'GET') {
+      if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
       return json(res, 200, db.users.map((u) => ({ username: u.username, role: u.role })))
+    }
 
     if (p === '/api/users' && req.method === 'POST') {
       if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
@@ -132,6 +134,47 @@ const server = http.createServer(async (req, res) => {
       const app = db.apps.find((a) => a.id === id)
       if (!app) return json(res, 404, { ok: false })
       app.status = 'approved'
+      save(db)
+      return json(res, 200, { ok: true })
+    }
+
+    /* reject = drop a submitted app from the queue */
+    if (/^\/api\/apps\/[^/]+\/reject$/.test(p) && req.method === 'POST') {
+      if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
+      const id = p.split('/')[3]
+      const i = db.apps.findIndex((a) => a.id === id)
+      if (i < 0) return json(res, 404, { ok: false })
+      db.apps.splice(i, 1)
+      save(db)
+      return json(res, 200, { ok: true })
+    }
+
+    /* everything an administrator console needs to show at a glance */
+    if (p === '/api/stats' && req.method === 'GET') {
+      if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
+      return json(res, 200, {
+        ok: true,
+        users: db.users.length,
+        admins: db.users.filter((u) => u.role === 'admin').length,
+        sessions: Object.keys(db.sessions).length,
+        appsPending: db.apps.filter((a) => a.status === 'pending').length,
+        appsApproved: db.apps.filter((a) => a.status === 'approved').length,
+        mailboxes: Object.keys(db.mail).length,
+        savedSettings: Object.keys(db.settings).length,
+      })
+    }
+
+    /* remove a whitelisted account (never your own, never the last admin) */
+    if (/^\/api\/users\/[^/]+\/remove$/.test(p) && req.method === 'POST') {
+      if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
+      const name = decodeURIComponent(p.split('/')[3])
+      if (name === sess.username) return json(res, 400, { ok: false, error: 'you cannot remove your own account' })
+      const i = db.users.findIndex((u) => u.username === name)
+      if (i < 0) return json(res, 404, { ok: false })
+      if (db.users[i].role === 'admin' && db.users.filter((u) => u.role === 'admin').length <= 1)
+        return json(res, 400, { ok: false, error: 'that is the only administrator' })
+      db.users.splice(i, 1)
+      for (const t of Object.keys(db.sessions)) if (db.sessions[t].username === name) delete db.sessions[t]
       save(db)
       return json(res, 200, { ok: true })
     }

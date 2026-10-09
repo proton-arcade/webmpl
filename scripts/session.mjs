@@ -47,7 +47,11 @@ const server = createServer(async (req, res) => {
       return send(401, { ok: false, error: 'wrong username or password' })
     }
     if (p === '/api/guest' && req.method === 'POST') return send(200, { ok: true, token: 'guest-token', role: 'guest', username: 'guest' })
-    if (p === '/api/apps') return send(200, [])
+    if (p === '/api/apps') return send(200, req.method === 'POST' ? { ok: true } : [{ id: 'app-1', name: 'Test App', author: 'demo', status: 'pending' }])
+    if (p === '/api/apps/app-1/approve' || p === '/api/apps/app-1/reject') return send(200, { ok: true })
+    if (p === '/api/users' && req.method === 'GET') return send(200, [{ username: 'Mixt_MPL', role: 'admin' }, { username: 'demo', role: 'user' }])
+    if (p === '/api/users' && req.method === 'POST') return send(200, { ok: true })
+    if (p === '/api/stats') return send(200, { ok: true, users: 2, admins: 1, sessions: 3, appsPending: 1, appsApproved: 0, mailboxes: 0, savedSettings: 1 })
     if (p === '/api/settings') return send(200, {})
     return send(200, { ok: true })
   }
@@ -126,6 +130,21 @@ async function realClick(w, el) {
   return true
 }
 const byText = (d, sel, re) => [...d.querySelectorAll(sel)].find((e) => re.test(e.textContent ?? ''))
+
+/* React keeps its own value, so assigning .value alone does nothing: go through
+   the native setter and fire the input event the way a keyboard would. */
+function typeInto(w, input, text) {
+  const setter = Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype, 'value').set
+  setter.call(input, text)
+  input.dispatchEvent(new w.Event('input', { bubbles: true }))
+}
+function pressEnter(w, el) {
+  el.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+}
+/* .menu-item is used for categories, places and apps alike — scope to the app
+   grid (the auto-fill container) or the 176px category column. */
+const appNames = (d) => [...d.querySelectorAll('[style*="auto-fill"] > .menu-item')].map((e) => (e.textContent ?? '').trim())
+const categoryNames = (d) => [...d.querySelectorAll('[style*="176px"] .menu-item')].map((e) => (e.textContent ?? '').trim())
 /* Assert against RENDERED text inside #root only. The bundle is injected as an
  * inline <script> in <body>, so body.innerHTML also contains the bundle's own
  * source text — every string literal in the app — which matches anything. */
@@ -195,6 +214,107 @@ if (firstBootShown(guest.d)) bad('a guest was asked to create an account, which 
 else ok('a guest is let straight in with nothing saved')
 if (!(guest.d.querySelector('.panel')?.textContent ?? '').includes('guest')) bad('the panel does not identify the guest session')
 else ok('the panel identifies the guest session')
+
+/* ------------- 5. the administrator console is admin-only ----------------- */
+console.log('• the Administration console…')
+const adm = await boot({ token: 'admin-token', role: 'admin', username: 'Mixt_MPL' })
+adm.w.dispatchEvent(new adm.w.CustomEvent('mixt:launch', { detail: { appId: 'administration', props: {} } }))
+await tick(600)
+const consoleWin = [...adm.d.querySelectorAll('.wm-window')].pop()
+const consoleText = consoleWin?.textContent ?? ''
+if (!consoleText.includes('Administration') || !consoleText.includes('Waiting for approval')) bad('the console did not open on the published-apps tab')
+else if (!consoleText.includes('Test App')) bad('the console does not list the app waiting for approval')
+else ok('the console opens with the app waiting for approval')
+if (/Administrator access only/.test(consoleText)) bad('the administrator was told the console is admin-only')
+
+/* each tab carries its own part of the job */
+for (const [tabName, wants] of [['Accounts', ['Whitelisted accounts', 'Mixt_MPL', 'demo', 'Add an account']], ['Server', ['What the server is holding', 'Administrators', 'ROOTPASS.md']]]) {
+  const tabBtn = [...consoleWin.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim().startsWith(tabName))
+  if (!tabBtn) bad(`the console has no “${tabName}” tab`)
+  else {
+    await realClick(adm.w, tabBtn)
+    await tick(400)
+    const text = consoleWin.textContent ?? ''
+    const missing = wants.filter((w) => !text.includes(w))
+    if (missing.length) bad(`the ${tabName} tab is missing ${missing.join(', ')}`)
+    else ok(`the ${tabName} tab holds ${wants.length} of its parts`)
+  }
+}
+
+console.log('• what the Administration category holds…')
+await realClick(adm.w, adm.d.querySelector('.menu-button'))
+await tick(300)
+const adminCat = byText(adm.d, '.menu-item', /^Administration$/)
+if (!adminCat) bad('the menu has no Administration category')
+else {
+  await realClick(adm.w, adminCat)
+  await tick(300)
+  const inCat = appNames(adm.d)
+  if (!inCat.includes('Administration')) bad('the Administration app is not in its own category')
+  else if (inCat.length < 3) bad(`the Administration category is still nearly empty: ${inCat.join(', ')}`)
+  else ok(`the Administration category holds ${inCat.length}: ${inCat.join(', ')}`)
+  if (!categoryNames(adm.d).includes('Administration')) bad('the menu lost the Administration category')
+}
+
+console.log('• a standard user must not see it…')
+const demo = await boot({ token: 'demo-token', role: 'user', username: 'demo' })
+await realClick(demo.w, demo.d.querySelector('.menu-button'))
+await tick(300)
+const demoApps = appNames(demo.d)
+if (demoApps.includes('Administration')) bad('a standard user can see the Administration console in the menu')
+else ok('a standard user does not see the Administration console')
+demo.w.dispatchEvent(new demo.w.CustomEvent('mixt:launch', { detail: { appId: 'administration', props: {} } }))
+await tick(600)
+const forced = [...demo.d.querySelectorAll('.wm-window')].pop()?.textContent ?? ''
+if (!/Administrator access only/.test(forced)) bad('a standard user who launches it anyway gets in')
+else ok('launching it anyway is refused, not opened')
+
+/* ------------- 6. signing back in after a sign-out ------------------------ */
+console.log('• typing a password after signing out…')
+const back = await boot({ token: 'admin-token', role: 'admin', username: 'Mixt_MPL' })
+back.w.dispatchEvent(new back.w.CustomEvent('mixt:session', { detail: 'logout' }))
+await tick(400)
+await realClick(back.w, [...back.d.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Log out'))
+await tick(1500)
+if (!loginGateShown(back.d)) bad('the sign-in screen did not come back')
+else {
+  const boxes = [...back.d.querySelectorAll('#root input')]
+  const pass = boxes.find((i) => i.type === 'password')
+  if (!pass) bad('the sign-in screen has no password box to type into')
+  else {
+    pass.focus()
+    typeInto(back.w, boxes[0], 'Mixt_MPL')
+    typeInto(back.w, pass, 'mixt-root')
+    await tick(120)
+    if (pass.value !== 'mixt-root') bad('typing into the password box did not stick')
+    else {
+      pressEnter(back.w, pass)
+      await tick(1200)
+      if (loginGateShown(back.d)) bad('signing back in with the right password did not work')
+      else if (!(back.d.querySelector('.panel')?.textContent ?? '').includes('Mixt_MPL')) bad('signed back in but the session is not the administrator')
+      else ok('signed back in as the administrator from the sign-in screen')
+    }
+  }
+}
+
+/* ------------- 7. empty boxes go straight in as a guest ------------------- */
+console.log('• leaving the boxes empty…')
+const anon = await boot(null)
+await tick(400)
+if (!loginGateShown(anon.d)) bad('no sign-in screen appeared for a fresh visitor')
+else {
+  const go = [...anon.d.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Log in')
+  if (!(await realClick(anon.w, go))) bad('could not press Log in with empty boxes')
+  else {
+    await tick(1200)
+    if (loginGateShown(anon.d)) bad('empty boxes did not go in as a guest')
+    else {
+      const stored = JSON.parse(anon.w.sessionStorage.getItem(SESSION_KEY) ?? 'null')
+      if (!stored || stored.role !== 'guest') bad(`the empty sign-in did not create a guest session (got ${JSON.stringify(stored)})`)
+      else ok('empty username and password go straight in as a guest')
+    }
+  }
+}
 
 server.close()
 console.log('')

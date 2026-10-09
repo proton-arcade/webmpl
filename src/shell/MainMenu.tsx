@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useOS, isInstalled } from '../os/store'
-import { APPS, CATEGORIES, getApp } from '../apps/registry'
+import { CATEGORIES, getApp, visibleApps } from '../apps/registry'
 import { AppIcon, Glyph } from './AppIcon'
 import { launch, notify } from '../os/bus'
 import { HOME, vfs } from '../os/vfs'
@@ -26,7 +26,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
   }, [onClose])
 
   const available = useMemo(
-    () => APPS.filter((a) => a.preinstalled !== false || !!installed[a.id]),
+    () => visibleApps().filter((a) => a.preinstalled !== false || !!installed[a.id]),
     [installed],
   )
 

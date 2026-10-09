@@ -7,7 +7,7 @@ import MainMenu from './MainMenu'
 import Notifications from './Notifications'
 import { Popup, usePopup, type MenuItem } from './ContextMenu'
 import { AppIcon, FileIcon, Glyph } from './AppIcon'
-import { getApp, APPS } from '../apps/registry'
+import { getApp, visibleApps } from '../apps/registry'
 import { Dialog } from '../apps/files'
 import { validateUsername, ACCENTS } from '../os/users'
 import * as api from '../os/api'
@@ -595,7 +595,7 @@ function RunDialog({ onClose }: { onClose: () => void }) {
     const cmd = value.trim()
     onClose()
     if (!cmd) return
-    const app = APPS.find((a) => a.id === cmd || a.name.toLowerCase() === cmd.toLowerCase())
+    const app = visibleApps().find((a) => a.id === cmd || a.name.toLowerCase() === cmd.toLowerCase())
     if (app) {
       launch(app.id, {})
       return
@@ -658,11 +658,15 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
     setTimeout(() => {
       if (kind === 'logout') {
         S.closeAll()
-        S.setLocked(true)
         const had = api.getSession()
         if (had) {
-          api.setSession(null) // end the server session, not just the local lock
+          // a server account goes back to the sign-in screen, not the local
+          // lock screen — two stacked overlays fought over the keyboard
+          api.setSession(null)
+          S.setLocked(false)
           window.dispatchEvent(new CustomEvent('mixt:authchanged'))
+        } else {
+          S.setLocked(true)
         }
         S.notify({
           title: 'Logged out',
@@ -938,17 +942,20 @@ function AuthGate({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const doLogin = async () => {
-    setBusy(true)
-    const res = await api.login(username, password)
-    setBusy(false)
-    if (!res.ok) return setError(res.error ?? 'Could not sign in.')
-    onDone()
-  }
   const doGuest = async () => {
     setBusy(true)
     await api.guest()
     setBusy(false)
+    onDone()
+  }
+  const doLogin = async () => {
+    // nothing typed at all? That is the guest account: no password to get
+    // wrong, no account to create — just go in.
+    if (!username.trim() && !password) return doGuest()
+    setBusy(true)
+    const res = await api.login(username.trim(), password)
+    setBusy(false)
+    if (!res.ok) return setError(res.error ?? 'Could not sign in.')
     onDone()
   }
 
@@ -959,15 +966,37 @@ function AuthGate({ onDone }: { onDone: () => void }) {
         <div style={{ background: 'linear-gradient(180deg,#87cf3e,#6fa34c)', color: '#fff', padding: '14px 20px' }}>
           <div style={{ fontSize: 18, fontWeight: 700 }}>Sign in to Mixt</div>
           <div style={{ fontSize: 12.5, opacity: 0.95 }}>Whitelisted accounts are saved. Guests are not.</div>
+          <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 2 }}>Leave both boxes empty and press Enter to go straight in as a guest.</div>
         </div>
         <div style={{ padding: '16px 20px', display: 'grid', gap: 12 }}>
           <label style={{ display: 'grid', gap: 4 }}>
             <span style={{ fontSize: 12.5, opacity: 0.8 }}>Username</span>
-            <input className="entry" value={username} onChange={(e) => setUsername(e.target.value)} />
+            <input
+              className="entry"
+              autoFocus
+              autoComplete="username"
+              placeholder="guest"
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value)
+                setError('')
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && doLogin()}
+            />
           </label>
           <label style={{ display: 'grid', gap: 4 }}>
             <span style={{ fontSize: 12.5, opacity: 0.8 }}>Password</span>
-            <input className="entry" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doLogin()} />
+            <input
+              className="entry"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setError('')
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && doLogin()}
+            />
           </label>
           {error && <div style={{ color: '#c0392b', fontSize: 12.5 }}>{error}</div>}
           <button className="btn-mixt" disabled={busy} onClick={doLogin} style={{ justifyContent: 'center' }}>

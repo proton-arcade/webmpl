@@ -63,6 +63,7 @@ loads the published bundle, exactly as a visitor would get it.
 | `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 102 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence, and the boot-safety checks below) |
 | `npm run diagnose` | boot the real entry point (`src/os/start.tsx`) inside jsdom under eleven hostile browser conditions — blocked storage, a full disk, a damaged or truncated saved filesystem, stale settings, a tiny window, no canvas — and report which ones leave a white page |
 | `npm run static` | host the folder the way a normal static server does — as the web root, from a subdirectory, and from `file://` — fetch the page over HTTP, execute the script the server returns, and fail if the desktop does not mount |
+| `npm run session` | boot the shipped bundle against a small fake API and walk the server-only flows: the administrator signs in and owns the desktop, System Settings reports Administrator, the Administration console lists what is waiting for approval, a standard user never sees it, logging out returns a sign-in screen you can actually type into, and empty boxes go in as a guest |
 | `npm run served [url …]` | ask a running server what a browser would actually get: every asset in `index.html` must return 200 **and** a content-type the browser accepts (a stylesheet served as `text/javascript` is dropped outright, which leaves a running OS with no CSS — a white page), and the served `mixt.bundle.js` itself must mount the desktop. Defaults to `http://127.0.0.1:3000` |
 
 ---
@@ -86,13 +87,22 @@ loads the published bundle, exactly as a visitor would get it.
 * **Theming** — six Mixt-Y accents, three bundled wallpapers, light/dark/auto, font scale —
   all driven through CSS custom properties (`os/theme.ts`, `index.css`).
 
-## Applications (19)
+## Applications (20)
 
 Preinstalled: Files, Terminal, Mixtsfox (web browser), Software Manager, System Settings,
 Text Editor (Xed), Calculator, System Monitor, Media Player, Image Viewer, Weather,
 Archive Manager, Screenshot, 2048, Help, About This Computer.
 Installable from the **Software Manager** with a simulated download: Drawing (a paint
 program), Mail (a working email client), News Reader.
+
+**Administration** is the twentieth, and the only one not everybody gets: it is listed
+only for the signed-in administrator account. Everything privileged lives there —
+approving or rejecting apps waiting in the publish queue, adding and removing the
+whitelisted accounts, and what the server is holding (`data.json`, `ROOTPASS.md`, live
+sessions). Standard users and guests never see it, and launching it by hand gets a
+refusal rather than the console. The **Administration** category in the menu gathers the
+administrative tools together: the console, Software Manager, System Settings and System
+Monitor.
 
 Highlights:
 

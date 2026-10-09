@@ -19,6 +19,8 @@ import Game2048App from './game2048'
 import PaintApp from './paint'
 import MailApp from './mail'
 import NewsApp from './news'
+import AdminApp from './admin'
+import * as backend from '../os/api'
 
 export const APPS: AppDef[] = [
   {
@@ -71,7 +73,7 @@ export const APPS: AppDef[] = [
     glyph: 'ShoppingBag',
     color: '#61ad2b',
     color2: '#3b6f18',
-    categories: ['System'],
+    categories: ['System', 'Administration'],
     keywords: ['install', 'apps', 'packages', 'apt', 'store'],
     component: SoftwareApp,
     defaultSize: { w: 940, h: 620 },
@@ -83,7 +85,7 @@ export const APPS: AppDef[] = [
     glyph: 'Settings',
     color: '#7d8a95',
     color2: '#4d565e',
-    categories: ['System', 'Preferences'],
+    categories: ['System', 'Preferences', 'Administration'],
     keywords: ['control centre', 'config', 'theme', 'wallpaper', 'display'],
     component: SettingsApp,
     defaultSize: { w: 980, h: 640 },
@@ -276,6 +278,21 @@ export const APPS: AppDef[] = [
     defaultSize: { w: 900, h: 620 },
     preinstalled: false,
   },
+  {
+    id: 'administration',
+    name: 'Administration',
+    generic: 'Administrator Console',
+    comment: 'Approve published apps, manage whitelisted accounts and inspect the server',
+    glyph: 'ShieldCheck',
+    color: '#6fa34c',
+    color2: '#4a7231',
+    categories: ['Administration', 'System'],
+    keywords: ['admin', 'administrator', 'approve', 'users', 'server', 'root', 'privileged'],
+    component: AdminApp,
+    defaultSize: { w: 900, h: 620 },
+    preinstalled: true,
+    adminOnly: true,
+  },
 ]
 
 const byId = new Map(APPS.map((a) => [a.id, a]))
@@ -284,13 +301,23 @@ export function getApp(id: string): AppDef | undefined {
 }
 export function searchApps(q: string): AppDef[] {
   const s = q.trim().toLowerCase()
-  if (!s) return APPS
-  return APPS.filter((a) =>
+  const pool = visibleApps()
+  if (!s) return pool
+  return pool.filter((a) =>
     [a.name, a.generic ?? '', a.comment, a.id, ...(a.keywords ?? []), ...a.categories]
       .join(' ')
       .toLowerCase()
       .includes(s),
   )
+}
+
+/* Apps that only the administrator account may see. Everyone else gets the
+   same list minus these, in the menu, the Software Manager and Settings. */
+export function isAdmin(): boolean {
+  return backend.getSession()?.role === 'admin'
+}
+export function visibleApps(): AppDef[] {
+  return isAdmin() ? APPS : APPS.filter((a) => !a.adminOnly)
 }
 
 export const CATEGORIES = [
