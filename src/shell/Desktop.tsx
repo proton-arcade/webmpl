@@ -10,6 +10,8 @@ import { AppIcon, FileIcon, Glyph } from './AppIcon'
 import { getApp, APPS } from '../apps/registry'
 import { Dialog } from '../apps/files'
 import { validateUsername, AVATARS, ACCENTS } from '../os/users'
+import * as api from '../os/api'
+import { setPersistenceEnabled } from '../os/storage'
 import { appForFile, launch } from '../os/bus'
 
 export default function Desktop() {
@@ -29,6 +31,14 @@ export default function Desktop() {
   const [session, setSession] = useState<null | 'shutdown' | 'reboot' | 'logout'>(null)
   const [altTab, setAltTab] = useState<{ open: boolean; index: number }>({ open: false, index: 0 })
   const [showIcons, setShowIcons] = useState(true)
+  const [authGate, setAuthGate] = useState(false)
+  const [, bump] = useState(0)
+  useEffect(() => {
+    api.online().then((ok) => {
+      if (ok && !api.getSession()) setAuthGate(true)
+      else if (ok) setPersistenceEnabled(api.getSession()!.role !== 'guest')
+    })
+  }, [])
 
   const desktopFiles = useMemo(() => {
     const list = vfs.list(`${HOME}/Desktop`) ?? []
@@ -379,7 +389,8 @@ export default function Desktop() {
       {runDialogOpen && <RunDialog onClose={() => useOS.getState().setRunDialog(false)} />}
       {session && <SessionDialog kind={session} onCancel={() => setSession(null)} />}
       {locked && <LockScreen />}
-      {!hasUsers && <FirstBootSetup />}
+      {authGate && !api.getSession() && <AuthGate onDone={() => { const sess = api.getSession(); setPersistenceEnabled(!!sess && sess.role !== 'guest'); setAuthGate(false); bump((x) => x + 1) }} />}
+      {!hasUsers && !authGate && <FirstBootSetup />}
     </div>
   )
 }
@@ -896,6 +907,61 @@ function FirstBootSetup() {
           {error && <div style={{ color: '#c0392b', fontSize: 12.5 }}>{error}</div>}
           <button className="btn-mixt" onClick={submit} style={{ justifyContent: 'center' }}>
             Create account &amp; start using Mixt
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* --------------------------- online login gate --------------------------- */
+/* Shown only when the Mixt backend (server.cjs) is reachable on this origin.
+   Whitelisted users log in; anyone else may continue as a guest, which is
+   never saved. Offline, this never renders and the OS behaves as before.    */
+function AuthGate({ onDone }: { onDone: () => void }) {
+  const settings = useOS((s) => s.settings)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const doLogin = async () => {
+    setBusy(true)
+    const sess = await api.login(username, password)
+    setBusy(false)
+    if (!sess) return setError('Wrong username or password.')
+    onDone()
+  }
+  const doGuest = async () => {
+    setBusy(true)
+    await api.guest()
+    setBusy(false)
+    onDone()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300000, backgroundImage: `url(${settings.wallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'grid', placeItems: 'center' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,14,12,0.6)', backdropFilter: 'blur(8px)' }} />
+      <div style={{ position: 'relative', width: 360, maxWidth: '92vw', background: '#fbfbf9', color: '#22261f', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+        <div style={{ background: 'linear-gradient(180deg,#87cf3e,#6fa34c)', color: '#fff', padding: '14px 20px' }}>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>Sign in to Mixt</div>
+          <div style={{ fontSize: 12.5, opacity: 0.95 }}>Whitelisted accounts are saved. Guests are not.</div>
+        </div>
+        <div style={{ padding: '16px 20px', display: 'grid', gap: 12 }}>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={{ fontSize: 12.5, opacity: 0.8 }}>Username</span>
+            <input className="entry" value={username} onChange={(e) => setUsername(e.target.value)} />
+          </label>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={{ fontSize: 12.5, opacity: 0.8 }}>Password</span>
+            <input className="entry" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doLogin()} />
+          </label>
+          {error && <div style={{ color: '#c0392b', fontSize: 12.5 }}>{error}</div>}
+          <button className="btn-mixt" disabled={busy} onClick={doLogin} style={{ justifyContent: 'center' }}>
+            Log in
+          </button>
+          <button className="btn-ghost" disabled={busy} onClick={doGuest} style={{ justifyContent: 'center' }}>
+            Continue as guest
           </button>
         </div>
       </div>

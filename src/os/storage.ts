@@ -31,6 +31,17 @@ export interface SafeStore {
   keys(): string[]
 }
 
+/* Guest sessions must not be persisted: the whole point of a guest is that
+   nothing about them is saved (desktop layout, settings, files). Flipping this
+   off makes every store memory-only for the rest of the session.             */
+let persistence = true
+export function setPersistenceEnabled(v: boolean) {
+  persistence = v
+}
+export function isPersistenceEnabled() {
+  return persistence
+}
+
 const memory = {
   local: new Map<string, string>(),
   session: new Map<string, string>(),
@@ -53,7 +64,7 @@ function createStore(name: 'localStorage' | 'sessionStorage'): SafeStore {
 
   return {
     get available() {
-      const store = pick(name)
+      const store = persistence ? pick(name) : undefined
       if (!store) return false
       try {
         return typeof store.setItem === 'function'
@@ -63,7 +74,7 @@ function createStore(name: 'localStorage' | 'sessionStorage'): SafeStore {
     },
 
     getItem(key) {
-      const store = pick(name)
+      const store = persistence ? pick(name) : undefined
       if (store) {
         try {
           const value = store.getItem(key)
@@ -76,7 +87,7 @@ function createStore(name: 'localStorage' | 'sessionStorage'): SafeStore {
     },
 
     setItem(key, value) {
-      const store = pick(name)
+      const store = persistence ? pick(name) : undefined
       if (store) {
         try {
           store.setItem(key, value)
@@ -90,7 +101,7 @@ function createStore(name: 'localStorage' | 'sessionStorage'): SafeStore {
     },
 
     removeItem(key) {
-      const store = pick(name)
+      const store = persistence ? pick(name) : undefined
       if (store) {
         try {
           store.removeItem(key)
@@ -103,7 +114,7 @@ function createStore(name: 'localStorage' | 'sessionStorage'): SafeStore {
 
     keys() {
       const out: string[] = []
-      const store = pick(name)
+      const store = persistence ? pick(name) : undefined
       if (store) {
         try {
           for (let i = 0; i < store.length; i++) {

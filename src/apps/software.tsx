@@ -13,6 +13,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useOS } from '../os/store'
 import { APPS, CATEGORIES, getApp, searchApps } from './registry'
+import * as backend from '../os/api'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { launch, notify } from '../os/bus'
 import { safeLocal } from '../os/storage'
@@ -209,6 +210,25 @@ export default function SoftwareApp({ win, api }: AppProps) {
   const [sort, setSort] = useState<Sort>('featured')
   const [myRatings, setMyRatings] = useState<Record<string, number>>(loadMyRatings)
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
+  const [published, setPublished] = useState<{ id: string; name: string; author: string; status: string }[]>([])
+  const refreshPublished = () => backend.serverApps().then(setPublished)
+  useEffect(() => {
+    refreshPublished()
+  }, [])
+  const session = backend.getSession()
+  const publish = () => {
+    const name = window.prompt('Name of the app to publish for approval:')
+    if (!name) return
+    backend.publishApp(name).then((ok) => {
+      notify('Software Manager', ok ? `“${name}” submitted for administrator approval.` : 'Publishing needs a whitelisted (non-guest) account.')
+      refreshPublished()
+    })
+  }
+  const approvePending = () => {
+    const pend = published.find((a) => a.status === 'pending')
+    if (!pend) return notify('Software Manager', 'Nothing pending approval.')
+    backend.approveApp(pend.id).then(refreshPublished)
+  }
 
   const isInstalled = (app: AppDef) => app.preinstalled !== false || !!installed[app.id]
 
@@ -325,6 +345,19 @@ export default function SoftwareApp({ win, api }: AppProps) {
           {updates.length > 0 && (
             <span style={{ background: 'var(--wm-accent)', color: '#14260a', borderRadius: 999, fontSize: 10.5, padding: '0 6px', fontWeight: 700 }}>{updates.length}</span>
           )}
+        </div>
+
+        <div
+          className="menu-item"
+          title={session?.role === 'admin' ? 'Approve a pending published app' : 'Publish an app for approval'}
+          onClick={() => (session?.role === 'admin' ? approvePending() : publish())}
+        >
+          <Glyph name="Upload" size={15} />
+          <span style={{ flex: 1 }}>Published</span>
+          <span style={{ fontSize: 10.5, opacity: 0.6 }}>
+            {published.filter((a) => a.status === 'approved').length}
+            {session?.role === 'admin' ? ` · ${published.filter((a) => a.status === 'pending').length} pend` : ''}
+          </span>
         </div>
 
         <div className="menu-sep" />
