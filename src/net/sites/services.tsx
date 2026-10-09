@@ -230,7 +230,7 @@ function CartPage({ ctx }: { ctx: PageCtx }) {
             <strong style={{ flex: 1, fontSize: 17 }}>Total {money(total)}</strong>
             <Btn onClick={checkout}>Place order</Btn>
           </Card>
-          <Meta>Free delivery on orders over £50. Nothing is actually shipped, which keeps costs low.</Meta>
+          <Meta>Free delivery on orders over $50. Nothing is actually shipped, which keeps costs low.</Meta>
         </>
       )}
     </SiteShell>

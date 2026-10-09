@@ -105,6 +105,16 @@ async function checkAssets(base) {
     name: 'index.html loads mixt.bundle.js',
     detail: 'no <script src="mixt.bundle.js"> in the served page',
   })
+  /* the shop is priced in dollars. A stray £ anywhere in the bundle means a
+     price went back to pounds somewhere — the shop's own money() helper is
+     dollars, but hand-written prices in other apps are not covered by it. */
+  const bundleSrc = await (await fetch(base + '/mixt.bundle.js')).text()
+  const pounds = (bundleSrc.match(/£/g) || []).length
+  results.push({
+    ok: pounds === 0,
+    name: 'no price is in pounds',
+    detail: pounds ? `${pounds} × £ still in the served bundle` : 'the shop is in dollars',
+  })
   return results
 }
 

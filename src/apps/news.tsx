@@ -75,9 +75,9 @@ const FEEDS: Feed[] = [
     color2: '#14705f',
     description: 'Products from the shop, including the ones that download into your file manager.',
     items: [
-      { title: 'Tux plush toy — £19.50', summary: 'Seventeen centimetres of unstoppable penguin. Embroidered beak, weighted base.', url: 'https://mixtcart.com/product/tux-plush', date: 'in stock', tag: 'Toys' },
+      { title: 'Tux plush toy — $19.50', summary: 'Seventeen centimetres of unstoppable penguin. Embroidered beak, weighted base.', url: 'https://mixtcart.com/product/tux-plush', date: 'in stock', tag: 'Toys' },
       { title: 'Wallpaper pack (3 images) — Free', summary: 'The wave, the facets and the leaf. Yours to download immediately.', url: 'https://mixtcart.com/product/wallpaper-pack', date: 'digital', tag: 'Digital' },
-      { title: 'Mechanical keyboard, 87 keys — £84.90', summary: 'Tactile brown switches, PBT caps, a volume knob that actually turns.', url: 'https://mixtcart.com/product/keyboard', date: 'in stock', tag: 'Hardware' },
+      { title: 'Mechanical keyboard, 87 keys — $84.90', summary: 'Tactile brown switches, PBT caps, a volume knob that actually turns.', url: 'https://mixtcart.com/product/keyboard', date: 'in stock', tag: 'Hardware' },
       { title: 'Shell cheat sheet (PDF) — Free', summary: 'Pipes, redirects and the commands you always look up.', url: 'https://mixtcart.com/product/cheatsheet', date: 'digital', tag: 'Digital' },
     ],
   },
