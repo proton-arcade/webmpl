@@ -470,6 +470,49 @@ if (!/1 new message from demo/.test(notice))
   bad(`the desktop did not announce the waiting mail (says: ${notice.slice(0, 150)})`)
 else ok('the desktop announces "1 new message from demo"')
 
+/* ---------------- 11. …and can answer it, both ways ------------------------ */
+console.log('• the administrator replies…')
+awaited.w.dispatchEvent(new awaited.w.CustomEvent('mixt:launch', { detail: { appId: 'mail', props: {} } }))
+await tick(900)
+let boxWin = [...awaited.d.querySelectorAll('.wm-window')].pop()
+if (!boxWin) bad('the administrator could not open Mail')
+else {
+  const row = [...boxWin.querySelectorAll('[style*="9px 12px"]')].find((e) =>
+    (e.textContent ?? '').includes('Seconds on the clock?'),
+  )
+  if (!row) bad("demo's message is not in the administrator's Inbox")
+  else {
+    await realClick(awaited.w, row)
+    await tick(500)
+    boxWin = [...awaited.d.querySelectorAll('.wm-window')].pop()
+    const reply = [...boxWin.querySelectorAll('button')].find((b) => /Reply/.test(b.textContent ?? ''))
+    if (!(await realClick(awaited.w, reply))) bad('the message offers no working Reply')
+    else {
+      await tick(400)
+      boxWin = [...awaited.d.querySelectorAll('.wm-window')].pop()
+      const toBox = boxWin.querySelector('input[placeholder="To"]')
+      if (!toBox) bad('Reply opened no compose form')
+      else if (toBox.value !== 'demo@proper.com') bad(`Reply is addressed to ${toBox.value || '(nobody)'}, not demo@proper.com`)
+      else {
+        ok('Reply is already addressed to demo@proper.com')
+        typeArea(awaited.w, boxWin.querySelector('textarea'), 'Seconds are on. Steep well.')
+        await tick(150)
+        await realClick(awaited.w, [...boxWin.querySelectorAll('button')].find((b) => /^\s*Send\s*$/.test(b.textContent ?? '')))
+        await tick(800)
+        const last = deliveries[deliveries.length - 1]
+        if (deliveries.length !== 2) bad(`expected 2 deliveries in total, saw ${deliveries.length}`)
+        else if (last.from !== 'Mixt_MPL' || last.to !== 'demo') bad(`the reply went from ${last.from} to ${last.to}`)
+        else ok('the reply was delivered back to demo')
+        const got = (mailboxes['demo'] || []).find((m) => m.subject === 'Re: Seconds on the clock?')
+        if (!got) bad("the reply never reached demo's mailbox")
+        else if (got.folder !== 'Inbox' || got.read !== false) bad('the reply did not arrive as unread mail in the Inbox')
+        else if (!/Steep well/.test(got.body)) bad('the reply body did not survive')
+        else ok('demo has the answer waiting, unread')
+      }
+    }
+  }
+}
+
 server.close()
 console.log('')
 if (failures.length) {

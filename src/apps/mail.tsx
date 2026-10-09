@@ -327,11 +327,12 @@ export default function MailApp({ api }: AppProps) {
           <div className="menu-item" onClick={() => openUrl('https://mixtmail.com/')}>
             <Glyph name="Globe" size={14} /> Open webmail on the MixtNet
           </div>
-          <div className="menu-item" onClick={() => useOS.getState().notify({ title: 'Mail', body: 'No new mail. The MixtNet is quiet today.' })}>
+          <div className="menu-item" onClick={() => receive()}>
             <Glyph name="RefreshCw" size={14} /> Check for new mail
           </div>
           <div style={{ padding: '10px 8px 0', fontSize: 11.5, opacity: 0.65, lineHeight: 1.5 }}>
-            Your mailbox is stored in ~/.config/mixtmail and survives reloads.
+            Your mailbox is kept per account in ~/.config/mixtmail, and mail
+            between accounts on this computer is delivered by the server.
           </div>
         </div>
 
