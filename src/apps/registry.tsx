@@ -9,6 +9,7 @@ import TextEditorApp from './texteditor'
 import CalculatorApp from './calculator'
 import SystemMonitorApp from './system-monitor'
 import MediaPlayerApp from './mediaplayer'
+import MixtPlayerApp from './mixtplayer'
 import ImageViewerApp from './imageviewer'
 import WeatherApp from './weather'
 import ArchiveApp from './archive'
@@ -130,6 +131,21 @@ export const APPS: AppDef[] = [
     keywords: ['tasks', 'processes', 'top', 'htop', 'performance'],
     component: SystemMonitorApp,
     defaultSize: { w: 880, h: 600 },
+  },
+  /* Ships with the system: audio and video open here unless the user installs
+     something else and chooses it in System Settings. */
+  {
+    id: 'mixtplayer',
+    name: 'Mixt Player',
+    generic: 'Media Player',
+    comment: 'Play the music and videos in your home folder',
+    glyph: 'Play',
+    color: '#4a7fd0',
+    color2: '#2a5396',
+    categories: ['Sound & Video'],
+    keywords: ['music', 'player', 'audio', 'video', 'media', 'mp3'],
+    component: MixtPlayerApp,
+    defaultSize: { w: 780, h: 520 },
   },
   {
     id: 'mediaplayer',

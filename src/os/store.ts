@@ -42,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   desktopIcons: ['nemo', 'terminal', 'browser', 'texteditor', 'help'],
   startupApps: ['update-notifier'],
   autoUpdates: true,
+  mediaApp: 'mixtplayer',
 }
 
 /** Every setting, checked against the default of its own type. A saved blob is

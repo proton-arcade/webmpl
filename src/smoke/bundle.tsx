@@ -35,6 +35,7 @@ import { vfs, useVFS, parseTree, ensureWebShare } from '../os/vfs'
 import { migrateBranding } from '../os/migrate'
 import { bootstrap } from '../os/bootstrap'
 import { safeLocal, safeSession, clearSavedData } from '../os/storage'
+import { appForFile, mediaPlayer } from '../os/bus'
 import { BootBoundary, renderPlainFailure } from '../os/errorboundary'
 import type { PageCtx } from '../net/types'
 import type { ServerDef } from '../net/internet/types'
@@ -239,6 +240,33 @@ export async function runSmoke() {
     ensureWebShare()
     assert(vfs.exists('/srv/www/mixt/index.js'), 'ensureWebShare did not walk the share back in')
     assert(vfs.exists('/srv/www/mixt/text/welcome.txt'), 'the migration left the text files behind')
+  })
+
+  /* --- audio and video open a player that is actually installed --- */
+
+  await check('media opens the player that ships, not an uninstalled extra', () => {
+    const st = useOS.getState()
+    st.setInstalled('mediaplayer', false) // VLC not installed
+    st.setSettings({ mediaApp: 'mixtplayer' })
+    assert(mediaPlayer() === 'mixtplayer', `wanted the built-in player, got ${mediaPlayer()}`)
+    assert(appForFile('/srv/www/mixt/audio/chime.ogg') === 'mixtplayer', 'an audio file did not open the built-in player')
+    assert(appForFile('/srv/www/mixt/video/intro.mp4') === 'mixtplayer', 'a video file did not open the built-in player')
+    /* a stale choice must fall back rather than launch something absent */
+    st.setSettings({ mediaApp: 'mediaplayer' })
+    assert(mediaPlayer() === 'mixtplayer', 'a player that is not installed was still chosen')
+    /* choosing an installed VLC is honoured */
+    st.setInstalled('mediaplayer', true)
+    assert(mediaPlayer() === 'mediaplayer', 'the installed VLC was not chosen')
+    st.setSettings({ mediaApp: 'mixtplayer' })
+  })
+
+  await check('the player that ships is installed by default and renders', () => {
+    const found = APPS.find((a) => a.id === 'mixtplayer')
+    assert(!!found, 'Mixt Player is not in the registry')
+    assert(found!.preinstalled !== false, 'Mixt Player must ship with the system')
+    const Player = found!.component
+    const out = renderToString(<Player win={{ id: 'w-mp', appId: 'mixtplayer', title: 'Mixt Player', props: {}, z: 1, minimized: false, maximized: false, x: 0, y: 0, w: 780, h: 520 } as any} api={{} as any} />)
+    assert(/Mixt Player|Music/.test(out), 'the player did not render its library')
   })
 
   await check('url resolution', () => {

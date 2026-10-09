@@ -599,6 +599,15 @@ function SoundSection() {
         <Row label="Output device">
           <Select value={output} onChange={setOutput} options={[['Built-in Audio (virtual)', 'Built-in Audio (virtual)'], ['HDMI / DisplayPort', 'HDMI / DisplayPort'], ['WebAudio Synth', 'WebAudio Synth']]} />
         </Row>
+        <Row label="Default media player" hint="Audio and video files open with this">
+          <Select
+            value={settings.mediaApp || 'mixtplayer'}
+            onChange={(v) => setSettings({ mediaApp: v })}
+            options={visibleApps()
+              .filter((a) => a.categories.includes('Sound & Video') && a.id !== 'mixtradio')
+              .map((a) => [a.id, a.name])}
+          />
+        </Row>
         <Row label="Alert sound">
           <button className="btn-ghost" onClick={() => window.dispatchEvent(new CustomEvent('mixt:notify', { detail: { title: 'Alert', body: 'That is the alert sound. It is a notification. This is the web.' } }))}>
             <Glyph name="Volume2" size={14} /> Test sound

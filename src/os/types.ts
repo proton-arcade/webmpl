@@ -73,6 +73,8 @@ export interface Settings {
   desktopIcons: string[]
   startupApps: string[]
   autoUpdates: boolean
+  /** which player opens audio and video: the one that ships, or an installed extra */
+  mediaApp: string
 }
 
 export interface AppProps {
