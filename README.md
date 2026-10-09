@@ -3,22 +3,67 @@
 A complete desktop computer that runs in your browser — window manager, panel, main menu,
 workspaces, a virtual filesystem, a real terminal, an installable software store, and a
 **Mixtsfox** browser that renders a whole fictional internet ("MixtNet"), all
-styled after Linux Mint with the Cinnamon desktop.
+styled after a classic panel-and-menu desktop.
 
-Everything is client-side: no backend, no accounts, no network calls. The "operating system"
-is React state.
+Everything is client-side: no backend, no server, no network calls. The "operating system" is
+React state; the one thing that *is* saved locally is what you would expect an OS to remember —
+your accounts, files and settings — in the browser.
+
+### Things to try
+
+* **Accounts.** Open the Terminal and type `/startup` to create a user account (username,
+  display name, optional password, avatar, accent). It is saved in the browser; the lock screen
+  and the session menu let you switch between accounts. `users`, `login <name>` and `logout`
+  manage them.
+* **The Software Manager.** A real storefront: featured banner, editor's picks with
+  screenshots, a detail page per app, ratings you can leave, and install/uninstall.
+* **A shelf look.** Settings → Appearance → Desktop style turns the panel into a shelf and
+  the menu into a launcher, modelled on the real thing.
+* **Tiling.** Drag a window to an edge or corner to snap it — top maximises, the sides and the
+  bottom give halves, and the four corners give quarters. Super+arrows does the same.
+
+
+### Run it like any other website
+
+```bash
+python3 -m http.server 8000        # or any static file server, pointed at this folder
+open http://localhost:8000/
+```
+
+That is the whole setup. The repository root **is** the site:
+
+```
+index.html        the page
+mixt.bundle.js    the app (a classic script — no modules, no build step to visit)
+mixt.bundle.css   the theme
+wallpapers/  logo.svg
+```
+
+Everything is relative, so it also works from a subdirectory (`http://localhost:8000/mixt/`)
+and by opening `index.html` straight from disk. No backend, no environment variables, no
+CDN, no service worker, no CORS, no MIME-type rules, no `npm install` — nothing for a host
+to configure.
+
+### Work on the sources
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
+npm run dev        # http://localhost:3000/dev.html — TypeScript + hot reload
+npm run build      # regenerate mixt.bundle.js / mixt.bundle.css (and dist/)
 ```
+
+`npm run dev` serves the sources with hot reload through `dev.html`; `index.html` always
+loads the published bundle, exactly as a visitor would get it.
 
 | script | what it does |
 | --- | --- |
-| `npm run dev` | Vite dev server on port 3000 |
-| `npm run build` | production bundle into `dist/` |
-| `npm run preview` | serve the production bundle |
-| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 94 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence) |
+| `npm run dev` | dev server on port 3000, hot reload through `dev.html`; the published `index.html`, bundle, logo and wallpapers are served as raw bytes with correct MIME types, so `http://localhost:3000/` is the real site |
+| `npm run build` | build `mixt.bundle.js` + `mixt.bundle.css` into the root, and assemble `dist/` |
+| `npm run preview` | serve the assembled `dist/` copy |
+| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 102 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence, and the boot-safety checks below) |
+| `npm run diagnose` | boot the real entry point (`src/os/start.tsx`) inside jsdom under eleven hostile browser conditions — blocked storage, a full disk, a damaged or truncated saved filesystem, stale settings, a tiny window, no canvas — and report which ones leave a white page |
+| `npm run static` | host the folder the way a normal static server does — as the web root, from a subdirectory, and from `file://` — fetch the page over HTTP, execute the script the server returns, and fail if the desktop does not mount |
+| `npm run served [url …]` | ask a running server what a browser would actually get: every asset in `index.html` must return 200 **and** a content-type the browser accepts (a stylesheet served as `text/javascript` is dropped outright, which leaves a running OS with no CSS — a white page), and the served `mixt.bundle.js` itself must mount the desktop. Defaults to `http://127.0.0.1:3000` |
 
 ---
 
@@ -77,7 +122,7 @@ with its own CSS-free styling, and the browser resolves URLs to it:
 | domain | what it is |
 | --- | --- |
 | `mixtnet.com` | the portal: search, news headlines, directory of sites |
-| `mixtpedia.org` | encyclopaedia with ~20 full articles on Mixt OS, Cinnamon, filesystems, the web… |
+| `mixtpedia.org` | encyclopaedia with ~20 full articles on Mixt OS, the Mixt Shell, filesystems, the web… |
 | `mixtnews.com` | a newspaper with front page, sections and articles |
 | `mixtbook.com` / `mixtube.com` / `mixtgames.com` | social feed, video site, and a games arcade that can launch 2048 from the desktop |
 | `mixtcart.com` | shop with products, a cart, and checkout that writes a receipt into `~/Documents` |
@@ -142,10 +187,17 @@ notifications and the session/lock state; `src/os/bootstrap.tsx` runs the boot s
 ## Project layout
 
 ```
+index.html            the published site (classic script + stylesheet, relative paths)
+dev.html              the dev-server entry (loads src/main.tsx, hot reload)
+mixt.bundle.js/.css   built by `npm run build`, committed — index.html loads these
+wallpapers/ logo.svg  assets, referenced relatively
 src/
-  main.tsx            entry — mounts Desktop + boot
+  main.tsx            entry — imports the boot module, calls startDesktop()
   index.css           Mixt-Y theme, window/panel/menu styling
   os/                 types, zustand store, vfs, theme, bus, boot bootstrap
+    start.tsx         the real boot sequence: housekeeping → error boundary → Desktop
+    storage.ts        safe web-storage access (never throws, falls back to memory)
+    errorboundary.tsx boot failure screen + plain-DOM last resort report
   shell/              Desktop, Panel, MainMenu, WindowFrame, AppIcon, ContextMenu, Notifications
   apps/               registry.tsx + one module per application (19)
   net/                types, index (URL resolution + search), dns, sitekit, storage, downloads
@@ -153,8 +205,46 @@ src/
     sites/            portal, tech, services, social page trees
   smoke/              bundle.tsx — the jsdom smoke harness driven by scripts/smoke.mjs
 scripts/smoke.mjs     runner (esbuild via Vite SSR build → jsdom → assertions)
-public/               logo + wallpapers
+scripts/diagnose.mjs  boot matrix runner (one process per hostile condition)
+scripts/static.mjs    hosting check: plain static server, subdirectory and file://
+scripts/build-static.mjs  publishes mixt.bundle.js/.css and dist/
+vite.static.config.ts build config for the published bundle (IIFE, everything relative)
 ```
+
+## Booting is defensive on purpose
+
+A desktop that fails to mount is a white page: no message, no way out, and nothing in the
+browser's network panel to look at. Every layer of the boot path therefore assumes the
+worst about the environment it wakes up in:
+
+* **Web storage can be missing.** A sandboxed iframe, a private-mode browser or a full disk
+  makes `localStorage`/`sessionStorage` throw — even reading the property. All access goes
+  through `os/storage.ts`, which never throws and keeps values in memory for the session.
+* **Saved state can be from another build.** The stored filesystem is validated node by
+  node on the way in (`parseTree`), every directory ends up with a `children` map, and
+  unreadable blobs fall back to the seed filesystem. Settings are checked against the type
+  of their default, so a `null` wallpaper or a `"sideways"` panel position cannot crash the
+  first render.
+* **Nothing external is loaded at all.** The page requests exactly three local files
+  (the bundle, the stylesheet, the logo), and the typeface is the system font stack, so a
+  machine with no internet costs nothing at all. `npm run static` fails the build if an
+  external request ever creeps back in.
+* **If something still throws, you get told.** React rendering is wrapped in
+  `BootBoundary`, and errors that escape React entirely are caught in `start.tsx` — both
+  put a readable report on screen with the error, the storage status, and buttons to
+  reload or forget the saved state that caused it. If the script never runs at all (a 404,
+  a host that refuses `.js`, an extension blocking scripts), `index.html` has its own
+  watchdog that says so instead of showing a white page.
+
+`npm run diagnose` exercises those boot paths, `npm run static` proves the hosting story
+(web root, subdirectory, `file://`), and `npm run smoke` keeps regression checks for the
+failures that used to be silent white screens.
+
+### How it is hosted, in one line
+
+Plain HTML + a classic `<script>` + a stylesheet, all relative to the page. That is why it
+works on a bare static host: no ES modules to MIME-type correctly, no `type="module"`
+CORS rules, no server rewrites, no proxy, no build step at request time.
 
 ## Honest limitations
 
@@ -162,6 +252,11 @@ public/               logo + wallpapers
   MixtNet fall back to an explanatory page. The browser is fully functional; the network
   it browses is the one built into the app.
 * Screen capture uses `getDisplayMedia` when the host allows it and otherwise composes a
-  wallpaper shot — the preview iframe blocks the former.
+  wallpaper shot — the preview iframe blocks the former. Audio, the clipboard and storage
+  are all optional too: each is detected first and has a plain-path fallback.
 * No real executable installs: the Software Manager simulates installation (progress,
   notifications, menu entries).
+* In a browser that refuses web storage altogether (a sandboxed frame, private mode, or
+  opening `index.html` straight from disk with `file://`), the OS still runs — it just keeps
+  everything in memory, so files and settings are forgotten when the tab closes. The boot
+  screen says so instead of failing silently.

@@ -6,9 +6,14 @@
   "description": "Mixt Web OS — a full desktop computer that runs in the browser, styled after Linux Mint",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/build-static.mjs",
     "preview": "vite preview --host",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "diagnose": "node scripts/diagnose.mjs",
+    "interact": "node scripts/interact.mjs",
+    "static": "node scripts/static.mjs",
+    "explore": "node scripts/explore.mjs",
+    "served": "node scripts/served.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
