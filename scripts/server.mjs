@@ -192,6 +192,22 @@ section('The filesystem, mirrored')
     const viaUsers = await json('/api/fs/read?path=/users/ada/home/mixt/Documents/ada.txt', { token: adminToken })
     check('the administrator reads it through /users', viaUsers.body?.content === 'analytical engine')
 
+    /* The /users folder in the administrator's Files is filled from here, so
+       what it lists and what it holds have to be the machine's, not copies. */
+    const listing = await json('/api/fs/users', { token: adminToken })
+    check('/users lists the accounts on the machine',
+        Array.isArray(listing.body) && listing.body.some((u) => u.name === 'ada'), JSON.stringify(listing.body))
+
+    const forUsers = await json('/api/fs/users', { token: userToken })
+    check('a standard account does not get that listing', forUsers.status === 403, String(forUsers.status))
+
+    const theirTree = await json('/api/fs/tree/ada', { token: adminToken })
+    const theirFile = theirTree.body?.root?.children?.home?.children?.mixt?.children?.Documents?.children?.['ada.txt']
+    check("another account's whole tree can be read for /users", theirFile?.content === 'analytical engine')
+
+    const treeDenied = await json('/api/fs/tree/ada', { token: userToken })
+    check("but not by the account it belongs to", treeDenied.status === 403, String(treeDenied.status))
+
     const usage = await json('/api/fs/usage', { token: userToken })
     check('usage is reported against a quota', usage.status === 200 && typeof usage.body?.quota === 'number')
 }

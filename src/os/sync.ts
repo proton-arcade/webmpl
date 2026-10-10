@@ -57,6 +57,12 @@ let lastSeq = 0
 
 export function onAdopt (fn: AdoptListener | null) { adoptListener = fn }
 
+/* Set by the desktop: "somebody else's files moved". An administrator's /users
+   window is a view of those files, so it is the one thing that has to be read
+   again when another account changes theirs. */
+let otherListener: (() => void) | null = null
+export function onOtherChange (fn: (() => void) | null) { otherListener = fn }
+
 export function onStatus (fn: StatusListener): () => void {
   statusListeners.add(fn)
   fn(status())
@@ -224,7 +230,10 @@ export function openStream () {
         if (type === 'fs.changed') {
           /* The administrator hears about every account; only your own tree
              should replace the one you are looking at. */
-          if (payload.owner && session.username && payload.owner !== session.username) return
+          if (payload.owner && session.username && payload.owner !== session.username) {
+            otherListener?.()
+            return
+          }
           if (refetchTimer) clearTimeout(refetchTimer)
           refetchTimer = setTimeout(() => { refetchTimer = null; void pull({ force: true }) }, 300)
           return

@@ -12,7 +12,7 @@ import { Dialog } from '../apps/files'
 import { validateUsername, ACCENTS } from '../os/users'
 import * as api from '../os/api'
 import { setPersistenceEnabled } from '../os/storage'
-import { mountFilesystem, persistNow, setAdminView, replaceRoot, parseTree } from '../os/vfs'
+import { mountFilesystem, persistNow, setAdminView, replaceRoot, parseTree, loadUsersView } from '../os/vfs'
 import { ensureFilesystem } from '../os/bootstrap'
 import { loadInstalled, adoptServerSettings } from '../os/store'
 import { appForFile, launch } from '../os/bus'
@@ -75,6 +75,9 @@ export default function Desktop() {
     ensureFilesystem()
     /* only the administrator gets the /users folder at the root */
     setAdminView(s.role === 'admin')
+    /* …and what it shows is read from the machine, not from copies left in
+       this browser by whoever signed in here before */
+    if (s.role === 'admin') void loadUsersView()
     const st = useOS.getState()
     st.setServerRole(s.role)
     if (st.settings.username !== s.username) st.setSettings({ username: s.username, fullName: s.username })
@@ -91,6 +94,23 @@ export default function Desktop() {
   /* When the server's tree arrives, it wins — and then the folders the desktop
      generates (the hosted share, /usr/share/applications, mixt.js) are walked
      in again, because they have to exist in the tree that is now mounted. */
+  /* Somebody else saved a file: the administrator's /users window is looking at
+     theirs, so it is read again — at most once a second, however fast they type. */
+  useEffect(() => {
+    let timer: number | null = null
+    sync.onOtherChange(() => {
+      if (timer !== null) return
+      timer = window.setTimeout(() => {
+        timer = null
+        if (useOS.getState().serverRole === 'admin') void loadUsersView()
+      }, 1000)
+    })
+    return () => {
+      sync.onOtherChange(null)
+      if (timer !== null) clearTimeout(timer)
+    }
+  }, [])
+
   useEffect(() => {
     sync.onAdopt((root) => {
       try {

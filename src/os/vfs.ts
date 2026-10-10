@@ -385,10 +385,13 @@ function schedulePersist(get: () => VFSState, op?: sync.FsOp) {
 /* ---------------------------------------------------------------------------
  * /users — the administrator's view of everybody else's filesystem.
  *
- * Each account's tree is already saved under its own key, so there is nothing
- * to copy: this reads those trees straight out of storage and presents them as
- * one folder per account. It only resolves for an administrator, and it is read
- * only — writing into somebody else's files is not something this offers.
+ * The trees come from the machine, which is where the files are. A copy cached
+ * in this browser is only a fallback for an account that signed in here before,
+ * because a folder full of somebody else's files should show what they have,
+ * not what they had the last time they sat at this keyboard.
+ *
+ * It only resolves for an administrator, and it is read only — writing into
+ * somebody else's files is not something this offers.
  * ------------------------------------------------------------------------- */
 
 /** set when the signed-in session is the administrator */
@@ -404,8 +407,13 @@ export const USERS_DIR = '/users'
 
 const overlayCache = new Map<string, { raw: string | null; tree: VDirNode | null }>()
 
+/** what the machine holds for another account, filled by loadUsersView() */
+const serverTrees = new Map<string, VDirNode>()
+
 /** another account's saved tree, parsed once per stored revision of it */
 function otherTree(who: string): VDirNode | null {
+  const fromServer = serverTrees.get(who)
+  if (fromServer) return fromServer
   const raw = safeLocal.getItem(vfsKey(who))
   const hit = overlayCache.get(who)
   if (hit && hit.raw === raw) return hit.tree
@@ -414,14 +422,44 @@ function otherTree(who: string): VDirNode | null {
   return tree
 }
 
+/**
+ * Fill /users from the machine.
+ *
+ * Asked for when an administrator signs in, and again whenever the folder is
+ * opened, because a window left open all afternoon should not keep showing
+ * what was true at nine. Each account is one request; there are a handful of
+ * accounts on a machine like this, and the alternative is showing nothing.
+ */
+export async function loadUsersView(): Promise<boolean> {
+  if (!adminView) return false
+  const accounts = await api.fsUsers()
+  if (!accounts) return false
+  const names = accounts.map((a) => a.name || a.owner).filter(Boolean)
+  const settled = await Promise.all(names.map(async (name) => [name, await api.fsTreeOf(name)] as const))
+  let changed = false
+  for (const [name, tree] of settled) {
+    if (!tree) continue
+    try {
+      const parsed = parseTree(JSON.stringify(tree.root))
+      serverTrees.set(name, parsed)
+      changed = true
+    } catch {
+      /* a tree this build cannot read is left as it was */
+    }
+  }
+  if (changed) useVFS.setState((s) => ({ revision: s.revision + 1 }))
+  return changed
+}
+
 /** Resolve a path under /users against the saved filesystems. */
 function resolveUsers(path: string): VNode | null {
   const rest = path.slice(USERS_DIR.length)
   const segs = splitPath(rest)
   if (segs.length === 0) {
-    /* the folder itself: one entry per account that has files here */
+    /* the folder itself: one entry per account the machine knows about */
     const children: Record<string, VNode> = {}
-    for (const who of savedOwners()) {
+    const names = new Set([...serverTrees.keys(), ...savedOwners()])
+    for (const who of names) {
       const tree = otherTree(who)
       if (!tree) continue
       children[who] = tree

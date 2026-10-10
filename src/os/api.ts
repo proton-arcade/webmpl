@@ -418,6 +418,35 @@ export async function fsTree(): Promise<{ rev: number; root: unknown; username: 
   }
 }
 
+/**
+ * Another account's whole tree, as the machine holds it.
+ *
+ * This is the administrator's /users window: their Files shows one folder per
+ * account on the computer, and it is filled from here rather than from copies
+ * left in this browser by people who happened to sign in on it.
+ */
+export async function fsTreeOf(username: string): Promise<{ root: unknown } | null> {
+  try {
+    const r = await fetch(`/api/fs/tree/${encodeURIComponent(username)}`, { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    return await r.json()
+  } catch {
+    return null
+  }
+}
+
+/** The accounts on this machine, as the /users folder. */
+export async function fsUsers(): Promise<{ name: string; owner: string; role: string }[] | null> {
+  try {
+    const r = await fetch('/api/fs/users', { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    const d = await r.json()
+    return Array.isArray(d) ? d : null
+  } catch {
+    return null
+  }
+}
+
 /** Throw the filesystem away and let the server seed a new one. */
 export async function fsReset(): Promise<boolean> {
   try {

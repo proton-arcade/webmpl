@@ -722,7 +722,9 @@ export class FileSystemService extends BaseService {
 
     /** The other accounts, as the /users folder in the administrator's Files. */
     async usersListing (actor) {
-        if (actor.role !== 'admin') return [];
+        /* Refused rather than emptied: being able to list the people on a
+           machine is itself the thing being kept from a standard account. */
+        if (actor.role !== 'admin') throw forbidden('forbidden', 'Only the administrator can list the accounts on this machine.');
         return this.users.list().map((user) => ({
             name: user.username,
             type: 'dir',
