@@ -51,6 +51,10 @@ export function VlcCone({ size = 48, className }: { size?: number; className?: s
       <defs>
         <linearGradient
           id={`${id}l1`}
+          x1="0"
+          y1="0"
+          x2="1"
+          y2="0"
           gradientUnits="userSpaceOnUse"
           gradientTransform="matrix(3.67481e-15,60.0141,-60.0141,3.67481e-15,207,455.005)"
         >
@@ -59,6 +63,10 @@ export function VlcCone({ size = 48, className }: { size?: number; className?: s
         </linearGradient>
         <linearGradient
           id={`${id}l2`}
+          x1="0"
+          y1="0"
+          x2="1"
+          y2="0"
           gradientUnits="userSpaceOnUse"
           gradientTransform="matrix(1.01646e-14,166,-166,1.01646e-14,207,295)"
         >
@@ -78,8 +86,12 @@ export function VlcCone({ size = 48, className }: { size?: number; className?: s
         </radialGradient>
         <linearGradient
           id={`${id}l4`}
+          x1="0"
+          y1="0"
+          x2="1"
+          y2="0"
           gradientUnits="userSpaceOnUse"
-          gradientTransform="matrix(2.61462e-14,427,-427,2.61462e-14,207.001,0)"
+          gradientTransform="matrix(2.61462e-14,427,-427,2.61462e-14,207.001,-2.93098e-30)"
         >
           <stop offset="0%" stopColor="rgb(250,160,0)" />
           <stop offset="100%" stopColor="rgb(216,95,21)" />
@@ -87,6 +99,10 @@ export function VlcCone({ size = 48, className }: { size?: number; className?: s
         {/* the two reflective bands share their colours in the original too */}
         <linearGradient
           id={`${id}l5`}
+          x1="0"
+          y1="0"
+          x2="1"
+          y2="0"
           gradientUnits="userSpaceOnUse"
           gradientTransform="matrix(6.09346e-15,99.5137,-99.5137,6.09346e-15,206.921,64.4863)"
         >
@@ -95,6 +111,10 @@ export function VlcCone({ size = 48, className }: { size?: number; className?: s
         </linearGradient>
         <linearGradient
           id={`${id}l6`}
+          x1="0"
+          y1="0"
+          x2="1"
+          y2="0"
           gradientUnits="userSpaceOnUse"
           gradientTransform="matrix(7.56921e-15,123.615,-123.615,7.56921e-15,206.754,230.385)"
         >

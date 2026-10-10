@@ -342,6 +342,17 @@ export async function runSmoke() {
     assert(icon.includes('M161.722,66.066C170.962'), 'the upper reflective band is missing')
     assert(icon.includes('M109.422,232.618'), 'the lower reflective band is missing')
     assert(icon.includes('rgb(243,130,0)'), 'the cone gradient from the VLC source is missing')
+    /* The source sets x1/y1/x2/y2 on every linearGradient. Drop them and SVG
+       falls back to 0%/100%, which under gradientUnits="userSpaceOnUse"
+       resolves against the 512 viewport rather than one user unit — stretching
+       each gradient 512x and flattening the cone to a single flat orange. That
+       is a silent, good-looking-in-code, wrong-on-screen failure. */
+    const gradCount = (icon.match(/<linearGradient/g) ?? []).length
+    assert(gradCount === 5, `expected 5 linear gradients, found ${gradCount}`)
+    const withEnds = (icon.match(/<linearGradient[^>]*x1="0"[^>]*x2="1"/g) ?? []).length
+    assert(withEnds === gradCount, `only ${withEnds} of ${gradCount} gradients carry their endpoints — the cone will render flat`)
+    /* and the endpoints must come from the source, not a plausible guess */
+    assert(icon.includes('-2.93098e-30'), 'the cone body gradientTransform is not the one from the VLC source')
     /* the artwork is drawn as itself, not dropped onto a gradient plate */
     assert(!icon.includes('linearGradient id="g'), 'the cone was rendered on the generic app tile')
 
