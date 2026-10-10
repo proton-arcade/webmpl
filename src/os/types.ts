@@ -100,6 +100,10 @@ export interface AppDef {
   glyph: string
   color: string
   color2?: string
+  /** Replaces the generated gradient tile entirely, for an app whose real icon
+   *  is artwork rather than a glyph — VLC's cone, for one. Rendered at exactly
+   *  `size` pixels square, with no plate behind it. */
+  icon?: (size: number) => React.ReactNode
   /** categories used by the menu & software manager */
   categories: string[]
   keywords?: string[]

@@ -151,12 +151,31 @@ program), Mail (a working email client), News Reader, Weather, and VLC media pla
 player installed later can be chosen instead in System Settings, and if the one chosen has
 since been removed the built-in player takes over rather than nothing opening.
 
+**VLC media player** is rebuilt from the 3.0.24 source rather than approximated. The cone is
+the real artwork — every path, gradient and gradient transform in `src/apps/vlc-art.tsx` is
+taken from `extras/package/macosx/asset_sources/vlc_app_icon.svg` in `videolan/vlc`, so it
+is drawn as itself instead of a glyph on the same gradient tile every other app uses (the
+shipped `share/vlc512x512.png` is ~210 KB, too much to carry in a bundle). The chrome is
+VLC's light Qt grey with a black stage, the eight menus are Media / Playback / Audio / Video
+/ Subtitle / Tools / View / Help, and the cone sits in the middle of the stage until
+something plays. Playback uses the Web Audio API.
+
 **Administration** and **Screen Viewer** are the two not everybody gets: both are listed
 only for the signed-in administrator account. Everything privileged lives in
 Administration — approving or rejecting apps waiting in the publish queue, adding and
 removing the whitelisted accounts, switching guest mail on and off, and what the server is
-holding (`data.json`, `ROOTPASS.md`, live sessions). Screen Viewer shows what the other
-accounts and the guest sign-ins have on screen. Standard users and guests never see either,
+holding (`data.json`, `ROOTPASS.md`, live sessions).
+
+Each row in the Accounts tab has a **View** button that opens everything `data.json` holds
+for that one account, gathered by a single call to `/api/users/<name>/record`: role,
+mailbox and address; the salt, hash and algorithm the password is stored as; every message
+in the mailbox, including the bodies; the live session tokens; the apps that account has
+submitted; and its saved settings. An empty field means the server has nothing stored,
+which is what makes it worth looking at. The password is shown as the hash it is stored as
+— there is no plaintext anywhere and it cannot be walked backwards, so **Set** in the row
+is how you replace one.
+
+Screen Viewer shows what the other accounts and the guest sign-ins have on screen. Standard users and guests never see either,
 and launching one by hand gets a refusal rather than the console. Guests get no Terminal at
 all. The **Administration** category in the menu gathers the administrative tools together:
 the console, Screen Viewer, Software Manager, System Settings and System Monitor.
@@ -313,6 +332,7 @@ src/
     errorboundary.tsx boot failure screen + plain-DOM last resort report
   shell/              Desktop, Panel, MainMenu, WindowFrame, AppIcon, ContextMenu, Notifications
   apps/               registry.tsx + one module per application (21)
+    vlc-art.tsx       the VLC cone, path-for-path from the VLC 3.0.24 source
   net/                types, index (URL resolution + search), dns, sitekit, storage, downloads
     internet/         the directory: manifest + servers/*.server.tsx + /etc/hosts helpers
     sites/            portal, tech, services, social page trees

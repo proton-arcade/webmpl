@@ -318,6 +318,36 @@ export async function allUsers(): Promise<ServerUser[] | null> {
   }
 }
 
+/* Everything data.json holds about one account, in one call.
+ *
+ * The password comes back as the salt and the hash because that is all the
+ * server has; the field is here to show the record is complete, and it is not
+ * something anybody can sign in with. */
+export interface ServerRecord {
+  account: {
+    username: string
+    role: 'admin' | 'user'
+    mailbox: boolean
+    address: string | null
+    password: { salt: string | null; hash: string | null; algorithm: string }
+  }
+  mail: { box: string | null; messages: ServerMail[] }
+  sessions: { token: string; role: string }[]
+  apps: { id: string; name: string; author: string; status: string }[]
+  settings: unknown
+}
+
+export async function userRecord(username: string): Promise<ServerRecord | null> {
+  try {
+    const r = await fetch(`/api/users/${encodeURIComponent(username)}/record`, { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    const d = await r.json()
+    return d && d.ok ? (d as ServerRecord) : null
+  } catch {
+    return null
+  }
+}
+
 export async function addUser(username: string, password: string, admin: boolean): Promise<{ ok: boolean; error?: string }> {
   try {
     const r = await fetch('/api/users', {

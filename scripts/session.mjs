@@ -70,6 +70,24 @@ const server = createServer(async (req, res) => {
     if (p === '/api/apps/app-1/approve' || p === '/api/apps/app-1/reject') return send(200, { ok: true })
     if (p === '/api/users' && req.method === 'GET') return send(200, [{ username: 'Mixt_MPL', role: 'admin' }, { username: 'demo', role: 'user' }])
     if (p === '/api/users' && req.method === 'POST') return send(200, { ok: true })
+    /* the administrator's per-account record; only an administrator may read it */
+    if (/^\/api\/users\/[^/]+\/record$/.test(p) && req.method === 'GET') {
+      const u = userOf(req)
+      if (u !== 'Mixt_MPL') return send(403, { ok: false, error: 'admin only' })
+      const name = decodeURIComponent(p.split('/')[3])
+      if (name !== 'demo') return send(404, { ok: false, error: 'no such account' })
+      return send(200, {
+        ok: true,
+        account: {
+          username: 'demo', role: 'user', mailbox: true, address: 'demo@Mixt.MPL',
+          password: { salt: 's-demo', hash: 'a'.repeat(64), algorithm: 'sha256(`${salt}::${password}`), single round' },
+        },
+        mail: { box: 'demo', messages: [{ id: 'm1', from: 'demo@Mixt.MPL', fromName: 'demo', to: 'Mixt_MPL@Mixt.MPL', subject: 'stub message', date: 1700000000000, body: 'stored body', folder: 'Sent', read: true, starred: false, labels: [] }] },
+        sessions: [{ token: 'tok-1234', role: 'user' }],
+        apps: [{ id: 'app-1', name: 'Test App', author: 'demo', status: 'pending' }],
+        settings: { theme: 'dark' },
+      })
+    }
     if (p === '/api/stats') return send(200, { ok: true, users: 2, admins: 1, sessions: 3, appsPending: 1, appsApproved: 0, mailboxes: 0, savedSettings: 1 })
     if (p === '/api/settings') return send(200, {})
     if (p === '/api/mail') {
@@ -288,6 +306,48 @@ for (const [tabName, wants] of [['Accounts', ['Whitelisted accounts', 'Mixt_MPL'
     const missing = wants.filter((w) => !text.includes(w))
     if (missing.length) bad(`the ${tabName} tab is missing ${missing.join(', ')}`)
     else ok(`the ${tabName} tab holds ${wants.length} of its parts`)
+  }
+}
+
+/* The administrator can open one account and see everything the server holds
+ * for it, rather than reading data.json by hand. */
+console.log('• the administrator can read what is stored for one account…')
+{
+  const acctTab = [...consoleWin.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim().startsWith('Accounts'))
+  if (!acctTab) bad('no Accounts tab to open a record from')
+  else {
+    await realClick(adm.w, acctTab)
+    await tick(400)
+    /* the row for demo, and the View button in it */
+    const rows = [...consoleWin.querySelectorAll('div')].filter((d) => {
+      const t = d.textContent ?? ''
+      return t.startsWith('demo') && d.querySelectorAll('button').length >= 3
+    })
+    const row = rows.sort((a, b) => a.textContent.length - b.textContent.length)[0]
+    const view = row && [...row.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'View')
+    if (!view) bad('the account row offers no way to view its stored record')
+    else {
+      await realClick(adm.w, view)
+      await tick(500)
+      const text = consoleWin.textContent ?? ''
+      const wants = [
+        'Stored on the server for',
+        'demo@Mixt.MPL',
+        's-demo',
+        'sha256',
+        'stub message',
+        'stored body',
+        'tok-1234',
+        'Test App',
+        '"theme": "dark"',
+      ]
+      const missing = wants.filter((w) => !text.includes(w))
+      if (missing.length) bad(`the stored-record panel is missing ${missing.join(', ')}`)
+      else ok('the panel shows the account, password material, mail, sessions, apps and settings')
+      /* the honest bit: there is no plaintext to show */
+      if (!text.includes('there is no plaintext')) bad('the panel does not say the password cannot be recovered')
+      else ok('and says plainly that the password cannot be recovered')
+    }
   }
 }
 

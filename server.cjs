@@ -201,12 +201,17 @@ async function route(req, res, p) {
       /* A guest's own mailbox, when the administrator has guest mail switched
          on: NAME@Guest.MPL, reached only from inside this machine. */
       if (db.guestMailbox) db.mail[`guest:${username.toLowerCase()}`] ||= []
+      /* The salt has to be the one the hash was made with. This used to draw a
+         fresh random salt for each field, so the stored pair could never be
+         checked against itself — and the administrator's view of the record
+         showed a salt that had nothing to do with the hash beside it. */
+      const gsalt = crypto.randomBytes(6).toString('hex')
       ;(db.guestLog ||= []).push({
         username,
         name,
         at: Date.now(),
-        salt: crypto.randomBytes(6).toString('hex'),
-        hash: hash(String(data.password || ''), crypto.randomBytes(6).toString('hex')),
+        salt: gsalt,
+        hash: hash(String(data.password || ''), gsalt),
       })
       save(db)
       return json(res, 200, { ok: true, token, role: 'guest', username, name })
@@ -233,6 +238,45 @@ async function route(req, res, p) {
       db.users.push({ username: data.username, role: data.role === 'admin' ? 'admin' : 'user', salt, hash: hash(data.password || '', salt) })
       save(db)
       return json(res, 200, { ok: true })
+    }
+
+    /* Everything data.json holds about one account.
+     *
+     * The other endpoints hand the console one slice each — a user list with
+     * no mail, mail with no owner, sessions with no name — so an administrator
+     * answering "what do we actually have on this person?" had to read
+     * data.json by hand. This gathers the lot in one call.
+     *
+     * The password is included as the salt and the hash, because that is what
+     * is stored; there is no plaintext to show and the hash cannot be walked
+     * backwards. It is here so the administrator can see the record is
+     * complete, not so anybody can sign in with it. */
+    if (/^\/api\/users\/[^/]+\/record$/.test(p) && req.method === 'GET') {
+      if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
+      const name = decodeURIComponent(p.split('/')[3])
+      const u = db.users.find((x) => x.username === name)
+      if (!u) return json(res, 404, { ok: false, error: 'no such account' })
+
+      const box = u.mailbox === false ? null : u.username
+      const tokens = Object.entries(db.sessions)
+        .filter(([, s]) => s && s.username === u.username)
+        .map(([token, s]) => ({ token, role: s.role }))
+
+      return json(res, 200, {
+        ok: true,
+        account: {
+          username: u.username,
+          role: u.role,
+          mailbox: u.mailbox !== false,
+          address: u.mailbox === false ? null : `${u.username}@${USER_DOMAIN}`,
+          /* what is stored, not what was typed */
+          password: { salt: u.salt || null, hash: u.hash || null, algorithm: 'sha256(`${salt}::${password}`), single round' },
+        },
+        mail: { box, messages: box ? (db.mail[box] || []) : [] },
+        sessions: tokens,
+        apps: (db.apps || []).filter((a) => a.author === u.username),
+        settings: db.settings[u.username] ?? null,
+      })
     }
 
     if (p === '/api/apps' && req.method === 'GET')

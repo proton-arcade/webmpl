@@ -9,6 +9,7 @@ import TextEditorApp from './texteditor'
 import CalculatorApp from './calculator'
 import SystemMonitorApp from './system-monitor'
 import MediaPlayerApp from './mediaplayer'
+import { VlcCone } from './vlc-art'
 import MixtPlayerApp from './mixtplayer'
 import ScreenViewerApp from './screenviewer'
 import ImageViewerApp from './imageviewer'
@@ -157,6 +158,9 @@ export const APPS: AppDef[] = [
     glyph: 'Cone',
     color: '#ff8800',
     color2: '#e8590c',
+    /* The cone IS the icon. `glyph` stays as the fallback for anything that
+       only has a name, but everywhere an app is actually drawn this wins. */
+    icon: (size) => <VlcCone size={size} />,
     categories: ['Sound & Video'],
     keywords: ['vlc', 'music', 'player', 'audio', 'video', 'mp3'],
     preinstalled: false,

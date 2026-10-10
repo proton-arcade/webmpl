@@ -7,6 +7,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import Desktop from '../shell/Desktop'
 import { APPS } from '../apps/registry'
+import { AppIcon } from '../shell/AppIcon'
 import {
   SITES,
   SERVERS,
@@ -325,6 +326,46 @@ export async function runSmoke() {
     const Player = found!.component
     const out = renderToString(<Player win={{ id: 'w-mp', appId: 'mixtplayer', title: 'Mixt Player', props: {}, z: 1, minimized: false, maximized: false, x: 0, y: 0, w: 780, h: 520 } as any} api={{} as any} />)
     assert(/Mixt Player|Music/.test(out), 'the player did not render its library')
+  })
+
+  /* VLC's icon has to be the cone, not a generic glyph on the usual tile —
+   * the whole point of the artwork. These points come straight out of
+   * extras/package/macosx/asset_sources/vlc_app_icon.svg in the VLC source, so
+   * if somebody swaps the artwork back for a placeholder these fail. */
+  await check('VLC carries its real cone artwork, and the icon renders it', () => {
+    const vlc = APPS.find((a) => a.id === 'mediaplayer')
+    assert(!!vlc, 'VLC is not in the registry')
+    assert(typeof vlc!.icon === 'function', 'VLC has no icon override, so it would fall back to the generic tile')
+
+    const icon = renderToString(<>{vlc!.icon!(48)}</>)
+    assert(icon.includes('M206.969,427C70.306,427'), 'the cone body from the VLC source is missing')
+    assert(icon.includes('M161.722,66.066C170.962'), 'the upper reflective band is missing')
+    assert(icon.includes('M109.422,232.618'), 'the lower reflective band is missing')
+    assert(icon.includes('rgb(243,130,0)'), 'the cone gradient from the VLC source is missing')
+    /* the artwork is drawn as itself, not dropped onto a gradient plate */
+    assert(!icon.includes('linearGradient id="g'), 'the cone was rendered on the generic app tile')
+
+    /* AppIcon must honour the override rather than drawing a tile */
+    const viaAppIcon = renderToString(<AppIcon glyph="Cone" color="#ff8800" icon={vlc!.icon} size={32} />)
+    assert(viaAppIcon.includes('M206.969,427C70.306,427'), 'AppIcon ignored the app\'s own icon')
+    assert(!viaAppIcon.includes('<rect'), 'AppIcon still drew the gradient tile behind the cone')
+
+    /* the hand-drawn placeholder must not come back */
+    assert(!icon.includes('M50 4 L74 84 L26 84 Z'), 'the old hand-drawn cone is back')
+  })
+
+  await check('the VLC window renders the real cone and its menus', () => {
+    const vlc = APPS.find((a) => a.id === 'mediaplayer')!
+    const Vlc = vlc.component
+    const out = renderToString(
+      <Vlc win={{ id: 'w-vlc', appId: 'mediaplayer', title: 'VLC media player', props: {}, z: 1, minimized: false, maximized: false, x: 0, y: 0, w: 900, h: 600 } as any} api={{} as any} />,
+    )
+    for (const menu of ['Media', 'Playback', 'Audio', 'Video', 'Subtitle', 'Tools', 'View', 'Help']) {
+      assert(out.includes(`>${menu}</button>`), `the ${menu} menu is missing`)
+    }
+    assert(out.includes('M206.969,427C70.306,427'), 'the player no longer shows the cone in its empty stage')
+    /* VLC 3.0's chrome is light; the dark skin was what made it not look like VLC */
+    assert(out.includes('#f2f1f0'), 'the VLC chrome is not the light Qt colour')
   })
 
   /* --- an archive can actually be unzipped --- */

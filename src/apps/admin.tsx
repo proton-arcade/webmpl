@@ -20,7 +20,7 @@ const card: React.CSSProperties = {
 }
 const row: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 110px 92px 118px 96px',
+  gridTemplateColumns: '1fr 110px 92px 118px 78px 96px',
   gap: 8,
   alignItems: 'center',
   padding: '7px 0',
@@ -28,6 +28,157 @@ const row: React.CSSProperties = {
   fontSize: 13,
 }
 const head: React.CSSProperties = { ...row, fontWeight: 700, opacity: 0.72, fontSize: 12, borderBottom: '1px solid rgba(0,0,0,0.2)' }
+
+/* A labelled line in the stored-record panel. */
+function Field({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, fontSize: 12.5, padding: '2px 0' }}>
+      <span style={{ width: 96, flex: 'none', opacity: 0.66 }}>{label}</span>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflowWrap: 'anywhere',
+          fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined,
+          fontSize: mono ? 11.5 : 12.5,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+/* A section heading inside the stored-record panel. */
+function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+  return (
+    <div style={{ borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: 10 }}>
+      <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 6 }}>
+        {title}
+        {count !== undefined && <span style={{ fontWeight: 400, opacity: 0.6 }}> · {count}</span>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/* Everything data.json holds about one account, exactly as the server returned
+ * it. Nothing here is inferred or filled in from the client's own state: if a
+ * field is empty that is because the server has nothing stored, which is the
+ * thing an administrator needs to be able to tell apart from a display bug. */
+function StoredRecord({ record, onClose }: { record: backend.ServerRecord; onClose: () => void }) {
+  const { account, mail, sessions, apps, settings } = record
+  const when = (ms: number) => new Date(ms).toLocaleString()
+  const empty = <span style={{ opacity: 0.55 }}>nothing stored</span>
+
+  return (
+    <div style={card}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontWeight: 700, flex: 1 }}>
+          Stored on the server for <code>{account.username}</code>
+        </div>
+        <button className="btn-ghost" onClick={onClose} style={{ padding: '3px 10px', fontSize: 12 }}>
+          Close
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        <Section title="Account">
+          <Field label="Username" value={account.username} mono />
+          <Field label="Role" value={account.role === 'admin' ? 'Administrator' : 'Standard user'} />
+          <Field label="Mailbox" value={account.mailbox ? 'open' : 'closed'} />
+          <Field label="Address" value={account.address ? <code>{account.address}</code> : empty} />
+        </Section>
+
+        <Section title="Password">
+          <Field label="Salt" value={account.password.salt ? <code>{account.password.salt}</code> : empty} mono />
+          <Field label="Hash" value={account.password.hash ? <code>{account.password.hash}</code> : empty} mono />
+          <Field label="Algorithm" value={<code>{account.password.algorithm}</code>} mono />
+          <div style={{ fontSize: 11.5, opacity: 0.72, marginTop: 6, lineHeight: 1.5 }}>
+            This is what is stored — there is no plaintext copy anywhere, and the hash cannot be turned back into the
+            password. Use <em>Set</em> in the list above to replace it.
+          </div>
+        </Section>
+
+        <Section title="Mail" count={mail.messages.length}>
+          {!mail.box ? (
+            <div style={{ fontSize: 12.5, opacity: 0.72 }}>
+              Mailbox is closed, so nothing is being delivered. Any mail already stored is kept, not deleted.
+            </div>
+          ) : (
+            <>
+              <Field label="Mailbox key" value={<code>{mail.box}</code>} mono />
+              {mail.messages.length === 0 && <div style={{ fontSize: 12.5, opacity: 0.6 }}>The mailbox is empty.</div>}
+              {mail.messages.map((m) => (
+                <div
+                  key={m.id}
+                  style={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '8px 10px', marginTop: 6 }}
+                >
+                  <div style={{ display: 'flex', gap: 8, fontSize: 12.5 }}>
+                    <span style={{ fontWeight: 700, flex: 1 }}>{m.subject || '(no subject)'}</span>
+                    <span style={{ opacity: 0.66, flex: 'none' }}>{m.folder}</span>
+                  </div>
+                  <div style={{ fontSize: 11.5, opacity: 0.75, marginTop: 2 }}>
+                    {m.from} → {m.to} · {when(m.date)}
+                    {m.read ? '' : ' · unread'}
+                    {m.starred ? ' · starred' : ''}
+                  </div>
+                  {m.body && (
+                    <div style={{ fontSize: 12, marginTop: 6, whiteSpace: 'pre-wrap', opacity: 0.9 }}>{m.body}</div>
+                  )}
+                  {m.labels?.length > 0 && (
+                    <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>labels: {m.labels.join(', ')}</div>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </Section>
+
+        <Section title="Live sessions" count={sessions.length}>
+          {sessions.length === 0 ? (
+            <div style={{ fontSize: 12.5, opacity: 0.6 }}>Not signed in anywhere.</div>
+          ) : (
+            sessions.map((s) => (
+              <Field key={s.token} label={s.role} value={<code>{s.token}</code>} mono />
+            ))
+          )}
+        </Section>
+
+        <Section title="Published apps" count={apps.length}>
+          {apps.length === 0 ? (
+            <div style={{ fontSize: 12.5, opacity: 0.6 }}>Has not submitted anything.</div>
+          ) : (
+            apps.map((a) => (
+              <Field key={a.id} label={a.status} value={`${a.name} (${a.id})`} mono />
+            ))
+          )}
+        </Section>
+
+        <Section title="Saved settings">
+          {settings === null ? (
+            <div style={{ fontSize: 12.5, opacity: 0.6 }}>Nothing saved — this account has never synced settings.</div>
+          ) : (
+            <pre
+              style={{
+                margin: 0,
+                fontSize: 11.5,
+                lineHeight: 1.5,
+                background: 'rgba(0,0,0,0.05)',
+                borderRadius: 6,
+                padding: 10,
+                overflow: 'auto',
+                maxHeight: 220,
+              }}
+            >
+              {JSON.stringify(settings, null, 2)}
+            </pre>
+          )}
+        </Section>
+      </div>
+    </div>
+  )
+}
 
 export default function AdminApp({ api }: AppProps) {
   const session = backend.getSession()
@@ -43,6 +194,8 @@ export default function AdminApp({ api }: AppProps) {
   /* which account's password is being replaced, and with what */
   const [pwFor, setPwFor] = useState<{ username: string; password: string } | null>(null)
   const [guests, setGuests] = useState<backend.GuestLogin[] | null>(null)
+  /* which account's stored record is open, and what the server returned */
+  const [record, setRecord] = useState<backend.ServerRecord | null>(null)
 
   const refresh = useCallback(async () => {
     const [a, u, s, g] = await Promise.all([backend.serverApps(), backend.allUsers(), backend.stats(), backend.guestLog()])
@@ -239,6 +392,7 @@ export default function AdminApp({ api }: AppProps) {
                     <span>Role</span>
                     <span>Mailbox</span>
                     <span>Password</span>
+                    <span>Stored</span>
                     <span style={{ textAlign: 'right' }}>Remove</span>
                   </div>
                   {users.map((u) => (
@@ -298,6 +452,20 @@ export default function AdminApp({ api }: AppProps) {
                           </button>
                         )}
                       </span>
+                      <span>
+                        <button
+                          className={record?.account.username === u.username ? 'btn-mixt' : 'btn-ghost'}
+                          disabled={!!busy}
+                          title="Everything the server has stored for this account"
+                          onClick={() => {
+                            setRecord(null)
+                            void backend.userRecord(u.username).then((r) => setRecord(r))
+                          }}
+                          style={{ padding: '3px 10px', fontSize: 12 }}
+                        >
+                          {record?.account.username === u.username ? 'Hide' : 'View'}
+                        </button>
+                      </span>
                       <span style={{ textAlign: 'right' }}>
                         <button
                           className="btn-ghost"
@@ -317,6 +485,9 @@ export default function AdminApp({ api }: AppProps) {
                 Guests are not listed: they are allowed in without an account and nothing is ever saved for them.
               </div>
             </div>
+
+            {/* --------------- everything the server holds for one account --------------- */}
+            {record && <StoredRecord record={record} onClose={() => setRecord(null)} />}
 
             <div style={card}>
               <div style={{ fontWeight: 700, marginBottom: 8 }}>Guest accounts</div>

@@ -2,27 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../os/store'
 import { useVFS, HOME, vfs, join } from '../os/vfs'
 import { Glyph } from '../shell/AppIcon'
+import { VlcCone } from './vlc-art'
 import type { AppProps } from '../os/types'
-
-/* ------------------------------------------------------------------ */
-/* The VLC traffic cone, redrawn as inline SVG (the real 512px PNG in  */
-/* the VLC source tree is ~210 KB, so we rebuild the artwork in JS).   */
-/* ------------------------------------------------------------------ */
-export function VlcCone({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="VLC cone">
-      {/* base */}
-      <rect x="12" y="82" width="76" height="12" rx="4" fill="#e8590c" />
-      <rect x="12" y="80" width="76" height="6" rx="3" fill="#ff8800" />
-      {/* cone body */}
-      <path d="M50 4 L74 84 L26 84 Z" fill="#ff8800" />
-      <path d="M50 4 L74 84 L60 84 Z" fill="#e8590c" opacity="0.7" />
-      {/* white bands */}
-      <path d="M41.5 34 L58.5 34 L62 46 L38 46 Z" fill="#f4f4f4" />
-      <path d="M33 62 L67 62 L70.5 74 L29.5 74 Z" fill="#f4f4f4" />
-    </svg>
-  )
-}
 
 interface Track {
   path: string
@@ -48,10 +29,17 @@ function noteToFreq(note: string) {
   return 440 * Math.pow(2, (midi - 69) / 12)
 }
 
-const BG = '#2b2b2b'
-const BG2 = '#333333'
-const FG = '#d9d9d9'
-const ORANGE = '#ff8800'
+/* VLC 3.0's Qt interface is light chrome with a black video area — the dark
+ * theme this app used to have is a skin, not the default, and it made the
+ * player read as a generic media app rather than as VLC. */
+const CHROME = '#f2f1f0'      /* menus and toolbars */
+const CHROME2 = '#e6e4e2'     /* pressed / recessed */
+const EDGE = '#c4c1bd'        /* hairlines between bars */
+const FG = '#1f1d1b'          /* text on chrome */
+const FG_DIM = '#6d6a66'
+const STAGE = '#000000'       /* the video area, always black */
+const ORANGE = '#ff8800'      /* VLC orange, straight from the cone artwork */
+const ORANGE_DARK = '#e35c00'
 
 type MenuName = 'Media' | 'Playback' | 'Audio' | 'Video' | 'Subtitle' | 'Tools' | 'View' | 'Help'
 const MENUS: MenuName[] = ['Media', 'Playback', 'Audio', 'Video', 'Subtitle', 'Tools', 'View', 'Help']
@@ -302,45 +290,112 @@ export default function MediaPlayerApp({ win, api }: AppProps) {
         return [{ label: 'About', onClick: () => setShowAbout(true) }]
     }
   }
-
-  const btn = (icon: React.ReactNode, title: string, onClick: () => void, active = false) => (
+  /* VLC's toolbar buttons: flat, square-ish, and they only light up under the
+   * pointer. The old version had them on a dark bar with a large hit area;
+   * VLC's are small and tight against each other. */
+  const btn = (icon: React.ReactNode, title: string, onClick: () => void, active = false, wide = 30) => (
     <button
       title={title}
+      aria-label={title}
+      aria-pressed={active}
       onClick={onClick}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 34,
-        height: 28,
-        border: 'none',
-        borderRadius: 4,
-        background: active ? 'rgba(255,136,0,0.25)' : 'transparent',
-        color: FG,
+        width: wide,
+        height: 26,
+        border: '1px solid transparent',
+        borderRadius: 3,
+        background: active ? 'rgba(255,136,0,0.22)' : 'transparent',
+        borderColor: active ? 'rgba(255,136,0,0.55)' : 'transparent',
+        color: active ? ORANGE_DARK : FG,
         cursor: 'pointer',
+        padding: 0,
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
-      onMouseLeave={(e) => (e.currentTarget.style.background = active ? 'rgba(255,136,0,0.25)' : 'transparent')}
+      onMouseEnter={(e) => {
+        if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.07)'
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.background = 'transparent'
+      }}
     >
       {icon}
     </button>
   )
 
+  const total = isVideo ? (video?.body?.seconds ?? 12) : (track?.duration ?? 0)
+  const at = isVideo ? 0 : position
+  const pct = total ? Math.min(100, (at / total) * 100) : 0
+
+  const goPrev = () => {
+    setTrackIdx((i) => (i - 1 + tracks.length) % Math.max(1, tracks.length))
+    stepRef.current = 0
+  }
+  const goNext = () => {
+    setTrackIdx((i) => (i + 1) % Math.max(1, tracks.length))
+    stepRef.current = 0
+  }
+
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: BG, color: FG, fontFamily: 'system-ui, sans-serif' }}>
-      {/* menu bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '2px 6px', background: BG2, borderBottom: '1px solid #1f1f1f', position: 'relative', flex: 'none' }}>
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        background: CHROME,
+        color: FG,
+        fontFamily: 'system-ui, sans-serif',
+      }}
+    >
+      {/* ------------------------------ menu bar ----------------------------- */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          padding: '2px 4px',
+          background: CHROME,
+          borderBottom: `1px solid ${EDGE}`,
+          position: 'relative',
+          flex: 'none',
+        }}
+      >
         {MENUS.map((m) => (
           <div key={m} style={{ position: 'relative' }}>
             <button
               onClick={() => setOpenMenu(openMenu === m ? null : m)}
               onMouseEnter={() => openMenu && setOpenMenu(m)}
-              style={{ border: 'none', background: openMenu === m ? 'rgba(255,136,0,0.3)' : 'transparent', color: FG, padding: '4px 10px', fontSize: 13, cursor: 'pointer', borderRadius: 3 }}
+              style={{
+                border: '1px solid transparent',
+                background: openMenu === m ? 'rgba(255,136,0,0.28)' : 'transparent',
+                borderColor: openMenu === m ? 'rgba(255,136,0,0.5)' : 'transparent',
+                color: FG,
+                padding: '3px 9px',
+                fontSize: 12.5,
+                cursor: 'pointer',
+                borderRadius: 3,
+              }}
             >
               {m}
             </button>
             {openMenu === m && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, background: '#3a3a3a', border: '1px solid #222', borderRadius: 4, minWidth: 190, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', padding: '4px 0' }} onMouseLeave={() => setOpenMenu(null)}>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  zIndex: 50,
+                  background: '#fbfaf9',
+                  border: `1px solid ${EDGE}`,
+                  borderRadius: 3,
+                  minWidth: 200,
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.28)',
+                  padding: '3px 0',
+                }}
+                onMouseLeave={() => setOpenMenu(null)}
+              >
                 {menuFor(m).map((it, i) => (
                   <div
                     key={i}
@@ -349,11 +404,18 @@ export default function MediaPlayerApp({ win, api }: AppProps) {
                       it.onClick?.()
                       setOpenMenu(null)
                     }}
-                    style={{ padding: '5px 14px', fontSize: 13, cursor: it.disabled ? 'default' : 'pointer', opacity: it.disabled ? 0.45 : 1, display: 'flex', gap: 8, background: 'transparent' }}
-                    onMouseEnter={(e) => !it.disabled && (e.currentTarget.style.background = ORANGE)}
+                    style={{
+                      padding: '4px 12px',
+                      fontSize: 12.5,
+                      cursor: it.disabled ? 'default' : 'pointer',
+                      opacity: it.disabled ? 0.42 : 1,
+                      display: 'flex',
+                      gap: 8,
+                    }}
+                    onMouseEnter={(e) => !it.disabled && (e.currentTarget.style.background = 'rgba(255,136,0,0.25)')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <span style={{ width: 14 }}>{it.checked ? '✓' : ''}</span>
+                    <span style={{ width: 12, color: ORANGE_DARK }}>{it.checked ? '✓' : ''}</span>
                     <span>{it.label}</span>
                   </div>
                 ))}
@@ -362,21 +424,28 @@ export default function MediaPlayerApp({ win, api }: AppProps) {
           </div>
         ))}
         <div style={{ flex: 1 }} />
-        <VlcCone size={18} />
+        <VlcCone size={16} />
       </div>
 
-      {/* viewport + playlist */}
+      {/* --------------------------- stage + playlist ------------------------ */}
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#000' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: STAGE }}>
           {isVideo ? (
             <canvas ref={canvasRef} style={{ flex: 1, width: '100%' }} />
           ) : (
-            <div style={{ flex: 1, display: 'grid', placeItems: 'center', background: '#1c1c1c' }}>
-              <div style={{ textAlign: 'center', opacity: 0.9 }}>
-                <VlcCone size={120} />
-                {track && (
-                  <div style={{ marginTop: 10, fontSize: 14, color: '#bbb' }}>
-                    {track.name} — {track.artist}
+            <div style={{ flex: 1, display: 'grid', placeItems: 'center' }}>
+              {/* VLC parks the cone in the middle of the black area until
+                  something is playing — it is the app's signature. */}
+              <div style={{ textAlign: 'center' }}>
+                <VlcCone size={Math.max(64, 132)} />
+                {track ? (
+                  <div style={{ marginTop: 14, fontSize: 13, color: '#9a9a9a' }}>
+                    {track.name}
+                    <span style={{ opacity: 0.7 }}> — {track.artist}</span>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 14, fontSize: 12.5, color: '#7d7d7d' }}>
+                    Nothing to play. Put tracks in <code>~/Music</code>.
                   </div>
                 )}
               </div>
@@ -385,10 +454,29 @@ export default function MediaPlayerApp({ win, api }: AppProps) {
         </div>
 
         {showPlaylist && (
-          <div style={{ width: 260, flex: 'none', borderLeft: '1px solid #1f1f1f', display: 'flex', flexDirection: 'column', background: BG2 }}>
-            <div style={{ padding: '6px 10px', fontSize: 12, color: '#9a9a9a', display: 'flex', borderBottom: '1px solid #262626' }}>
+          <div
+            style={{
+              width: 268,
+              flex: 'none',
+              borderLeft: `1px solid ${EDGE}`,
+              display: 'flex',
+              flexDirection: 'column',
+              background: CHROME,
+            }}
+          >
+            <div
+              style={{
+                padding: '5px 10px',
+                fontSize: 11.5,
+                color: FG_DIM,
+                display: 'flex',
+                gap: 8,
+                borderBottom: `1px solid ${EDGE}`,
+                background: CHROME2,
+              }}
+            >
               <span style={{ flex: 1 }}>Title</span>
-              <span>Duration</span>
+              <span style={{ width: 42, textAlign: 'right' }}>Duration</span>
             </div>
             <div style={{ flex: 1, overflow: 'auto' }}>
               {tracks.map((t, i) => (
@@ -399,63 +487,163 @@ export default function MediaPlayerApp({ win, api }: AppProps) {
                     stepRef.current = 0
                     setPlaying(true)
                   }}
-                  style={{ display: 'flex', padding: '5px 10px', fontSize: 13, cursor: 'pointer', background: i === trackIdx ? 'rgba(255,136,0,0.25)' : 'transparent', color: i === trackIdx ? ORANGE : FG }}
-                  onMouseEnter={(e) => i !== trackIdx && (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    padding: '4px 10px',
+                    fontSize: 12.5,
+                    cursor: 'pointer',
+                    background: i === trackIdx ? 'rgba(255,136,0,0.22)' : 'transparent',
+                    color: i === trackIdx ? ORANGE_DARK : FG,
+                    fontWeight: i === trackIdx ? 600 : 400,
+                  }}
+                  onMouseEnter={(e) => i !== trackIdx && (e.currentTarget.style.background = 'rgba(0,0,0,0.05)')}
                   onMouseLeave={(e) => i !== trackIdx && (e.currentTarget.style.background = 'transparent')}
                 >
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
-                  <span style={{ color: '#9a9a9a' }}>{mmss(t.duration)}</span>
+                  <span style={{ width: 14, flex: 'none', opacity: 0.6 }}>{i === trackIdx ? '▶' : ''}</span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {t.name}
+                  </span>
+                  <span style={{ width: 42, textAlign: 'right', color: FG_DIM, fontVariantNumeric: 'tabular-nums' }}>
+                    {mmss(t.duration)}
+                  </span>
                 </div>
               ))}
-              {tracks.length === 0 && <div style={{ padding: 12, color: '#8a8a8a', fontSize: 12 }}>Playlist is empty. Drop tracks into ~/Music.</div>}
+              {tracks.length === 0 && (
+                <div style={{ padding: 12, color: FG_DIM, fontSize: 12, lineHeight: 1.6 }}>
+                  The playlist is empty. Drop tracks into <code>~/Music</code> and they appear here.
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* seek bar */}
-      <div style={{ padding: '6px 10px 0', background: BG, flex: 'none' }}>
+      {/* ------------------------------- seek bar --------------------------- */}
+      <div style={{ padding: '0 8px', background: CHROME, flex: 'none' }}>
         <input
           type="range"
           min={0}
-          max={isVideo ? video?.body?.seconds ?? 12 : track?.duration ?? 100}
-          value={isVideo ? 0 : position}
+          max={total || 1}
+          value={at}
+          aria-label="Seek"
           onChange={(e) => {
             setPosition(Number(e.target.value))
             stepRef.current = 0
           }}
-          style={{ width: '100%', accentColor: ORANGE, height: 4, display: 'block' }}
+          style={{ width: '100%', accentColor: ORANGE, height: 5, display: 'block', margin: '5px 0 0' }}
         />
       </div>
 
-      {/* control bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px 8px', background: BG, flex: 'none' }}>
-        {btn(<Glyph name={playingNow ? 'Pause' : 'Play'} size={18} />, 'Play/Pause', togglePlay)}
-        {btn(<Glyph name="Square" size={16} />, 'Stop', stop)}
-        {btn(<Glyph name="SkipBack" size={16} />, 'Previous', () => { setTrackIdx((i) => (i - 1 + tracks.length) % Math.max(1, tracks.length)); stepRef.current = 0 })}
-        {btn(<Glyph name="SkipForward" size={16} />, 'Next', () => { setTrackIdx((i) => (i + 1) % Math.max(1, tracks.length)); stepRef.current = 0 })}
-        <span style={{ fontSize: 12, color: '#bdbdbd', marginLeft: 8, fontVariantNumeric: 'tabular-nums' }}>
-          {mmss(isVideo ? 0 : position)} / {mmss(isVideo ? video?.body?.seconds ?? 0 : track?.duration ?? 0)}
+      {/* ----------------------------- control bar -------------------------- */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          padding: '2px 8px 6px',
+          background: CHROME,
+          borderTop: `1px solid ${EDGE}`,
+          flex: 'none',
+        }}
+      >
+        {btn(
+          <Glyph name={playingNow ? 'Pause' : 'Play'} size={17} />,
+          playingNow ? 'Pause' : 'Play',
+          togglePlay,
+        )}
+        {btn(<Glyph name="SkipBack" size={15} />, 'Previous', goPrev)}
+        {btn(<Glyph name="SkipForward" size={15} />, 'Next', goNext)}
+        {btn(<Glyph name="Square" size={13} />, 'Stop', stop)}
+
+        <span
+          style={{
+            fontSize: 11.5,
+            color: FG_DIM,
+            marginLeft: 8,
+            fontVariantNumeric: 'tabular-nums',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {mmss(at)} / {mmss(total)}
         </span>
+
         <div style={{ flex: 1 }} />
-        {btn(<Glyph name="List" size={16} />, 'Playlist (Ctrl+L)', () => setShowPlaylist(!showPlaylist), showPlaylist)}
-        {btn(<Glyph name="RefreshCw" size={15} />, 'Random', () => setShuffle(!shuffle), shuffle)}
-        {btn(<Glyph name="RotateCcw" size={15} />, 'Repeat', () => setRepeat(!repeat), repeat)}
-        {btn(<Glyph name={muted ? 'VolumeX' : 'Volume2'} size={16} />, 'Mute', () => setMuted(!muted))}
-        <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume} onChange={(e) => setVolume(Number(e.target.value))} style={{ width: 90, accentColor: ORANGE }} />
+
+        {btn(<Glyph name="List" size={15} />, 'Playlist (Ctrl+L)', () => setShowPlaylist(!showPlaylist), showPlaylist)}
+        {btn(<Glyph name="RefreshCw" size={14} />, 'Random', () => setShuffle(!shuffle), shuffle)}
+        {btn(<Glyph name="RotateCcw" size={14} />, 'Repeat', () => setRepeat(!repeat), repeat)}
+        {btn(<Glyph name="Type" size={15} />, 'Subtitles', () => notify({ title: 'VLC', body: 'No subtitle track in the web edition.' }))}
+        {btn(
+          <Glyph name={muted ? 'VolumeX' : volume > 0.5 ? 'Volume2' : 'Volume1'} size={15} />,
+          muted ? 'Unmute' : 'Mute',
+          () => setMuted(!muted),
+          muted,
+        )}
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={muted ? 0 : volume}
+          aria-label="Volume"
+          onChange={(e) => setVolume(Number(e.target.value))}
+          style={{ width: 84, accentColor: ORANGE, marginLeft: 2 }}
+        />
+        {btn(
+          <Glyph name="Maximize2" size={14} />,
+          'Fullscreen',
+          () => notify({ title: 'VLC', body: 'Fullscreen is handled by the window manager here.' }),
+        )}
       </div>
 
-      {/* about dialog */}
+      {/* ------------------------------- about ------------------------------ */}
       {showAbout && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 60 }} onClick={() => setShowAbout(false)}>
-          <div style={{ background: BG2, border: '1px solid #222', borderRadius: 8, padding: 24, width: 340, textAlign: 'center', color: FG }} onClick={(e) => e.stopPropagation()}>
-            <VlcCone size={72} />
-            <div style={{ fontWeight: 700, fontSize: 16, marginTop: 8 }}>VLC media player</div>
-            <div style={{ fontSize: 12, color: '#9a9a9a', marginTop: 4 }}>3.0.24 Vetinari — rebuilt in JavaScript for the Mixt web desktop</div>
-            <div style={{ fontSize: 12, color: '#9a9a9a', marginTop: 8 }}>
-              The interface, cone artwork and menu structure follow the VLC 3.0.24 source (videolan/vlc). Playback here uses the Web Audio API.
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 60,
+          }}
+          onClick={() => setShowAbout(false)}
+        >
+          <div
+            style={{
+              background: CHROME,
+              border: `1px solid ${EDGE}`,
+              borderRadius: 6,
+              padding: 22,
+              width: 350,
+              textAlign: 'center',
+              color: FG,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <VlcCone size={76} />
+            <div style={{ fontWeight: 700, fontSize: 15, marginTop: 10 }}>VLC media player</div>
+            <div style={{ fontSize: 12, color: FG_DIM, marginTop: 4 }}>3.0.24 Vetinari</div>
+            <div style={{ fontSize: 11.5, color: FG_DIM, marginTop: 10, lineHeight: 1.6 }}>
+              Rebuilt in JavaScript for the Mixt web desktop. The cone artwork is taken from
+              <code> extras/package/macosx/asset_sources/vlc_app_icon.svg</code> in the VLC source, and the menus follow
+              the 3.0.24 Qt interface. Playback here uses the Web Audio API.
             </div>
-            <button onClick={() => setShowAbout(false)} style={{ marginTop: 14, background: ORANGE, color: '#fff', border: 'none', borderRadius: 4, padding: '6px 18px', cursor: 'pointer' }}>
+            <button
+              onClick={() => setShowAbout(false)}
+              style={{
+                marginTop: 14,
+                background: ORANGE,
+                color: '#fff',
+                border: 'none',
+                borderRadius: 3,
+                padding: '5px 20px',
+                cursor: 'pointer',
+                fontSize: 12.5,
+              }}
+            >
               Close
             </button>
           </div>

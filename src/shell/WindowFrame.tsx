@@ -265,7 +265,7 @@ export default function WindowFrame({ win, children }: { win: WinState; children
           >
             {settings.buttonSide === 'left' && buttons}
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 'none', paddingLeft: settings.buttonSide === 'right' ? 0 : 4 }}>
-              <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} size={19} rounded={0.3} />
+              <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} icon={def?.icon} size={19} rounded={0.3} />
             </div>
             <div className="wm-title" style={{ paddingLeft: 2 }}>{win.title}</div>
             {settings.buttonSide === 'right' ? (

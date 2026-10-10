@@ -123,7 +123,7 @@ export default function Panel() {
                   setPopup({ kind: `app:${id}`, x: e.clientX, y: e.clientY })
                 }}
               >
-                <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={22} rounded={0.28} />
+                <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={22} rounded={0.28} />
                 {open.length > 1 && (
                   <span
                     className="panel-badge"

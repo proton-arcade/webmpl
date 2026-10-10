@@ -515,7 +515,7 @@ function DesktopIcon({
   node: { type: string; mime?: string; name: string }
   onOpen: () => void
   onMenu: () => void
-  appIcon?: { glyph: string; color: string; color2?: string }
+  appIcon?: { glyph: string; color: string; color2?: string; icon?: (size: number) => React.ReactNode }
   /* An app on the desktop opens the same way it opens everywhere else — one
    * click, like the Menu and the taskbar. Waiting for a double-click made the
    * desktop icons look broken next to the rest of the system. */
@@ -541,7 +541,7 @@ function DesktopIcon({
       title={label}
     >
       {appIcon ? (
-        <AppIcon glyph={appIcon.glyph} color={appIcon.color} color2={appIcon.color2} size={46} />
+        <AppIcon glyph={appIcon.glyph} color={appIcon.color} color2={appIcon.color2} icon={appIcon.icon} size={46} />
       ) : (
         <FileIcon node={node} size={46} />
       )}
@@ -584,7 +584,7 @@ function AltTabOverlay({ index }: { index: number }) {
                   border: isActive ? '1px solid var(--wm-accent)' : '1px solid transparent',
                 }}
               >
-                <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} size={40} />
+                <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} icon={def?.icon} size={40} />
                 <div style={{ marginTop: 6, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.title}</div>
               </div>
             )
@@ -635,7 +635,7 @@ function Expose({ onClose }: { onClose: () => void }) {
               }}
             >
               <div style={{ height: 26, display: 'flex', alignItems: 'center', gap: 6, padding: '0 8px', backgroundImage: 'linear-gradient(to bottom,#4b5054,#35393c)', color: '#f0f2ef', fontSize: 12 }}>
-                <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} size={15} rounded={0.3} />
+                <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} icon={def?.icon} size={15} rounded={0.3} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.title}</span>
               </div>
               <div style={{ height: 120, padding: 10, color: 'var(--wm-window-fg)', fontSize: 11.5, opacity: 0.75 }}>

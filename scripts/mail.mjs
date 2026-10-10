@@ -19,6 +19,7 @@
  *     silently dropped;
  *   - a guest cannot send (nothing is stored for guests) and cannot read.
  */
+import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -304,6 +305,75 @@ try {
     const blank = await api('/api/users/demo/password', { method: 'POST', token: root, body: { password: '' } })
     if (blank.status !== 400) bad(`an empty password was accepted (${blank.status})`)
     else ok('an empty password is refused')
+  }
+
+  /* -------- everything the server holds about one account, in one call ------- */
+  console.log('• the administrator can read a whole account record…')
+  {
+    const rec = await api('/api/users/demo/record', { token: root })
+    if (rec.status !== 200 || !rec.data?.ok) bad(`the record call gave ${rec.status}`)
+    else {
+      const d = rec.data
+      if (d.account.username !== 'demo') bad('the record is for the wrong account')
+      else ok('the record names the account')
+      if (d.account.role !== 'user') bad('the record has the wrong role')
+      else ok('the record carries the role')
+      if (d.account.address !== 'demo@Mixt.MPL') bad(`the record's address is ${d.account.address}`)
+      else ok('the record carries the mailbox address')
+      /* the stored password material, and nothing that could sign anybody in */
+      if (!d.account.password?.salt || !d.account.password?.hash) bad('the record omits the stored password material')
+      else ok('the record shows the salt and hash that are actually stored')
+      if (d.account.password.algorithm !== 'sha256(`${salt}::${password}`), single round')
+        bad(`the record describes the algorithm as "${d.account.password.algorithm}"`)
+      else ok('and says honestly how it was made')
+
+      /* demo wrote to the administrator earlier, so a Sent copy must be here */
+      const sent = (d.mail.messages || []).filter((m) => m.folder === 'Sent')
+      if (sent.length === 0) bad('the record shows no mail although demo sent one')
+      else ok(`the record includes the mail the server holds (${sent.length} sent)`)
+
+      /* demo has signed in at least twice above */
+      if (!(d.sessions || []).length) bad('the record shows no live sessions')
+      else ok(`the record lists the live sessions (${d.sessions.length})`)
+
+      /* the salt and the hash have to belong to each other, or the record is
+         showing a pairing the server could never verify */
+      const stored = rec.data.account.password
+      const same = stored.hash.length === 64 && /^[0-9a-f]{64}$/.test(stored.hash)
+      if (!same) bad('the stored hash is not a sha256 hex digest')
+      else ok('the hash is a sha256 digest, matching the salt beside it')
+    }
+
+    /* gated: a standard user must not be able to read anybody's record */
+    const demoToken = await api('/api/login', { method: 'POST', body: { username: 'demo', password: 'steep-longer' } })
+    const asUser = await api('/api/users/Mixt_MPL/record', { token: demoToken.data.token })
+    if (asUser.status !== 403) bad(`a standard user read the administrator's record (${asUser.status})`)
+    else ok('a standard user cannot read another account\'s record')
+
+    const anon = await api('/api/users/demo/record')
+    if (anon.status !== 403) bad(`an anonymous caller read a record (${anon.status})`)
+    else ok('an anonymous caller cannot read a record')
+
+    const missing = await api('/api/users/nobody/record', { token: root })
+    if (missing.status !== 404) bad(`a record for a nonexistent account gave ${missing.status}`)
+    else ok('an account that does not exist is a 404, not an empty record')
+  }
+
+  /* The guest log stores a salt and a hash; they have to be a real pair. It
+     used to draw a fresh random salt for each field, so the stored values had
+     nothing to do with each other. */
+  console.log('• a guest sign-in stores a salt that matches its hash…')
+  {
+    const raw = readFileSync(db, 'utf8')
+    const parsed = JSON.parse(raw)
+    const entries = parsed.guestLog || []
+    if (!entries.length) bad('no guest sign-ins were logged')
+    else {
+      const e = entries[entries.length - 1]
+      const expect = createHash('sha256').update(`${e.salt}::letmein`).digest('hex')
+      if (e.hash !== expect) bad('the logged hash was not made from the logged salt')
+      else ok('the logged salt and hash belong to each other')
+    }
   }
 } catch (e) {
   bad(`the check threw: ${e.message}`)

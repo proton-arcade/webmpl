@@ -195,7 +195,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
                       setContext({ x: e.clientX, y: e.clientY, app })
                     }}
                   >
-                    <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={30} />
+                    <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={30} />
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{app.name}</span>
                   </div>
                 ))}
@@ -214,7 +214,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', paddingBottom: 8 }}>
                     {recentApps.filter((a, i, arr) => arr.findIndex((b) => b.id === a.id) === i).map((app) => (
                       <div key={app.id} className="menu-item" style={{ width: 'auto' }} onClick={() => activate(app)}>
-                        <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={22} />
+                        <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={22} />
                         <span>{app.name}</span>
                       </div>
                     ))}
@@ -227,7 +227,7 @@ export default function MainMenu({ onClose }: { onClose: () => void }) {
             <div style={{ borderTop: '1px solid rgba(0,0,0,0.14)', padding: '8px 10px', minHeight: 54 }}>
               {highlighted ? (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <AppIcon glyph={highlighted.glyph} color={highlighted.color} color2={highlighted.color2} size={34} />
+                  <AppIcon glyph={highlighted.glyph} color={highlighted.color} color2={highlighted.color2} icon={highlighted.icon} size={34} />
                   <div>
                     <div style={{ fontWeight: 600 }}>
                       {highlighted.name}
@@ -424,7 +424,7 @@ function AppLauncher({ onClose, available }: { onClose: () => void; available: A
               <div style={{ display: 'flex', gap: 4, marginBottom: 18, flexWrap: 'wrap' }}>
                 {recent.map((app) => (
                   <button key={app.id} className="btn-ghost" style={{ color: '#eef2f4', display: 'flex', gap: 8, alignItems: 'center' }} onClick={() => open(app)}>
-                    <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={26} rounded={0.5} />
+                    <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={26} rounded={0.5} />
                     {app.name}
                   </button>
                 ))}
@@ -441,7 +441,7 @@ function AppLauncher({ onClose, available }: { onClose: () => void; available: A
                 onContextMenu={(e) => e.preventDefault()}
               >
                 <div style={{ borderRadius: 999, background: 'rgba(255,255,255,0.06)', padding: 4, transition: 'background 120ms' }}>
-                  <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={44} rounded={0.5} />
+                  <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={44} rounded={0.5} />
                 </div>
                 <div style={{ fontSize: 11.5, opacity: 0.9, maxWidth: 84, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {app.name}

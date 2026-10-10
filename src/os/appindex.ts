@@ -283,6 +283,7 @@ export const APP_INDEX: AppIndexEntry[] = [
     ],
     "dependencies": [
       "react",
+      "src/apps/vlc-art.tsx",
       "src/os/store.ts",
       "src/os/types.ts",
       "src/os/vfs.ts",
@@ -574,5 +575,6 @@ export const APP_SHARED_FILES: string[] = [
   "src/apps/mailstore.ts",
   "src/apps/registry.tsx",
   "src/apps/screenshot-utils.ts",
-  "src/apps/versions.ts"
+  "src/apps/versions.ts",
+  "src/apps/vlc-art.tsx"
 ]
