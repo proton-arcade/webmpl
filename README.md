@@ -44,6 +44,22 @@ and by opening `index.html` straight from disk. No backend, no environment varia
 CDN, no service worker, no CORS, no MIME-type rules, no `npm install` — nothing for a host
 to configure.
 
+### Run it with the backend
+
+```bash
+npm install          # once
+npm start            # → http://localhost:8080
+```
+
+That is the full desktop: accounts, mail between them, the administrator console and the
+publishing queue. `npm start` runs `node server.cjs` — a single dependency-free Node file
+that serves this folder **and** the JSON API under `/api/`. Change the port with
+`PORT=9000 npm start`. State lives in `data.json` beside it.
+
+The backend is optional. Without it the site still runs, in offline mode: one local
+account, no mail between accounts, no administrator. That is the "any static server"
+mode above.
+
 ### Work on the sources
 
 ```bash
@@ -55,12 +71,22 @@ npm run build      # regenerate mixt.bundle.js / mixt.bundle.css (and dist/)
 `npm run dev` serves the sources with hot reload through `dev.html`; `index.html` always
 loads the published bundle, exactly as a visitor would get it.
 
+To edit the sources *and* have accounts and mail, run both — the dev server forwards
+`/api` to the backend, and the backend forwards the dev module graph back to Vite, so
+`http://localhost:8080/dev.html` works as well as port 3000:
+
+```bash
+npm start            # terminal 1 — backend on 8080
+npm run dev          # terminal 2 — Vite on 3000
+```
+
 | script | what it does |
 | --- | --- |
+| `npm start` | the backend on port 8080 — this folder as a static site plus the `/api` JSON API (`node server.cjs`, no dependencies); `PORT=…` changes the port |
 | `npm run dev` | dev server on port 3000, hot reload through `dev.html`; the published `index.html`, bundle, logo and wallpapers are served as raw bytes with correct MIME types, so `http://localhost:3000/` is the real site |
 | `npm run build` | build `mixt.bundle.js` + `mixt.bundle.css` into the root, and assemble `dist/` |
 | `npm run preview` | serve the assembled `dist/` copy |
-| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 115 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence, and the boot-safety checks below) |
+| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 117 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence, and the boot-safety checks below) |
 | `npm run diagnose` | boot the real entry point (`src/os/start.tsx`) inside jsdom under eleven hostile browser conditions — blocked storage, a full disk, a damaged or truncated saved filesystem, stale settings, a tiny window, no canvas — and report which ones leave a white page |
 | `npm run static` | host the folder the way a normal static server does — as the web root, from a subdirectory, and from `file://` — fetch the page over HTTP, execute the script the server returns, and fail if the desktop does not mount |
 | `npm run session` | boot the shipped bundle against a small fake API and walk the server-only flows: the administrator signs in and owns the desktop, System Settings reports Administrator, the Administration console lists what is waiting for approval, a standard user never sees it, logging out returns a sign-in screen you can actually type into, and empty boxes go in as a guest |

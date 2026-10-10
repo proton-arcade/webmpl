@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Mixt Web OS \u2014 a full desktop computer that runs in the browser, styled after Linux Mint",
   "scripts": {
+    "start": "node server.cjs",
     "dev": "vite",
     "build": "node scripts/build-static.mjs",
     "preview": "vite preview --host",
