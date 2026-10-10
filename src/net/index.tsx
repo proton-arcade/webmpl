@@ -57,9 +57,48 @@ export function dnsStatus(host: string) {
   }
 }
 
+/**
+ * Pages that ship in this repository beside the desktop, addressed by path
+ * rather than by domain. They are loaded from the same origin, so they need no
+ * DNS record and no network — and a name somebody types in the address bar
+ * reaches them the same way a bookmark does.
+ *
+ * Kept as an explicit list rather than "any path that exists": the browser must
+ * not become a way of browsing the repository, only of opening the tools that
+ * are meant to be opened.
+ */
+export const LOCAL_PAGES: Record<string, { title: string; description: string }> = {
+  'converter': {
+    title: 'Mixt Site Converter',
+    description: 'Turn a page from the open internet into one that stands on its own.',
+  },
+}
+
+/** the relative href of a local page, or null when it is not one */
+export function localPageHref(input: string): string | null {
+  const raw = String(input ?? '').trim().replace(/^\/+/, '').replace(/^\.\//, '')
+  const name = raw.split(/[/?#]/)[0].toLowerCase()
+  if (!LOCAL_PAGES[name]) return null
+  /* the rest of the path is kept, so converter/index.html and converter/ both work */
+  return raw === name ? `${name}/index.html` : raw
+}
+
 export function resolveUrl(input: string, baseUrl = HOME_URL): ResolvedUrl {
   let raw = (input ?? '').trim()
   if (!raw) raw = HOME_URL
+
+  /* a page that ships in this folder, addressed by path or by name */
+  const local = localPageHref(raw)
+  if (local) {
+    const name = local.split('/')[0].toLowerCase()
+    return {
+      kind: 'local',
+      href: local,
+      domain: name,
+      path: '/' + local,
+      query: '',
+    }
+  }
 
   if (/^about:/i.test(raw)) {
     const page = raw.slice(6).replace(/\/+$/, '').toLowerCase() || 'home'

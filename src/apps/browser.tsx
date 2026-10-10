@@ -23,6 +23,7 @@ import {
   fetchAsText,
   serverAddress,
   zoneRecords,
+  LOCAL_PAGES,
 } from '../net'
 import { Btn } from '../net/sitekit'
 import { FILES } from '../net/downloads'
@@ -337,6 +338,8 @@ export default function BrowserApp({ win, api }: AppProps) {
         return <DnsErrorPage resolved={resolved} navigate={navigate} />
       case 'real':
         return <RealWebPage url={active.url} ctx={pageCtx} navigate={navigate} />
+      case 'local':
+        return <LocalPage href={resolved.href} title={LOCAL_PAGES[resolved.domain]?.title ?? resolved.domain} />
       default:
         return <ErrorPage msg="Invalid address" />
     }
@@ -542,8 +545,10 @@ export default function BrowserApp({ win, api }: AppProps) {
             { label: 'New window', icon: <Glyph name="AppWindow" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('mixt:launch', { detail: { appId: 'browser', props: { url: HOME_URL } } })) },
             { separator: true },
             { label: 'Bookmark this page', icon: <Glyph name="Star" size={14} />, onClick: toggleBookmark },
-            { label: 'Show bookmarks', icon: <Glyph name="List" size={14} />, onClick: () => setMenu({ ...menu, kind: 'bookmarks' }) },
-            { label: 'Show history', icon: <Glyph name="Clock" size={14} />, onClick: () => setMenu({ ...menu, kind: 'history' }) },
+            /* keepOpen: these swap this menu for another popup, and the menu's
+               own close would land afterwards and dismiss the replacement. */
+            { label: 'Show bookmarks', icon: <Glyph name="List" size={14} />, keepOpen: true, onClick: () => setMenu({ ...menu, kind: 'bookmarks' }) },
+            { label: 'Show history', icon: <Glyph name="Clock" size={14} />, keepOpen: true, onClick: () => setMenu({ ...menu, kind: 'history' }) },
             { label: 'Downloads', icon: <Glyph name="Download" size={14} />, onClick: () => setShowDownloads(true) },
             { separator: true },
             {
@@ -967,6 +972,45 @@ function SearchResults({ query, ctx, navigate }: { query: string; ctx: PageCtx; 
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * A page that ships in this repository beside the desktop — the site converter,
+ * for one. Loaded by relative path from the same origin, so there is no DNS
+ * lookup, no third-party frame and nothing leaving this machine.
+ *
+ * Unlike a real website there is no waiting to see whether it refuses to be
+ * embedded: it is our own page, served from the same folder as the desktop, so
+ * it either loads or the folder was not published.
+ */
+function LocalPage({ href, title }: { href: string; title: string }) {
+  return (
+    <div style={{ minHeight: '100%', background: '#f6f8f4', display: 'flex', flexDirection: 'column' }}>
+      <div
+        style={{
+          background: '#eef4e6',
+          borderBottom: '1px solid #d3e2c2',
+          padding: '8px 16px',
+          fontSize: 12.5,
+          color: '#41503a',
+          display: 'flex',
+          gap: 10,
+          alignItems: 'center',
+        }}
+      >
+        <Glyph name="Wrench" size={14} />
+        <span style={{ flex: 1 }}>
+          <strong>{title}</strong> — a page from this project, served from the same folder as the desktop at{' '}
+          <code>{href}</code>. No DNS, no network, nothing leaves this machine.
+        </span>
+      </div>
+      <iframe
+        src={href}
+        title={title}
+        style={{ flex: 1, width: '100%', minHeight: 'calc(100vh - 220px)', border: 0, background: '#fff' }}
+      />
     </div>
   )
 }

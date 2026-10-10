@@ -9,6 +9,13 @@ export interface MenuItem {
   accel?: string
   checked?: boolean
   submenu?: MenuItem[]
+  /**
+   * Set when the item replaces the menu rather than dismissing it — "Show
+   * bookmarks" swaps this popup for the bookmark list, and the automatic close
+   * would land after that and close the replacement too. Both writes happen in
+   * the same click, so the later one wins and nothing appears to happen at all.
+   */
+  keepOpen?: boolean
 }
 
 export function Popup({
@@ -83,7 +90,9 @@ export function Popup({
               }
               if (it.disabled) return
               it.onClick?.()
-              onClose()
+              /* An item that opens something else in this menu's place has to be
+                 left alone: closing here would undo the swap it just made. */
+              if (!it.keepOpen) onClose()
             }}
           >
             <span style={{ width: 16, display: 'grid', placeItems: 'center', flex: 'none' }}>{it.icon}</span>

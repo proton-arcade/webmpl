@@ -33,6 +33,10 @@ export function loadBookmarks(): Bookmark[] {
     { url: 'https://mixtnet.com/', title: 'MixtNet', added: Date.now() },
     { url: 'https://mixtpedia.org/article/mixt-os', title: 'Mixt OS — MixtPedia', added: Date.now() },
     { url: 'https://mixtnews.com/', title: 'MixtNews', added: Date.now() },
+    /* Not a website: a page from this project, served from the same folder as
+       the desktop. Bookmarked so the tools that ship here can actually be
+       found, rather than only reached by somebody who knows the path. */
+    { url: 'converter', title: 'Site Converter', added: Date.now() },
   ]
   saveBookmarks(defaults)
   return defaults

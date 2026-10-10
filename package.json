@@ -22,7 +22,8 @@
     "files": "node scripts/files.mjs",
     "human": "node scripts/human.mjs",
     "converter": "node scripts/converter.mjs",
-    "sdk": "node scripts/sdk.mjs"
+    "sdk": "node scripts/sdk.mjs",
+    "localpages": "node scripts/localpages.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
