@@ -1,0 +1,10 @@
+# /etc/hosts — static table lookup for hostnames.
+# Entries here are checked before MixtNet DNS, exactly like a real resolver.
+127.0.0.1       localhost
+127.0.1.1       mixt-web
+::1             localhost ip6-localhost ip6-loopback
+10.0.0.53       ns1.mixtnet.com dns1
+10.0.0.54       ns2.mixtnet.com dns2
+
+# Add your own names below, e.g.
+# 10.99.0.1     my-server.lan

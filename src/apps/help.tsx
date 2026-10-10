@@ -42,7 +42,7 @@ const TOPICS: { id: string; title: string; glyph: string; body: React.ReactNode 
     body: (
       <>
         <Para>
-          Windows behave like Cinnamon windows: drag the title bar to move, double-click it to maximise, drag to a screen
+          Windows behave like Mixt Shell windows: drag the title bar to move, double-click it to maximise, drag to a screen
           edge to snap to half or full width. The eight invisible handles around the frame resize it.
         </Para>
         <List
@@ -119,7 +119,7 @@ mixt@mixt-web:~$ curl https://mixtnews.com/`}</Pre>
         </Para>
         <List
           items={[
-            'mixtpedia.org — an encyclopaedia with articles on Linux, browsers, kernels and void* pointers to nowhere.',
+            'mixtpedia.org — an encyclopaedia with articles on Mixt, browsers, kernels and void* pointers to nowhere.',
             'mixtnews.com — a newspaper with a front page, sections and comments.',
             'mixtube.com — a video site with a working (fake) player and likes.',
             'mixtcart.com — a shop with a cart, checkout, and receipts saved into ~/Documents.',
@@ -130,7 +130,7 @@ mixt@mixt-web:~$ curl https://mixtnews.com/`}</Pre>
         />
         <Para>
           Search boxes on MixtNet sites feed a real inverted index over titles and keywords. Try searching for
-          “cinnamon desktop” or “virtual filesystem”.
+          “mixt desktop” or “virtual filesystem”.
         </Para>
         <h3 style={{ margin: '18px 0 6px', fontSize: 14.5 }}>The MixtNet has a real DNS</h3>
         <Para>
@@ -197,7 +197,7 @@ ping nope.mixtnet          # NXDOMAIN, honestly`}</Pre>
             'Backgrounds: three wallpapers plus any PNG/JPG stored in ~/Pictures.',
             'Panel: move it to the top, resize it, auto-hide it, and change the clock format.',
             'Desktop: choose which applications get a desktop icon.',
-            'Users: change your name, hostname and avatar — the terminal prompt follows along.',
+            'Users: change your name and hostname — the terminal prompt follows along.',
           ]}
         />
         <Actions items={[['Open System Settings', () => launch('settings', {})]]} />

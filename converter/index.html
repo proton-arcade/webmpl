@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mixt Site Converter — turn a website into a website for this project</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="mark" aria-hidden="true"></div>
+  <div>
+    <h1>Mixt Site Converter</h1>
+    <p class="tagline">Turn a website from out there into a website for this project.</p>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>1. Give it a page</h2>
+    <p class="hint">
+      Paste the HTML of the page you want. Nothing is fetched: this page has no network access and
+      makes no requests, so what you paste is the only thing it works from.
+    </p>
+    <label class="field">
+      <span>Where it came from <em>(optional, recorded in the manifest)</em></span>
+      <input id="source-url" type="text" placeholder="https://example.com/page.html" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>What to call it here</span>
+      <input id="site-name" type="text" placeholder="Converted site" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>The page's HTML</span>
+      <textarea id="source-html" spellcheck="false" placeholder="&lt;!doctype html&gt;&#10;&lt;html&gt;&#10;  &lt;head&gt;&lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.example/style.css&quot;&gt;&lt;/head&gt;&#10;  &lt;body&gt;&lt;h1&gt;Hello&lt;/h1&gt;&lt;img src=&quot;https://img.example/hero.png&quot;&gt;&lt;/body&gt;&#10;&lt;/html&gt;"></textarea>
+    </label>
+    <div class="row">
+      <button id="convert" class="primary">Convert it</button>
+      <button id="load-example" class="ghost">Load an example</button>
+      <button id="clear" class="ghost">Clear</button>
+    </div>
+  </section>
+
+  <section class="panel" id="results" hidden>
+    <h2>2. What it did</h2>
+    <p id="summary" class="summary"></p>
+    <div id="vendored" class="list" hidden>
+      <h3>Remote assets pointed inside</h3>
+      <p class="hint">
+        Each of these was an absolute address on somebody else's machine. It now points at a file
+        under <code>./vendor/</code>. Nothing was downloaded — put the file there yourself, or the
+        page does without it.
+      </p>
+      <table><thead><tr><th>Was</th><th>Now</th></tr></thead><tbody id="vendored-rows"></tbody></table>
+    </div>
+    <div id="disabled" class="list" hidden>
+      <h3>Switched off</h3>
+      <p class="hint">Left in the source as comments, not deleted, so you can see what the page was doing.</p>
+      <table><thead><tr><th>What</th><th>How many</th><th>Why</th></tr></thead><tbody id="disabled-rows"></tbody></table>
+    </div>
+
+    <h3>The converted page</h3>
+    <pre id="out-html" class="output"></pre>
+    <div class="row">
+      <button id="copy-html" class="ghost">Copy HTML</button>
+      <button id="download-html" class="ghost">Download index.html</button>
+    </div>
+
+    <h3>website.ini</h3>
+    <p class="hint">
+      The record the desktop reads to describe a hosted site. Drop the folder into
+      <code>/srv/www</code> and the browser on this machine lists it like any other site.
+    </p>
+    <pre id="out-ini" class="output"></pre>
+    <div class="row">
+      <button id="copy-ini" class="ghost">Copy website.ini</button>
+      <button id="download-ini" class="ghost">Download website.ini</button>
+    </div>
+
+    <h3>Manifest</h3>
+    <pre id="out-manifest" class="output"></pre>
+  </section>
+
+  <section class="panel notes">
+    <h2>What the converter changes, and why</h2>
+    <ol>
+      <li><b>Absolute addresses become local ones.</b> <code>https://cdn.example/style.css</code>
+          becomes <code>vendor/cdn.example-style.css</code>. A page that pointed at a CDN now points
+          at a file in its own folder, and nothing on it reaches another machine.</li>
+      <li><b>Protocol-relative addresses are absolute in disguise.</b> <code>//cdn.example/x</code>
+          gets the same treatment; left alone it would still try to leave.</li>
+      <li><b>Integrity hashes are dropped.</b> The hash describes the remote file. Keeping it while
+          serving a local copy would make the browser refuse to run anything.</li>
+      <li><b>Things that need a foreign machine are commented out</b> — iframes, forms that post
+          away, prefetch and preconnect hints, beacons, service worker registration — each with a
+          note saying what it was and why it went.</li>
+      <li><b>A manifest is produced</b> listing every change, so the result can be checked instead
+          of taken on trust.</li>
+      <li><b>A <code>website.ini</code> is produced</b> in the <code>[Website]</code> key-per-line
+          form the rest of this project uses.</li>
+    </ol>
+    <p class="hint">
+      This is a second, separate website that lives in the repository beside the desktop. It has no
+      dependencies and no build step: open <code>converter/index.html</code> and it runs, over http
+      or straight off the disk.
+    </p>
+  </section>
+</main>
+
+<footer>
+  Part of Mixt Web OS. Self-contained: no requests are made, and no data leaves this machine.
+</footer>
+
+<script src="converter.js"></script>
+<script>
+(function () {
+  'use strict'
+
+  var $ = function (id) { return document.getElementById(id) }
+  var last = null
+
+  var EXAMPLE = [
+    '<!doctype html>',
+    '<html lang="en">',
+    '<head>',
+    '  <meta charset="utf-8">',
+    '  <title>A page from out there</title>',
+    '  <link rel="stylesheet" href="https://cdn.example/framework.min.css" integrity="sha384-abc123" crossorigin="anonymous">',
+    '  <link rel="preconnect" href="https://fonts.example">',
+    '  <script src="https://cdn.example/analytics.js"><\/script>',
+    '</head>',
+    '<body>',
+    '  <h1>A page from out there</h1>',
+    '  <img src="https://img.example/hero.png" alt="hero">',
+    '  <img srcset="https://img.example/small.png 480w, https://img.example/large.png 1080w" src="https://img.example/small.png" alt="">',
+    '  <iframe src="https://player.example/embed/42"></iframe>',
+    '  <form action="https://forms.example/subscribe" method="post">',
+    '    <input type="email" name="email">',
+    '    <button>Subscribe</button>',
+    '  </form>',
+    '  <script>',
+    '    navigator.sendBeacon("https://tracker.example/seen", "1")',
+    '  <\/script>',
+    '</body>',
+    '</html>',
+    '',
+  ].join('\n')
+
+  function show(id, on) { $(id).hidden = !on }
+
+  function render(result) {
+    last = result
+    show('results', true)
+    $('summary').textContent = MixtSiteConverter.describe(result)
+
+    var vRows = $('vendored-rows')
+    vRows.textContent = ''
+    result.manifest.vendored.forEach(function (v) {
+      var tr = document.createElement('tr')
+      var a = document.createElement('td'); a.textContent = v.from
+      var b = document.createElement('td'); b.textContent = v.to
+      tr.appendChild(a); tr.appendChild(b)
+      vRows.appendChild(tr)
+    })
+    show('vendored', result.manifest.vendored.length > 0)
+
+    var dRows = $('disabled-rows')
+    dRows.textContent = ''
+    result.manifest.disabled.forEach(function (d) {
+      var tr = document.createElement('tr')
+      ;[d.what, String(d.count), d.why].forEach(function (text) {
+        var td = document.createElement('td'); td.textContent = text; tr.appendChild(td)
+      })
+      dRows.appendChild(tr)
+    })
+    show('disabled', result.manifest.disabled.length > 0)
+
+    $('out-html').textContent = result.html
+    $('out-ini').textContent = result.ini
+    $('out-manifest').textContent = JSON.stringify(result.manifest, null, 2)
+  }
+
+  $('convert').addEventListener('click', function () {
+    var source = $('source-html').value
+    if (!source.trim()) { $('summary').textContent = 'Paste a page first.'; show('results', true); return }
+    render(MixtSiteConverter.convert(source, {
+      name: $('site-name').value,
+      url: $('source-url').value,
+    }))
+  })
+
+  $('load-example').addEventListener('click', function () {
+    $('source-html').value = EXAMPLE
+    $('site-name').value = $('site-name').value || 'Example page'
+    $('source-url').value = $('source-url').value || 'https://example.com/page.html'
+  })
+
+  $('clear').addEventListener('click', function () {
+    $('source-html').value = ''
+    show('results', false)
+    last = null
+  })
+
+  /* Copy falls back to a selection when the clipboard API is not there, which
+     it is not on file:// — and this page is meant to work from the disk. */
+  function copy(text, btn) {
+    var done = function () {
+      var label = btn.textContent
+      btn.textContent = 'Copied'
+      setTimeout(function () { btn.textContent = label }, 1200)
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback() })
+    } else fallback()
+    function fallback() {
+      var ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy'); done() } catch (e) { /* nothing to do */ }
+      document.body.removeChild(ta)
+    }
+  }
+
+  $('copy-html').addEventListener('click', function () { if (last) copy(last.html, this) })
+  $('copy-ini').addEventListener('click', function () { if (last) copy(last.ini, this) })
+
+  function download(text, filename, mime) {
+    var blob = new Blob([text], { type: mime })
+    var url = URL.createObjectURL(blob)
+    var a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(function () { URL.revokeObjectURL(url) }, 1000)
+  }
+
+  $('download-html').addEventListener('click', function () { if (last) download(last.html, 'index.html', 'text/html') })
+  $('download-ini').addEventListener('click', function () { if (last) download(last.ini, 'website.ini', 'text/plain') })
+})()
+</script>
+</body>
+</html>

@@ -6,18 +6,19 @@
  *
  * It runs as a side effect of being imported, which is why main.tsx imports it
  * before anything that reads the stores. Calling it again is harmless.
+ *
+ * Storage access goes through os/storage, so a browser that refuses web
+ * storage entirely (private mode, sandboxed frame) simply skips the migration
+ * instead of failing to boot.
  */
+import { safeLocal, safeSession, type SafeStore } from './storage'
+
 const OLD_PREFIX = 'webmpl.'
 const NEW_PREFIX = 'mixt.'
 const VFS_KEY = 'mixt.vfs.v2'
 
-function migrateStore(store: Storage) {
-  const keys: string[] = []
-  for (let i = 0; i < store.length; i++) {
-    const key = store.key(i)
-    if (key) keys.push(key)
-  }
-  for (const key of keys) {
+function migrateStore(store: SafeStore) {
+  for (const key of store.keys()) {
     if (!key.startsWith(OLD_PREFIX)) continue
     const next = NEW_PREFIX + key.slice(OLD_PREFIX.length)
     if (store.getItem(next) === null) {
@@ -30,9 +31,9 @@ function migrateStore(store: Storage) {
 
 /** /home/mint → /home/mixt, inside the persisted filesystem tree. */
 function migrateHome() {
-  const raw = localStorage.getItem(VFS_KEY)
+  const raw = safeLocal.getItem(VFS_KEY)
   if (!raw || !raw.includes('"mint"')) return
-  localStorage.setItem(
+  safeLocal.setItem(
     VFS_KEY,
     raw.split('"mint"').join('"mixt"').split('/home/mint').join('/home/mixt'),
   )
@@ -40,12 +41,12 @@ function migrateHome() {
 
 export function migrateBranding() {
   try {
-    migrateStore(localStorage)
+    migrateStore(safeLocal)
   } catch {
-    /* private mode, quota, anything else — the app still works */
+    /* anything at all — the app still works */
   }
   try {
-    migrateStore(sessionStorage)
+    migrateStore(safeSession)
   } catch {
     /* ignore */
   }

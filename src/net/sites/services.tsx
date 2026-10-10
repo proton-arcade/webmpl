@@ -2,6 +2,8 @@ import React from 'react'
 import { A, Btn, Card, H, Img, Meta, NotFound, Pill, Progress, SiteShell } from '../sitekit'
 import { FILES } from '../downloads'
 import type { PageCtx, SiteDef } from '../types'
+import { useOS } from '../../os/store'
+import { localAddress } from '../../os/mailaddr'
 
 /* ==========================================================================
    mixtcart.com — the shop
@@ -35,7 +37,7 @@ interface CartLine {
 }
 
 function money(n: number) {
-  return n === 0 ? 'Free' : `£${n.toFixed(2)}`
+  return n === 0 ? 'Free' : `$${n.toFixed(2)}`
 }
 
 function CartContext(ctx: PageCtx) {
@@ -229,7 +231,7 @@ function CartPage({ ctx }: { ctx: PageCtx }) {
             <strong style={{ flex: 1, fontSize: 17 }}>Total {money(total)}</strong>
             <Btn onClick={checkout}>Place order</Btn>
           </Card>
-          <Meta>Free delivery on orders over £50. Nothing is actually shipped, which keeps costs low.</Meta>
+          <Meta>Free delivery on orders over $50. Nothing is actually shipped, which keeps costs low.</Meta>
         </>
       )}
     </SiteShell>
@@ -253,7 +255,7 @@ interface Mail {
 const SEED_MAIL: Mail[] = [
   {
     id: 'm1',
-    from: 'Mixt Update Manager <updates@mixtnet.com>',
+    from: 'Mixt Update Manager <updates@Mixt.MPL>',
     subject: '3 optional applications are available',
     time: '09:12',
     folder: 'inbox',
@@ -268,7 +270,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm2',
-    from: 'Cinnamon Team <hello@cinnamon.dev>',
+    from: 'Mixt Shell Team <hello@Mixt.MPL>',
     subject: 'Your window snapped correctly',
     time: 'Yesterday, 18:40',
     folder: 'inbox',
@@ -280,7 +282,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm3',
-    from: 'MixtCart <orders@mixtcart.com>',
+    from: 'MixtCart <orders@Mixt.MPL>',
     subject: 'Your digital downloads are ready',
     time: 'Yesterday, 11:02',
     folder: 'inbox',
@@ -292,7 +294,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm4',
-    from: 'Petra Lindgren <petra@mixtnews.com>',
+    from: 'Petra Lindgren <petra@Mixt.MPL>',
     subject: 'Re: desktop feature ideas',
     time: 'Monday',
     folder: 'inbox',
@@ -306,7 +308,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm5',
-    from: 'you@mixtmail.com',
+    from: 'you@Mixt.MPL',
     subject: 'Re: desktop feature ideas',
     time: 'Monday',
     folder: 'sent',
@@ -315,8 +317,12 @@ const SEED_MAIL: Mail[] = [
 ]
 
 function MailApp({ ctx }: { ctx: PageCtx }) {
+  /* the webmail site is signed in as whoever owns the desktop, so it shows
+     their address rather than a generic "you" */
+  const settings = useOS((s) => s.settings)
+  const me = localAddress(settings.username)
   const [folder, setFolder] = React.useState<'inbox' | 'sent' | 'trash'>('inbox')
-  const [mails, setMails] = React.useState<Mail[]>(SEED_MAIL)
+  const [mails, setMails] = React.useState<Mail[]>(() => SEED_MAIL.map((m) => (m.from === 'you@Mixt.MPL' ? { ...m, from: me } : m)))
   const [selected, setSelected] = React.useState<string | null>('m1')
   const [writing, setWriting] = React.useState(false)
   const [to, setTo] = React.useState('')
@@ -331,7 +337,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
     if (!to.trim()) return
     const mail: Mail = {
       id: `m${Date.now()}`,
-      from: 'you@mixtmail.com',
+      from: me,
       subject: subject || '(no subject)',
       time: 'now',
       body: body.split('\n'),
@@ -367,7 +373,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
             ))}
           </div>
           <Meta>
-            you@mixtmail.com
+            {me}
             <br />
             1.0 GB of 1.0 GB free
           </Meta>
@@ -443,7 +449,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
 
 const PLACES: { name: string; kind: string; x: number; y: number; info: string }[] = [
   { name: 'Mixtville Centre', kind: 'Town', x: 0.5, y: 0.5, info: 'The greenest roundabout on the MixtNet.' },
-  { name: 'Cinnamon Park', kind: 'Park', x: 0.22, y: 0.3, info: 'Trees, benches and one extremely relaxed duck.' },
+  { name: 'Mixt Park', kind: 'Park', x: 0.22, y: 0.3, info: 'Trees, benches and one extremely relaxed duck.' },
   { name: 'Kernel Street', kind: 'Road', x: 0.62, y: 0.36, info: 'Runs north to south, never blocks.' },
   { name: 'Daemon Docks', kind: 'Harbour', x: 0.76, y: 0.72, info: 'Ships in the night, cleaned up by systemd.' },
   { name: 'Terminal Station', kind: 'Station', x: 0.4, y: 0.66, info: 'Platforms named after shells. No services run here.' },
@@ -529,7 +535,7 @@ function MapCanvas({ focus, onPick }: { focus: { x: number; y: number } | null; 
       ctx.arc(px, py, Math.max(3, scale * 0.011), 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#25302a'
-      ctx.font = `${Math.max(10, Math.min(13, scale * 0.03))}px Ubuntu, sans-serif`
+      ctx.font = `${Math.max(10, Math.min(13, scale * 0.03))}px system-ui, sans-serif`
       ctx.fillText(p.name, px + 8, py + 4)
     }
 
@@ -604,7 +610,7 @@ function MapsHome({ ctx }: { ctx: PageCtx }) {
     ? [
         `Leave ${route.from} heading towards the main road (north-east).`,
         'At the Mixtville roundabout take the second exit onto Kernel Street.',
-        'Continue straight for about 900 m — you will pass Cinnamon Park on your left.',
+        'Continue straight for about 900 m — you will pass Mixt Park on your left.',
         route.to.includes('Docks') ? 'Turn right at the harbour sign and follow the quay.' : `Arrive at ${route.to} on your right.`,
       ]
     : []
@@ -620,7 +626,7 @@ function MapsHome({ ctx }: { ctx: PageCtx }) {
           className="entry"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search places, e.g. Cinnamon Park"
+          placeholder="Search places, e.g. Mixt Park"
           style={{ width: 340 }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && found[0]) {
@@ -779,12 +785,12 @@ export const MIXTMAIL: SiteDef = {
     { path: '/', title: 'MixtMail — inbox', keywords: ['email', 'inbox', 'messages', 'compose', 'send'], snippet: 'Read your inbox, compose and send messages.', render: (ctx) => <MailApp ctx={ctx} /> },
     { path: '/compose', title: 'MixtMail — compose', keywords: ['compose', 'new message', 'write'], snippet: 'Write a new message.', render: (ctx) => <MailApp ctx={ctx} /> },
   ],
-  text: () => ['MixtMail — inbox', '================', '1. 3 optional applications are available        — updates@mixtnet.com', '2. Your window snapped correctly                 — hello@cinnamon.dev', '3. Your digital downloads are ready              — orders@mixtcart.com', '', 'Open https://mixtmail.com/ in the browser to read them.'].join('\n'),
+  text: () => ['MixtMail — inbox', '================', '1. 3 optional applications are available        — updates@Mixt.MPL', '2. Your window snapped correctly                 — hello@Mixt.MPL', '3. Your digital downloads are ready              — orders@Mixt.MPL', '', 'Open https://mixtmail.com/ in the browser to read them.'].join('\n'),
 }
 
 export const MIXTMAPS: SiteDef = {
   domain: 'mixtmaps.com',
-  aliases: ['maps.google.com', 'openstreetmap.org'],
+  aliases: ['maps.mixtnet', 'atlas.mixtnet'],
   title: 'MixtMaps',
   glyph: 'Map',
   color: '#4a8f3f',
@@ -798,7 +804,7 @@ export const MIXTMAPS: SiteDef = {
     {
       path: '/place',
       title: 'MixtMaps — place',
-      keywords: ['place', 'cinnamon park', 'kernel street'],
+      keywords: ['place', 'mixt park', 'kernel street'],
       snippet: 'Information about a place in Mixtville.',
       render: (ctx) => {
         const name = decodeURIComponent(ctx.path.split('/')[2] ?? '')

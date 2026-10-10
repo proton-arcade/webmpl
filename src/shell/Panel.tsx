@@ -1,9 +1,22 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useOS } from '../os/store'
 import { AppIcon, Glyph } from './AppIcon'
 import { getApp, searchApps } from '../apps/registry'
 import { Popup, type MenuItem } from './ContextMenu'
 import { launch } from '../os/bus'
+import { HOME } from '../os/vfs'
+
+/** Shelf launcher button: a circle with a small grid of dots. */
+function LauncherGlyph() {
+  return (
+    <svg width={22} height={22} viewBox="0 0 22 22">
+      <circle cx={11} cy={11} r={10} fill="none" stroke="#e8ecef" strokeWidth={1.6} />
+      <circle cx={11} cy={7} r={1.6} fill="#e8ecef" />
+      <circle cx={7} cy={12.6} r={1.6} fill="#e8ecef" />
+      <circle cx={15} cy={12.6} r={1.6} fill="#e8ecef" />
+    </svg>
+  )
+}
 
 export default function Panel() {
   const settings = useOS((s) => s.settings)
@@ -37,6 +50,7 @@ export default function Panel() {
   const isHidden = settings.panelAutohide && hidden && !peek
 
   const quickApps = ['nemo', 'browser', 'terminal', 'xed', 'settings']
+  const shelf = settings.desktopStyle === 'shelf'
 
   return (
     <>
@@ -75,62 +89,80 @@ export default function Panel() {
           onClick={() => S.setMenuOpen(!menuOpen)}
           title="Main Menu (Super)"
         >
-          <MixtLogo />
+          {shelf ? <LauncherGlyph /> : <MixtLogo />}
         </div>
 
+        {/* shelf centres the launch row; otherwise layout is unchanged */}
+        <div style={shelf ? { display: 'flex', alignItems: 'center', margin: '0 auto', gap: 3 } : { display: 'contents' }}>
         {/* quick launch */}
         <div style={{ display: 'flex', gap: 2 }}>
           {quickApps.map((id) => {
             const app = getApp(id)
             if (!app) return null
+            const open = visible.filter((w) => w.appId === id)
+            const focused = open.some((w) => w.id === activeId && !w.minimized)
             return (
-              <div key={id} className="panel-item" style={{ padding: '0 5px' }} title={app.name} onClick={() => launch(id, {})}>
-                <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={22} rounded={0.28} />
+              <div
+                key={id}
+                className="panel-item"
+                data-running={open.length > 0}
+                data-active={focused}
+                style={{ padding: '0 5px' }}
+                title={open.length ? `${app.name} — ${open.length} window${open.length === 1 ? '' : 's'} open` : app.name}
+                onClick={() => {
+                  // an app that is already open gets minimised, exactly like
+                  // clicking its icon anywhere else in the system
+                  if (!open.length) return launch(id, {})
+                  const last = open[open.length - 1]
+                  if (last.id === activeId && !last.minimized) return S.toggleMinimize(last.id)
+                  if (last.minimized) return S.toggleMinimize(last.id)
+                  S.focusWindow(last.id)
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setPopup({ kind: `app:${id}`, x: e.clientX, y: e.clientY })
+                }}
+              >
+                <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={22} rounded={0.28} />
+                {open.length > 1 && (
+                  <span
+                    className="panel-badge"
+                    title={`${open.length} windows — click for the list`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPopup({ kind: `app:${id}`, x: e.clientX, y: e.clientY })
+                    }}
+                  >
+                    +{open.length - 1}
+                  </span>
+                )}
               </div>
             )
           })}
         </div>
 
-        <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.18)', margin: '0 4px' }} />
-
-        {/* window list */}
-        <div style={{ display: 'flex', gap: 3, flex: '1 1 auto', overflow: 'hidden', minWidth: 0 }}>
-          {visible.map((w) => {
-            const app = getApp(w.appId)
-            const active = activeId === w.id && !w.minimized
-            return (
-              <div
-                key={w.id}
-                className="panel-item"
-                data-active={active}
-                style={{ maxWidth: 190, minWidth: 0, opacity: w.minimized ? 0.65 : 1 }}
-                title={w.title}
-                onClick={() => (active || w.minimized ? S.toggleMinimize(w.id) : S.focusWindow(w.id))}
-                onContextMenu={(e) => {
-                  e.preventDefault()
-                  setPopup({ kind: `win:${w.id}`, x: e.clientX, y: e.clientY })
-                }}
-              >
-                <AppIcon glyph={app?.glyph ?? 'AppWindow'} color={app?.color ?? '#5b8def'} size={16} rounded={0.3} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>
-                  {w.title.replace(/ — .*/, '')}
-                </span>
-              </div>
-            )
-          })}
         </div>
 
         {/* right hand applets */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto' }}>
-          {/* workspace switcher */}
-          <div className="panel-item" style={{ gap: 4 }} title="Workspaces (click for all windows)" onClick={() => S.setExposeOpen(true)}>
+        <div
+          style={
+            shelf
+              ? { display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '3px 8px' }
+              : { display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto' }
+          }
+        >
+          {/* workspace switcher — opens a chooser rather than guessing */}
+          <div
+            className="panel-item"
+            style={{ gap: 4 }}
+            title="Workspaces"
+            onClick={() =>
+              setPopup({ kind: 'workspaces', x: window.innerWidth - 230, y: top ? size : window.innerHeight - size - 210 })
+            }
+          >
             {Array.from({ length: workspaceCount }).map((_, i) => (
               <span
                 key={i}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  S.switchWorkspace(i)
-                }}
                 style={{
                   width: 9,
                   height: 9,
@@ -176,7 +208,7 @@ export default function Panel() {
             title={`${settings.username}@${settings.hostname}`}
             onClick={() => setPopup({ kind: 'session', x: window.innerWidth - 210, y: top ? size : window.innerHeight - size - 250 })}
           >
-            <span style={{ fontSize: 15 }}>{settings.avatar}</span>
+            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{settings.username}</span>
           </div>
         </div>
       </div>
@@ -209,6 +241,27 @@ export default function Panel() {
           ]}
         />
       )}
+      {popup?.kind === 'workspaces' && (
+        <Popup
+          x={popup.x}
+          y={popup.y}
+          onClose={() => setPopup(null)}
+          items={[
+            { label: `Workspace ${workspace + 1} of ${workspaceCount}`, disabled: true },
+            { separator: true },
+            ...Array.from({ length: workspaceCount }, (_, i) => {
+              const count = windows.filter((w) => w.workspace === i && !w.minimized).length
+              return {
+                label: `Workspace ${i + 1}${count ? ` — ${count} window${count === 1 ? '' : 's'}` : ' — empty'}`,
+                disabled: i === workspace,
+                onClick: () => S.switchWorkspace(i),
+              }
+            }),
+            { separator: true },
+            { label: 'All windows (Exposé)', icon: <Glyph name="LayoutGrid" size={14} />, onClick: () => S.setExposeOpen(true) },
+          ]}
+        />
+      )}
       {popup?.kind === 'battery' && (
         <Popup
           x={popup.x}
@@ -230,6 +283,24 @@ export default function Panel() {
           items={[
             { label: `${settings.fullName} (${settings.username})`, disabled: true },
             { separator: true },
+            ...(S.users.length
+              ? ([
+                  { label: 'Switch account', disabled: true },
+                  ...S.users.map((u) => ({
+                    label: `${u.fullName}${u.id === S.activeUserId ? '  ✓' : ''}`,
+                    disabled: u.id === S.activeUserId,
+                    // lock the screen: the account chooser there does the sign-in
+                    onClick: () => S.setLocked(true),
+                  })),
+                  { separator: true },
+                ] as any[])
+              : ([
+                  {
+                    label: 'Create an account…  (/startup)',
+                    onClick: () => launch('terminal', { cwd: HOME }),
+                  },
+                  { separator: true },
+                ] as any[])),
             { label: 'Lock screen', icon: <Glyph name="Lock" size={14} />, onClick: () => S.setLocked(true) },
             { label: 'Log out…', icon: <Glyph name="LogOut" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'logout' })) },
             { label: 'Restart…', icon: <Glyph name="RefreshCw" size={14} />, onClick: () => window.dispatchEvent(new CustomEvent('mixt:session', { detail: 'reboot' })) },
@@ -238,6 +309,37 @@ export default function Panel() {
             { label: 'System Settings', icon: <Glyph name="Settings" size={14} />, onClick: () => launch('settings', {}) },
             { label: 'About This Computer', icon: <Glyph name="Info" size={14} />, onClick: () => launch('about', {}) },
           ]}
+        />
+      )}
+      {/* One app, several windows: the list of them, and a way to close them
+          all at once. This replaced the old tab strip along the panel. */}
+      {popup?.kind?.startsWith('app:') && (
+        <Popup
+          x={popup.x}
+          y={popup.y}
+          onClose={() => setPopup(null)}
+          items={(() => {
+            const id = popup.kind.slice(4)
+            const app = getApp(id)
+            const mine = windows.filter((w) => w.appId === id)
+            if (!mine.length) return [{ label: 'No windows open', disabled: true }]
+            return [
+              ...mine.map(
+                (w) =>
+                  ({
+                    label: w.title.length > 34 ? `${w.title.slice(0, 33)}…` : w.title,
+                    icon: <Glyph name={w.minimized ? 'Minus' : 'AppWindow'} size={14} />,
+                    onClick: () => (w.minimized ? S.toggleMinimize(w.id) : S.focusWindow(w.id)),
+                  }) as MenuItem,
+              ),
+              { separator: true },
+              {
+                label: mine.length === 1 ? 'Close window' : `Close all ${mine.length} windows`,
+                icon: <Glyph name="X" size={14} />,
+                onClick: () => mine.forEach((w) => S.closeWindow(w.id)),
+              },
+            ] as MenuItem[]
+          })()}
         />
       )}
       {popup?.kind?.startsWith('win:') && (
@@ -310,6 +412,24 @@ function MixtLogo() {
 }
 
 function CalendarPopup({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  /* Clicking anywhere else closes it, like every other popup on the panel.
+     Installed a tick later so the click that opened it does not close it
+     again on the way back up. */
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) onClose()
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const t = setTimeout(() => window.addEventListener('mousedown', onDown, true), 0)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('mousedown', onDown, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
   const [cursor, setCursor] = useState(() => {
     const d = new Date()
     return new Date(d.getFullYear(), d.getMonth(), 1)
@@ -328,6 +448,7 @@ function CalendarPopup({ x, y, onClose }: { x: number; y: number; onClose: () =>
 
   return (
     <div
+      ref={boxRef}
       className="menu-popup anim-pop"
       style={{ position: 'fixed', left: Math.max(6, x - 40), top: Math.max(6, y - 40), zIndex: 160000, width: 300 }}
       onMouseDown={(e) => e.stopPropagation()}

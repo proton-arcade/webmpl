@@ -1,11 +1,14 @@
 import React, { useMemo, useState } from 'react'
 import { useOS, DEFAULT_SETTINGS } from '../os/store'
 import { useVFS, vfs, HOME, humanSize, nodeSize, join } from '../os/vfs'
+import { clearSavedData } from '../os/storage'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { Dialog } from './files'
-import { APPS } from './registry'
+import { visibleApps } from './registry'
 import { notify } from '../os/bus'
+import { collectBackup, downloadBackup, backupFileName, describeBackup, parseBackup, restoreBackup, backupSize, type AccountBackup } from '../os/backup'
 import type { AppProps } from '../os/types'
+import * as backend from '../os/api'
 
 const SECTIONS = [
   { id: 'appearance', label: 'Appearance', glyph: 'Palette', group: 'Look and feel' },
@@ -20,6 +23,7 @@ const SECTIONS = [
   { id: 'clock', label: 'Date &amp; Time', glyph: 'Clock', group: 'System' },
   { id: 'startup', label: 'Startup Applications', glyph: 'Play', group: 'System' },
   { id: 'users', label: 'Users &amp; Groups', glyph: 'User', group: 'System' },
+  { id: 'backup', label: 'Backups', glyph: 'Save', group: 'System' },
   { id: 'privacy', label: 'Privacy', glyph: 'Shield', group: 'System' },
   { id: 'info', label: 'System Info', glyph: 'Info', group: 'System' },
 ]
@@ -40,6 +44,7 @@ export default function SettingsApp({ win, api }: AppProps) {
   const setSettings = useOS((s) => s.setSettings)
   const [page, setPage] = useState<string>(win.props?.page ?? 'appearance')
   const [confirmReset, setConfirmReset] = useState(false)
+  const [confirmWipe, setConfirmWipe] = useState(false)
 
   React.useEffect(() => {
     if (win.props?.page && win.props.page !== page) setPage(win.props.page)
@@ -100,11 +105,13 @@ export default function SettingsApp({ win, api }: AppProps) {
         {page === 'clock' && <ClockSection />}
         {page === 'startup' && <StartupSection />}
         {page === 'users' && <UsersSection />}
-        {page === 'privacy' && <PrivacySection onReset={() => setConfirmReset(true)} />}
+        {page === 'backup' && <BackupSection />}
+        {page === 'privacy' && <PrivacySection onReset={() => setConfirmReset(true)} onWipe={() => setConfirmWipe(true)} />}
         {page === 'info' && <InfoSection />}
       </div>
 
       {confirmReset && <ResetDialog onClose={() => setConfirmReset(false)} />}
+      {confirmWipe && <WipeDialog onClose={() => setConfirmWipe(false)} />}
     </div>
   )
 }
@@ -220,6 +227,43 @@ function Appearance() {
             ))}
           </div>
         </Row>
+        <Row label="Desktop style" hint="The shelf look restyles the panel into a shelf and the menu into a launcher">
+          <div style={{ display: 'flex', gap: 10 }}>
+            {([['classic', 'Mixt classic'], ['shelf', 'Shelf + launcher']] as const).map(([style, label]) => (
+              <div
+                key={style}
+                onClick={() => setSettings({ desktopStyle: style })}
+                style={{
+                  width: 132,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  border: settings.desktopStyle === style ? '2px solid var(--wm-accent)' : '1px solid rgba(0,0,0,0.25)',
+                  cursor: 'pointer',
+                  background: 'color-mix(in srgb, var(--wm-window-bg) 96%, #808890)',
+                }}
+              >
+                <div style={{ height: 54, position: 'relative', background: style === 'shelf' ? 'linear-gradient(135deg,#1b3a5b,#3b6f8f)' : '#4a674a', padding: 6 }}>
+                  {style === 'shelf' ? (
+                    <>
+                      <div style={{ position: 'absolute', left: 8, right: 8, bottom: 5, height: 12, borderRadius: 999, background: 'rgba(20,24,30,0.8)' }} />
+                      <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 8, display: 'flex', gap: 3 }}>
+                        {[0, 1, 2, 3].map((i) => (
+                          <span key={i} style={{ width: 7, height: 7, borderRadius: 999, background: '#cfd6da' }} />
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 10, background: 'rgba(0,0,0,0.4)' }} />
+                      <div style={{ position: 'absolute', left: 5, bottom: 2, width: 8, height: 6, borderRadius: 2, background: '#9ede6a' }} />
+                    </>
+                  )}
+                </div>
+                <div style={{ padding: '5px 8px', fontSize: 12, textAlign: 'center' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </Row>
         <Row label="Accent colour" hint="Used for selections, switches and highlights">
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {ACCENTS.map(([hex, name]) => (
@@ -245,7 +289,7 @@ function Appearance() {
             onChange={(v) => setSettings({ buttonSide: v })}
             options={[
               ['right', 'Right (Mixt default)'],
-              ['left', 'Left (Ubuntu style)'],
+              ['left', 'Left'],
             ]}
           />
         </Row>
@@ -256,7 +300,7 @@ function Appearance() {
         </Row>
         <Row label="Favourite applications" hint="Shown on the desktop">
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {APPS.map((a) => (
+            {visibleApps().map((a) => (
               <span
                 key={a.id}
                 onClick={() =>
@@ -277,7 +321,7 @@ function Appearance() {
                   background: settings.desktopIcons.includes(a.id) ? 'color-mix(in srgb, var(--wm-accent) 34%, transparent)' : undefined,
                 }}
               >
-                <AppIcon glyph={a.glyph} color={a.color} color2={a.color2} size={18} />
+                <AppIcon glyph={a.glyph} color={a.color} color2={a.color2} icon={a.icon} size={18} />
                 {a.name}
               </span>
             ))}
@@ -314,7 +358,7 @@ function Background() {
       <Card title="Wallpapers">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12 }}>
           {wallpapers.map((w) => {
-            const url = `/wallpapers/${w}`
+            const url = `wallpapers/${w}`
             return (
               <div key={w} onClick={() => setSettings({ wallpaper: url })} style={{ cursor: 'pointer' }}>
                 <div
@@ -475,7 +519,7 @@ function DesktopSection() {
   const settings = useOS((s) => s.settings)
   const setSettings = useOS((s) => s.setSettings)
   return (
-    <Section title="Desktop" subtitle="Desktop icons and the hot corner.">
+    <Section title="Desktop" subtitle="The hot corner and how windows take focus.">
       <Card>
         <Row label="Hot corner" hint="Pushing the pointer into the top-left corner opens the menu">
           <Toggle value={settings.hotCorner} onChange={(v) => setSettings({ hotCorner: v })} />
@@ -490,35 +534,6 @@ function DesktopSection() {
             ]}
           />
         </Row>
-      </Card>
-      <Card title="Desktop icons">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {APPS.map((a) => (
-            <span
-              key={a.id}
-              onClick={() =>
-                setSettings({
-                  desktopIcons: settings.desktopIcons.includes(a.id)
-                    ? settings.desktopIcons.filter((d) => d !== a.id)
-                    : [...settings.desktopIcons, a.id],
-                })
-              }
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '5px 10px',
-                borderRadius: 999,
-                cursor: 'pointer',
-                border: '1px solid rgba(0,0,0,0.16)',
-                background: settings.desktopIcons.includes(a.id) ? 'color-mix(in srgb, var(--wm-accent) 34%, transparent)' : undefined,
-              }}
-            >
-              <AppIcon glyph={a.glyph} color={a.color} color2={a.color2} size={18} />
-              {a.name}
-            </span>
-          ))}
-        </div>
       </Card>
     </Section>
   )
@@ -587,6 +602,15 @@ function SoundSection() {
         <Row label="Output device">
           <Select value={output} onChange={setOutput} options={[['Built-in Audio (virtual)', 'Built-in Audio (virtual)'], ['HDMI / DisplayPort', 'HDMI / DisplayPort'], ['WebAudio Synth', 'WebAudio Synth']]} />
         </Row>
+        <Row label="Default media player" hint="Audio and video files open with this">
+          <Select
+            value={settings.mediaApp || 'mixtplayer'}
+            onChange={(v) => setSettings({ mediaApp: v })}
+            options={visibleApps()
+              .filter((a) => a.categories.includes('Sound & Video') && a.id !== 'mixtradio')
+              .map((a) => [a.id, a.name])}
+          />
+        </Row>
         <Row label="Alert sound">
           <button className="btn-ghost" onClick={() => window.dispatchEvent(new CustomEvent('mixt:notify', { detail: { title: 'Alert', body: 'That is the alert sound. It is a notification. This is the web.' } }))}>
             <Glyph name="Volume2" size={14} /> Test sound
@@ -603,7 +627,7 @@ function NetworkSection() {
   const nets = [
     ['MixtNet', 'WPA2', true],
     ['MixtNet Guest', 'open', false],
-    ['Cinnamon-5G', 'WPA2', false],
+    ['MixtNet-5G', 'WPA2', false],
     ['Neighbour_2.4GHz', 'WPA2', false],
   ] as [string, string, boolean][]
   return (
@@ -747,31 +771,36 @@ function StartupSection() {
 function UsersSection() {
   const settings = useOS((s) => s.settings)
   const setSettings = useOS((s) => s.setSettings)
-  const avatars = ['🪴', '🐧', '🍃', '💻', '🧑🚀', '🐢', '🌱', '🦉']
   return (
     <Section title="Users &amp; Groups" subtitle="There is one account here, and it is yours.">
       <Card>
-        <Row label="Avatar">
-          <div style={{ display: 'flex', gap: 8 }}>
-            {avatars.map((a) => (
-              <span
-                key={a}
-                onClick={() => setSettings({ avatar: a })}
-                style={{
-                  fontSize: 22,
-                  cursor: 'pointer',
-                  padding: 4,
-                  borderRadius: 8,
-                  border: settings.avatar === a ? '2px solid var(--wm-accent)' : '1px solid transparent',
-                }}
-              >
-                {a}
-              </span>
-            ))}
-          </div>
-        </Row>
         <Row label="Full name">
           <input className="entry" value={settings.fullName} onChange={(e) => setSettings({ fullName: e.target.value })} style={{ width: 260 }} />
+        </Row>
+        <Row label="Profile colour" hint="Personalises the accent across your whole desktop.">
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {ACCENTS.map(([hex]) => (
+              <span
+                key={hex}
+                onClick={() => setSettings({ accent: hex })}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  background: hex,
+                  border: settings.accent === hex ? '3px solid var(--wm-window-fg)' : '1px solid rgba(0,0,0,0.3)',
+                }}
+              />
+            ))}
+            <input
+              type="color"
+              value={settings.accent}
+              onChange={(e) => setSettings({ accent: e.target.value })}
+              style={{ width: 40, height: 28, border: 'none', background: 'none', cursor: 'pointer' }}
+              title="Custom colour"
+            />
+          </div>
         </Row>
         <Row label="Username">
           <input className="entry" value={settings.username} onChange={(e) => setSettings({ username: e.target.value.replace(/\s/g, '') })} style={{ width: 180 }} />
@@ -780,14 +809,161 @@ function UsersSection() {
           <input className="entry" value={settings.hostname} onChange={(e) => setSettings({ hostname: e.target.value.replace(/\s/g, '-') })} style={{ width: 180 }} />
         </Row>
       </Card>
-      <Card title="Account type" hint="This account can do anything, including run sudo commands in the terminal.">
-        <div style={{ opacity: 0.8 }}>Administrator · groups: adm, cdrom, sudo, audio, video</div>
+      <Card
+        title="Account type"
+        hint={
+          backend.getSession()?.role === 'admin'
+            ? 'Signed in to the server administrator account. Privileged actions — approving published apps, adding whitelisted users — are available.'
+            : 'New accounts are standard users. Only the administrator account can run privileged commands.'
+        }
+      >
+        <div style={{ opacity: 0.8 }}>
+          {backend.roleLabel()} · groups: {backend.groups()}
+        </div>
       </Card>
     </Section>
   )
 }
 
-function PrivacySection({ onReset }: { onReset: () => void }) {
+function BackupSection() {
+  const settings = useOS((s) => s.settings)
+  const [message, setMessage] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const fileRef = React.useRef<HTMLInputElement | null>(null)
+
+  const who = settings.username || 'account'
+
+  function makeBackup() {
+    const b = collectBackup(who)
+    if (downloadBackup(b)) {
+      notify('Backups', `Saved ${backupFileName(who)} — your files, settings and mailbox.`, 'settings')
+      setMessage(`Backup written: ${describeBackup(b)}. Keep the file somewhere safe; this browser is the only copy otherwise.`)
+    } else {
+      setMessage('The browser would not let this page offer a download.')
+    }
+  }
+
+  async function takeFile(ev: React.ChangeEvent<HTMLInputElement>) {
+    const f = ev.target.files?.[0]
+    ev.target.value = '' // so picking the same file twice still fires
+    if (!f) return
+    let text = ''
+    try {
+      if (typeof f.text === 'function') {
+        text = await f.text()
+      } else {
+        /* older browsers have no Blob.text(); FileReader has been there since
+           the beginning, so a backup can still be restored on them */
+        text = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve(String(r.result ?? ''))
+          r.onerror = () => reject(new Error('could not read the file'))
+          r.readAsText(f)
+        })
+      }
+    } catch {
+      setMessage('That file could not be read.')
+      return
+    }
+    const parsed = parseBackup(text) as { ok: boolean; error?: string; backup?: AccountBackup }
+    if (!parsed.ok || !parsed.backup) {
+      setMessage(parsed.error ?? 'That file could not be read as a backup.')
+      return
+    }
+    const b = parsed.backup
+    setConfirming(true)
+    pending.current = b
+    setMessage(`Read a backup of ${b.username} from ${new Date(b.created).toLocaleString()}.`)
+  }
+
+  const pending = React.useRef<AccountBackup | null>(null)
+
+  function doRestore() {
+    const b = pending.current
+    setConfirming(false)
+    if (!b) return
+    const res = restoreBackup(b)
+    if (res.ok) {
+      notify('Backups', `Restored ${b.username}'s files and settings.`, 'settings')
+      setMessage('Restored. Your files and settings are the ones from that backup.')
+    } else {
+      setMessage(res.error ?? 'The restore failed.')
+    }
+    pending.current = null
+  }
+
+  return (
+    <Section
+      title="Backups"
+      subtitle="Everything this browser holds for your account, in one file you keep."
+    >
+      <Card title="What a backup holds" hint={`${backupSize()} right now`}>
+        <Row label="Your files" hint="the whole filesystem, exactly as it is">
+          <span style={{ opacity: 0.7 }}>{humanSize(nodeSize(vfs.node('/')!))}</span>
+        </Row>
+        <Row label="Your settings" hint="appearance, panel, sound, installed applications">
+          <span style={{ opacity: 0.7 }}>included</span>
+        </Row>
+        <Row label="Your mailbox cache" hint="the offline copy of your mail">
+          <span style={{ opacity: 0.7 }}>included</span>
+        </Row>
+        <Row label="Your password" hint="the server holds that, and it never leaves it">
+          <span style={{ opacity: 0.7 }}>not included</span>
+        </Row>
+      </Card>
+
+      <Card title="Back up this account">
+        <Row label="Download a backup" hint="a .json file with everything above in it">
+          <button className="btn-mixt" onClick={makeBackup}>
+            <Glyph name="Save" size={14} /> Back up now
+          </button>
+        </Row>
+      </Card>
+
+      <Card title="Restore from a backup" hint="This replaces your current files and settings. It cannot be undone.">
+        <Row label="Choose a backup file">
+          <button className="btn-ghost" onClick={() => fileRef.current?.click()}>
+            <Glyph name="Upload" size={14} /> Choose file…
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={takeFile}
+          />
+        </Row>
+        {confirming && (
+          <Row label="Replace everything with that backup?">
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-mixt" onClick={doRestore}>
+                <Glyph name="Check" size={14} /> Yes, restore it
+              </button>
+              <button
+                className="btn-ghost"
+                onClick={() => {
+                  setConfirming(false)
+                  pending.current = null
+                  setMessage('')
+                }}
+              >
+                <Glyph name="X" size={14} /> Cancel
+              </button>
+            </div>
+          </Row>
+        )}
+      </Card>
+
+      {message && (
+        <Card>
+          <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>{message}</div>
+        </Card>
+      )}
+    </Section>
+  )
+}
+
+function PrivacySection({ onReset, onWipe }: { onReset: () => void; onWipe: () => void }) {
   return (
     <Section title="Privacy" subtitle="Everything here lives in your browser's storage. Nothing leaves the tab.">
       <Card title="Data on this computer">
@@ -808,6 +984,13 @@ function PrivacySection({ onReset }: { onReset: () => void }) {
           <span style={{ opacity: 0.75 }}>always on (it is charming that way)</span>
         </Row>
       </Card>
+      <Card title="Reset the entire computer" hint="Everything this browser has saved for Mixt, not just the files">
+        <Row label="Accounts, files, settings, installed apps, mail and ratings" hint="The machine comes back as it did on first boot">
+          <button className="btn-ghost" onClick={onWipe}>
+            <Glyph name="Power" size={14} /> Reset everything…
+          </button>
+        </Row>
+      </Card>
     </Section>
   )
 }
@@ -823,7 +1006,7 @@ function InfoSection() {
           <AppIcon glyph="Compass" color="#61ad2b" color2="#2f6b12" size={54} />
           <div>
             <div style={{ fontSize: 17, fontWeight: 600 }}>Mixt Web OS 1.0 “Mixty”</div>
-            <div style={{ opacity: 0.75 }}>Cinnamon web edition · Mixt-Y theme · GNU/JavaScript</div>
+            <div style={{ opacity: 0.75 }}>Mixt Shell web edition · Mixt-Y theme · pure JavaScript</div>
           </div>
         </div>
         <div className="menu-sep" />
@@ -870,6 +1053,35 @@ function InfoSection() {
         </button>
       </Card>
     </Section>
+  )
+}
+
+function WipeDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <Dialog title="Reset the entire computer?" width={480} onClose={onClose}>
+      <p>
+        This erases everything Mixt has saved in this browser: the accounts you created, every file, your settings and
+        wallpaper, the apps you installed, their ratings and reviews, and your mail. The computer restarts as it did the
+        very first time.
+      </p>
+      <p style={{ opacity: 0.8 }}>
+        Accounts held by the Mixt server are not touched — sign in again and they will still be there.
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button className="btn-ghost" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          className="btn-mixt"
+          onClick={() => {
+            clearSavedData()
+            window.location.reload()
+          }}
+        >
+          Erase and restart
+        </button>
+      </div>
+    </Dialog>
   )
 }
 

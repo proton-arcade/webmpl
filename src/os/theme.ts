@@ -5,7 +5,10 @@ export function applyThemeVars(s: Settings) {
   if (typeof document === 'undefined') return
   const root = document.documentElement
   root.dataset.scheme = s.scheme
+  root.dataset.shell = s.desktopStyle ?? 'classic'
   root.style.setProperty('--wm-accent', s.accent)
+  // the shelf shell is rounder and leans on translucent dark surfaces
+  root.style.setProperty('--wm-radius', s.desktopStyle === 'shelf' ? '14px' : '8px')
   root.style.setProperty('--wm-accent-dim', shade(s.accent, -0.18))
   root.style.setProperty('--wm-panel-text', s.scheme === 'dark' ? '#f0f2ef' : '#1c1f21')
 }

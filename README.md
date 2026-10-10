@@ -3,22 +3,120 @@
 A complete desktop computer that runs in your browser — window manager, panel, main menu,
 workspaces, a virtual filesystem, a real terminal, an installable software store, and a
 **Mixtsfox** browser that renders a whole fictional internet ("MixtNet"), all
-styled after Linux Mint with the Cinnamon desktop.
+styled after a classic panel-and-menu desktop.
 
-Everything is client-side: no backend, no accounts, no network calls. The "operating system"
-is React state.
+Everything is client-side: no backend, no server, no network calls. The "operating system" is
+React state; the one thing that *is* saved locally is what you would expect an OS to remember —
+your accounts, files and settings — in the browser.
+
+### Things to try
+
+* **Accounts.** Open the Terminal and type `/startup` to create a user account (username,
+  display name, optional password, avatar, accent). It is saved in the browser; the lock screen
+  and the session menu let you switch between accounts. `users`, `login <name>` and `logout`
+  manage them.
+* **The Software Manager.** A real storefront: featured banner, editor's picks with
+  screenshots, a detail page per app, ratings you can leave, and install/uninstall.
+* **A shelf look.** Settings → Appearance → Desktop style turns the panel into a shelf and
+  the menu into a launcher, modelled on the real thing.
+* **Tiling.** Drag a window to an edge or corner to snap it — top maximises, the sides and the
+  bottom give halves, and the four corners give quarters. Super+arrows does the same.
+
+
+### Run it on Apache
+
+Drop the folder into your document root and open it:
 
 ```bash
-npm install
-npm run dev      # http://localhost:3000
+# XAMPP (Windows)
+cp -r . /c/xampp/htdocs/mixt
+
+# Debian / Ubuntu
+sudo cp -r . /var/www/html/mixt
+
+# macOS (the Apache that ships with it)
+sudo cp -r . /Library/WebServer/Documents/mixt
 ```
+
+Then open `http://localhost/mixt/`. That is the whole setup — there is no build step to
+run on the server and nothing else to configure.
+
+The `.htaccess` in the folder sets the index page and the MIME types the bundle needs, so
+an Apache with unusual defaults still hands out `mixt.bundle.js` as JavaScript rather than
+`text/plain` — which a browser refuses to run, leaving a white page that looks like a
+broken build.
+
+Everything is relative, so the site also works from the document root, from a
+subdirectory like the one above, and by opening `index.html` straight from disk.
+
+To upload it somewhere instead, `npm run build` assembles a stand-alone copy in `dist/`
+holding exactly the files a host needs.
+
+### Add the backend (accounts, mail, administrator)
+
+```bash
+npm install          # once
+npm start            # → http://localhost:8080
+```
+
+`npm start` runs `node server.cjs` — a single dependency-free Node file that serves this
+folder **and** the JSON API under `/api/`. Change the port with `PORT=9000 npm start`.
+State lives in `data.json` beside it.
+
+To put it behind Apache, start it alongside and let Apache forward `/api` to it. This
+goes in the **virtual host**, not in `.htaccess` — `ProxyPass` is registered
+`RSRC_CONF|ACCESS_CONF`, and `AllowOverride All` only grants the `OR_*` bits, so Apache
+rejects it in a `.htaccess` with "ProxyPass not allowed here" and answers every request
+with a 500.
+
+```apache
+# /etc/apache2/sites-available/mixt.conf
+<VirtualHost *:80>
+    DocumentRoot /var/www/html/mixt
+
+    <Directory /var/www/html/mixt>
+        AllowOverride All          # lets the folder's .htaccess apply
+        Require all granted
+    </Directory>
+
+    # a2enmod proxy proxy_http, then:
+    ProxyPass        /api/ http://127.0.0.1:8080/api/
+    ProxyPassReverse /api/ http://127.0.0.1:8080/api/
+</VirtualHost>
+```
+
+Without the proxy the site still runs, in offline mode: one local account, no mail
+between accounts, no administrator. That is what the drop-in folder does on its own.
+
+### Build
+
+```bash
+npm install          # once
+npm run build        # regenerate mixt.bundle.js / mixt.bundle.css, and dist/
+```
+
+There is no dev server. `index.html` always loads the published bundle, exactly as a
+visitor gets it, so what you edit is what you reload.
 
 | script | what it does |
 | --- | --- |
-| `npm run dev` | Vite dev server on port 3000 |
-| `npm run build` | production bundle into `dist/` |
-| `npm run preview` | serve the production bundle |
-| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 94 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence) |
+| `npm start` | the backend on port 8080 — this folder as a static site plus the `/api` JSON API (`node server.cjs`, no dependencies); `PORT=…` changes the port |
+| `npm run build` | build `mixt.bundle.js` + `mixt.bundle.css` into the root, and assemble `dist/` |
+| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 117 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence, and the boot-safety checks below) |
+| `npm run diagnose` | boot the real entry point (`src/os/start.tsx`) inside jsdom under eleven hostile browser conditions — blocked storage, a full disk, a damaged or truncated saved filesystem, stale settings, a tiny window, no canvas — and report which ones leave a white page |
+| `npm run static` | host the folder the way a normal static server does — as the web root, from a subdirectory, and from `file://` — fetch the page over HTTP, execute the script the server returns, and fail if the desktop does not mount |
+| `npm run session` | boot the shipped bundle against a small fake API and walk the server-only flows: the administrator signs in and owns the desktop, System Settings reports Administrator, the Administration console lists what is waiting for approval, a standard user never sees it, logging out returns a sign-in screen you can actually type into, and empty boxes go in as a guest |
+| `npm run served [url …]` | ask a running server what a browser would actually get: every asset in `index.html` must return 200 **and** a content-type the browser accepts (a stylesheet served as `text/javascript` is dropped outright, which leaves a running OS with no CSS — a white page), and the served `mixt.bundle.js` itself must mount the desktop. Defaults to `http://127.0.0.1:8080` |
+| `npm run files` | the file manager and the per-account filesystem, against the shipped bundle: the path bar's Back and drive buttons, opening a folder, dragging a file onto a folder and onto empty space across two windows, `/usr/share/applications`, every account's own storage key, the administrator's `/users`, and backing an account up |
+| `npm run human` | sit down and use it: write a file, back the account up, delete the file, restore it and check it came back; open a sound file; install VLC and choose it; sign in as the administrator and read another account's file through `/users`; sign out and in as somebody else |
+| `npm run mail` | start an isolated server and walk the mail flows end to end — addresses resolving on both local domains, a mailbox switched off and back on, per-guest mailboxes, guest sign-in tracking, password changes |
+| `npm run sdk` | the `mixt.js` runtime, called the way an application would, against the shipped bundle — including that a guest is told they are a guest, that what a guest writes is never saved, and that nothing in the API can reach the network |
+| `npm run converter` | the conversion rules: remote addresses pointed inside, everything needing a foreign machine switched off, what was already local left alone, and the `website.ini` in the right form |
+| `npm run localpages` | get to the converter from inside the desktop — from the bookmarks and by typing its name — and prove no other path in the repository can be opened that way |
+| `npm run explore` | click through every application and every MixtNet page in the shipped bundle and fail on a console error, an unhandled rejection, or a page that renders empty |
+| `npm run interact` | drive the desktop the way a person does: drag a window, snap it to an edge, switch workspaces, open a context menu, resize — and check the geometry that results |
+| `npm run gen:defaultfs` | read `defaultfs/` and regenerate `src/os/defaultfs.ts` (run for you by `npm run build`) |
+| `npm run gen:appindex` | read `src/apps` and regenerate `src/os/appindex.ts` (run for you by `npm run build`) |
 
 ---
 
@@ -41,13 +139,46 @@ npm run dev      # http://localhost:3000
 * **Theming** — six Mixt-Y accents, three bundled wallpapers, light/dark/auto, font scale —
   all driven through CSS custom properties (`os/theme.ts`, `index.css`).
 
-## Applications (19)
+## Applications (21)
 
 Preinstalled: Files, Terminal, Mixtsfox (web browser), Software Manager, System Settings,
-Text Editor (Xed), Calculator, System Monitor, Media Player, Image Viewer, Weather,
-Archive Manager, Screenshot, 2048, Help, About This Computer.
+Text Editor (Xed), Calculator, System Monitor, Mixt Player, Image Viewer, Archive Manager,
+Screenshot, Help, About This Computer.
 Installable from the **Software Manager** with a simulated download: Drawing (a paint
-program), Mail (a working email client), News Reader.
+program), Mail (a working email client), News Reader, Weather, and VLC media player.
+
+**Mixt Player** ships with the system and is the default handler for sound and video; a
+player installed later can be chosen instead in System Settings, and if the one chosen has
+since been removed the built-in player takes over rather than nothing opening.
+
+**VLC media player** is rebuilt from the 3.0.24 source rather than approximated. The cone is
+the real artwork — every path, gradient and gradient transform in `src/apps/vlc-art.tsx` is
+taken from `extras/package/macosx/asset_sources/vlc_app_icon.svg` in `videolan/vlc`, so it
+is drawn as itself instead of a glyph on the same gradient tile every other app uses (the
+shipped `share/vlc512x512.png` is ~210 KB, too much to carry in a bundle). The chrome is
+VLC's light Qt grey with a black stage, the eight menus are Media / Playback / Audio / Video
+/ Subtitle / Tools / View / Help, and the cone sits in the middle of the stage until
+something plays. Playback uses the Web Audio API.
+
+**Administration** and **Screen Viewer** are the two not everybody gets: both are listed
+only for the signed-in administrator account. Everything privileged lives in
+Administration — approving or rejecting apps waiting in the publish queue, adding and
+removing the whitelisted accounts, switching guest mail on and off, and what the server is
+holding (`data.json`, `ROOTPASS.md`, live sessions).
+
+Each row in the Accounts tab has a **View** button that opens everything `data.json` holds
+for that one account, gathered by a single call to `/api/users/<name>/record`: role,
+mailbox and address; the salt, hash and algorithm the password is stored as; every message
+in the mailbox, including the bodies; the live session tokens; the apps that account has
+submitted; and its saved settings. An empty field means the server has nothing stored,
+which is what makes it worth looking at. The password is shown as the hash it is stored as
+— there is no plaintext anywhere and it cannot be walked backwards, so **Set** in the row
+is how you replace one.
+
+Screen Viewer shows what the other accounts and the guest sign-ins have on screen. Standard users and guests never see either,
+and launching one by hand gets a refusal rather than the console. Guests get no Terminal at
+all. The **Administration** category in the menu gathers the administrative tools together:
+the console, Screen Viewer, Software Manager, System Settings and System Monitor.
 
 Highlights:
 
@@ -77,7 +208,7 @@ with its own CSS-free styling, and the browser resolves URLs to it:
 | domain | what it is |
 | --- | --- |
 | `mixtnet.com` | the portal: search, news headlines, directory of sites |
-| `mixtpedia.org` | encyclopaedia with ~20 full articles on Mixt OS, Cinnamon, filesystems, the web… |
+| `mixtpedia.org` | encyclopaedia with ~20 full articles on Mixt OS, the Mixt Shell, filesystems, the web… |
 | `mixtnews.com` | a newspaper with front page, sections and articles |
 | `mixtbook.com` / `mixtube.com` / `mixtgames.com` | social feed, video site, and a games arcade that can launch 2048 from the desktop |
 | `mixtcart.com` | shop with products, a cart, and checkout that writes a receipt into `~/Documents` |
@@ -130,11 +261,51 @@ so a web page can open the drawing program, add to a shop cart, or leave a file 
 
 `src/os/vfs.ts` implements a real filesystem in React state, persisted to `localStorage`:
 inode-ish nodes (`dir`/`file` with size, mime, url, modified time), `normalizePath`, `join`,
-`mkdir(-p)`, `list`, `read`, `write`, `rm`, `trash`, and helpers such as `humanSize`. It is
-seeded on boot with the usual directories: `~`, `Desktop`, `Documents`, `Downloads`, `Music`, `Pictures`,
-`Public`, `Templates`, `Videos`, `/etc`, `/usr`, and a Trash that deleted files land in.
+`mkdir(-p)`, `list`, `read`, `write`, `rm`, `trash`, and helpers such as `humanSize`.
 The same store backs the file manager, terminal, text editor, image viewer, paint, mail,
 archive manager and the browser's downloads.
+
+### The default filesystem is a folder, not code
+
+What a new account and a guest both find when they first boot lives in **`defaultfs/`**, at the
+root of the repository beside `index.html` and this README — as ordinary files. `etc/hosts`,
+`home/mixt/Documents/todo.txt`, `var/log/boot.log` and the rest are real files you can open,
+edit and diff.
+
+`npm run gen:defaultfs` (which `npm run build` runs for you) reads that folder and writes
+`src/os/defaultfs.ts`. Because the generated module is compiled into the bundle, the desktop
+never has to fetch those files: it can produce a whole filesystem with no server and no network
+at all. Adding a file to the default desktop means adding a file to `defaultfs/`.
+
+Only the parts that are computed rather than stored are added in code: the wallpapers, listed
+once and shown in both places they appear; `/usr/share/applications`, which the application
+index fills in; the hosted share under `/srv/www`; and `/bin`, which holds placeholders.
+
+### Each account has its own files, and a guest has none
+
+Every account's filesystem is saved under its own key, `mixt.vfs.v2:<username>`, so two people
+sharing a browser do not inherit each other's files. An administrator gets a read-only `/users`
+folder at the root holding everybody else's current filesystem.
+
+A guest has no saved progress. `persistsFor()` in `src/os/vfs.ts` is the one place that decides
+whether a mounted tree is written out, and a guest never is — nor are their installed apps or
+their settings. Everything a guest does lasts as long as the session and is gone when they sign
+out, so a shared machine does not accumulate one filesystem per person who sat down at it.
+
+### Mail stays on this machine
+
+Two domains, both invented and both local — neither resolves in real DNS, and the server never
+opens a socket to deliver anything:
+
+| | address |
+| --- | --- |
+| a whitelisted account | `name@Mixt.MPL` |
+| a guest | `NAME@Guest.MPL` |
+
+With guest mail switched on in the Administration console, **each guest gets a mailbox of their
+own** rather than one shared box, so two people on the same machine cannot read each other's
+mail. `src/os/mailaddr.ts` is the single place those rules live, so the mail client, the
+webmail site and the Administration console cannot disagree about an address.
 
 `src/os/store.ts` (zustand) holds windows, workspaces, settings, the installed-app list,
 notifications and the session/lock state; `src/os/bootstrap.tsx` runs the boot sequence.
@@ -142,19 +313,147 @@ notifications and the session/lock state; `src/os/bootstrap.tsx` runs the boot s
 ## Project layout
 
 ```
+index.html            the published site (classic script + stylesheet, relative paths)
+.htaccess             Apache: index page and MIME types (the /api proxy must be in the vhost)
+mixt.bundle.js/.css   built by `npm run build`, committed — index.html loads these
+server.cjs            the backend: this folder plus the /api JSON API (`npm start`)
+defaultfs/            the default filesystem, as ordinary files (see below)
+converter/            a second website: turns a page from out there into one for this project
+wallpapers/ logo.svg  assets, referenced relatively
 src/
-  main.tsx            entry — mounts Desktop + boot
+  main.tsx            entry — imports the boot module, calls startDesktop()
   index.css           Mixt-Y theme, window/panel/menu styling
   os/                 types, zustand store, vfs, theme, bus, boot bootstrap
+    start.tsx         the real boot sequence: housekeeping → error boundary → Desktop
+    storage.ts        safe web-storage access (never throws, falls back to memory)
+    defaultfs.ts      generated from defaultfs/ — do not edit by hand
+    mailaddr.ts       the two local mail domains, in one place
+    sdk.ts            mixt.js — the runtime an application calls into
+    errorboundary.tsx boot failure screen + plain-DOM last resort report
   shell/              Desktop, Panel, MainMenu, WindowFrame, AppIcon, ContextMenu, Notifications
-  apps/               registry.tsx + one module per application (19)
+  apps/               registry.tsx + one module per application (21)
+    vlc-art.tsx       the VLC cone, path-for-path from the VLC 3.0.24 source
   net/                types, index (URL resolution + search), dns, sitekit, storage, downloads
     internet/         the directory: manifest + servers/*.server.tsx + /etc/hosts helpers
     sites/            portal, tech, services, social page trees
   smoke/              bundle.tsx — the jsdom smoke harness driven by scripts/smoke.mjs
 scripts/smoke.mjs     runner (esbuild via Vite SSR build → jsdom → assertions)
-public/               logo + wallpapers
+scripts/diagnose.mjs  boot matrix runner (one process per hostile condition)
+scripts/static.mjs    hosting check: plain static server, subdirectory and file://
+scripts/converter.mjs checks the converter website
+scripts/sdk.mjs       checks the mixt.js runtime against the shipped bundle
+scripts/gen-defaultfs.mjs  defaultfs/ → src/os/defaultfs.ts
+scripts/gen-appindex.mjs   src/apps → src/os/appindex.ts
+scripts/build-static.mjs  publishes mixt.bundle.js/.css and dist/
+vite.static.config.ts build config for the published bundle (IIFE, everything relative)
+vite.config.ts        plugins for the test harnesses' SSR builds — no server
 ```
+
+## mixt.js — what an application talks to
+
+Every application in `/usr/share/applications` ships a `main.js` that says what it is and how it
+starts. `window.mixt` is the other side of that: the runtime an application calls into, installed
+before anything else runs and written into the filesystem at `/usr/share/mixt/mixt.js` so it can be
+listed as a dependency and read like any other file.
+
+```js
+mixt.version                       // 1 — check it before using something new
+mixt.whoami()                      // {username, role, guest, address} — never a password
+mixt.apps.list()                   // every app this session may see
+mixt.apps.launch('nemo', {})       // open one; the window id, or null
+mixt.apps.open('/home/mixt/a.txt') // open a file with whatever handles it
+
+mixt.fs.read('/etc/hostname')      // text, or null
+mixt.fs.write(path, 'hi')          // true if it was written
+mixt.fs.list('/home/mixt')         // entries, or null
+mixt.fs.mkdir('/a/b/c')            // makes the parents too
+mixt.fs.move / copy / trash / remove
+mixt.fs.basename / dirname
+
+mixt.notify('Saved', 'Written.')
+mixt.terminal('/srv/www')          // open a terminal, optionally there
+mixt.mail.address()                // this session's local address
+```
+
+Three things about it are deliberate:
+
+* **Nothing throws.** A missing path gives `null`; a refused write gives `false`. An application
+  calling into the OS should not have to wrap every line in a `try`, and a failure it can see is
+  one it can report.
+* **The filesystem calls are synchronous**, because they read and write the same tree the desktop
+  is already showing — a change is on screen immediately, with nothing to await.
+* **There is no way out.** No `fetch`, no upload, no remote storage in this API. An application
+  written against `mixt.js` cannot leave this machine, which is the whole point of a desktop that
+  claims to be self-contained. The runtime is frozen, so one application cannot redefine the OS out
+  from under the next.
+
+```bash
+npm run sdk                # 26 checks, run against the shipped bundle
+```
+
+## The converter — a second website in the repository
+
+`converter/` is its own small website, beside the desktop rather than inside it. It takes a page
+written for the open internet and produces a page that stands on its own, so it can be dropped
+into `/srv/www` and browsed on this machine like any other site.
+
+Open `converter/index.html`, paste the page's HTML, and it rewrites it:
+
+* **absolute addresses become local ones** — `https://cdn.example/style.css` becomes
+  `vendor/cdn.example-style.css`, so nothing on the page points at another machine;
+* **protocol-relative addresses** (`//cdn.example/x`) are absolute in disguise and get the same
+  treatment;
+* **integrity hashes are dropped**, because the hash described the remote file and keeping it
+  would make the browser refuse every local copy;
+* **things that need a foreign machine are commented out, not deleted** — iframes, forms that
+  post away, prefetch and preconnect hints, beacons, service worker registration — each with a
+  note saying what it was and why it went;
+* **a manifest** lists every change, so the result can be checked instead of taken on trust;
+* **a `website.ini`** in the `[Website]` key-per-line form the rest of the project uses.
+
+Nothing is fetched. The converter has no network access and makes no requests — a converter that
+had to download the very assets it is neutralising would defeat the point — so each `vendor/`
+path is a file you place there yourself, or the page does without it. It has no dependencies and
+no build step: it runs over http or straight off the disk.
+
+```bash
+npm run converter      # 25 checks on the conversion rules
+```
+
+## Booting is defensive on purpose
+
+A desktop that fails to mount is a white page: no message, no way out, and nothing in the
+browser's network panel to look at. Every layer of the boot path therefore assumes the
+worst about the environment it wakes up in:
+
+* **Web storage can be missing.** A sandboxed iframe, a private-mode browser or a full disk
+  makes `localStorage`/`sessionStorage` throw — even reading the property. All access goes
+  through `os/storage.ts`, which never throws and keeps values in memory for the session.
+* **Saved state can be from another build.** The stored filesystem is validated node by
+  node on the way in (`parseTree`), every directory ends up with a `children` map, and
+  unreadable blobs fall back to the seed filesystem. Settings are checked against the type
+  of their default, so a `null` wallpaper or a `"sideways"` panel position cannot crash the
+  first render.
+* **Nothing external is loaded at all.** The page requests exactly three local files
+  (the bundle, the stylesheet, the logo), and the typeface is the system font stack, so a
+  machine with no internet costs nothing at all. `npm run static` fails the build if an
+  external request ever creeps back in.
+* **If something still throws, you get told.** React rendering is wrapped in
+  `BootBoundary`, and errors that escape React entirely are caught in `start.tsx` — both
+  put a readable report on screen with the error, the storage status, and buttons to
+  reload or forget the saved state that caused it. If the script never runs at all (a 404,
+  a host that refuses `.js`, an extension blocking scripts), `index.html` has its own
+  watchdog that says so instead of showing a white page.
+
+`npm run diagnose` exercises those boot paths, `npm run static` proves the hosting story
+(web root, subdirectory, `file://`), and `npm run smoke` keeps regression checks for the
+failures that used to be silent white screens.
+
+### How it is hosted, in one line
+
+Plain HTML + a classic `<script>` + a stylesheet, all relative to the page. That is why it
+works on a bare static host: no ES modules to MIME-type correctly, no `type="module"`
+CORS rules, no server rewrites, no proxy, no build step at request time.
 
 ## Honest limitations
 
@@ -162,6 +461,11 @@ public/               logo + wallpapers
   MixtNet fall back to an explanatory page. The browser is fully functional; the network
   it browses is the one built into the app.
 * Screen capture uses `getDisplayMedia` when the host allows it and otherwise composes a
-  wallpaper shot — the preview iframe blocks the former.
+  wallpaper shot — the preview iframe blocks the former. Audio, the clipboard and storage
+  are all optional too: each is detected first and has a plain-path fallback.
 * No real executable installs: the Software Manager simulates installation (progress,
   notifications, menu entries).
+* In a browser that refuses web storage altogether (a sandboxed frame, private mode, or
+  opening `index.html` straight from disk with `file://`), the OS still runs — it just keeps
+  everything in memory, so files and settings are forgotten when the tab closes. The boot
+  screen says so instead of failing silently.

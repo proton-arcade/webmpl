@@ -2,7 +2,7 @@ import React from 'react'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import type { PageCtx, SiteDef } from './types'
 
-/** Shared chrome so every MixtNet site feels like a real website. */
+/** Shared frame so every MixtNet site feels like a real website. */
 export function SiteShell({
   site,
   ctx,

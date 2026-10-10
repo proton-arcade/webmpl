@@ -4,7 +4,7 @@ import type { DownloadableFile } from './types'
 export const FILES: DownloadableFile[] = [
   {
     id: 'mixtos-iso',
-    filename: 'mixtos-1.0-cinnamon-64bit.iso',
+    filename: 'mixtos-1.0-64bit.iso',
     mime: 'application/x-iso9660-image',
     size: 2_910_000_000,
     from: 'https://mixtos.com/download.php',
@@ -47,7 +47,7 @@ export const FILES: DownloadableFile[] = [
 Navigation : ls, cd, pwd, tree, find
 Files      : cat, mkdir, touch, rm, mv, cp, du, stat
 Text       : grep, wc, head, tail, sort, cut, echo >, echo >>
-Packages   : apt search / install / remove, dpkg -l
+Packages   : mixtinstall search / install / remove / list
 Network    : ping, curl, wget, ifconfig, ssh
 Desktop    : open, theme, wallpaper, notify-send, lock, screenshot
 Fun        : neofetch, fortune, cowsay, sl, seq, yes
@@ -60,7 +60,7 @@ Fun        : neofetch, fortune, cowsay, sl, seq, yes
     size: 260_000,
     from: 'https://mixtcart.com/product/tux-plush',
     content: '',
-    url: '/wallpapers/mixt-leaf.jpg',
+    url: 'wallpapers/mixt-leaf.jpg',
   },
   {
     id: 'photo-mixt-wave',
@@ -69,7 +69,7 @@ Fun        : neofetch, fortune, cowsay, sl, seq, yes
     size: 310_000,
     from: 'https://mixtcart.com/product/wallpaper-pack',
     content: '',
-    url: '/wallpapers/mixt-wave.jpg',
+    url: 'wallpapers/mixt-wave.jpg',
   },
   {
     id: 'photo-mixt-facets',
@@ -78,7 +78,7 @@ Fun        : neofetch, fortune, cowsay, sl, seq, yes
     size: 210_000,
     from: 'https://mixtcart.com/product/wallpaper-pack',
     content: '',
-    url: '/wallpapers/mixt-facets.jpg',
+    url: 'wallpapers/mixt-facets.jpg',
   },
   {
     id: 'snake-source',

@@ -4,6 +4,7 @@ import { useVFS, HOME, vfs, join } from '../os/vfs'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { openUrl } from '../os/bus'
 import type { AppProps } from '../os/types'
+import { safeLocal } from '../os/storage'
 
 interface Feed {
   id: string
@@ -26,7 +27,7 @@ const FEEDS: Feed[] = [
     color2: '#7a2f14',
     description: 'Desktop and internet news, updated whenever the authors feel like it.',
     items: [
-      { title: 'Cinnamon 6.4 lands with smoother window animations', summary: 'The new release focuses on latency: unmaximising a window now takes a single frame on modest hardware.', url: 'https://mixtnews.com/article/cinnamon-64', date: '2 Oct', tag: 'Desktop' },
+      { title: 'Mixt Shell 6.4 lands with smoother window animations', summary: 'The new release focuses on latency: unmaximising a window now takes a single frame on modest hardware.', url: 'https://mixtnews.com/article/mixt-shell-64', date: '2 Oct', tag: 'Desktop' },
       { title: 'MixtNet passes one billion virtual page views', summary: 'A network that exists entirely inside a browser tab has crossed a milestone nobody was counting.', url: 'https://mixtnews.com/article/mixtnet-billion', date: '29 Sep', tag: 'Internet' },
       { title: 'Opinion: the browser is the new operating system', summary: 'Every decade or so, the platform underneath our software quietly changes name.', url: 'https://mixtnews.com/article/browser-as-os', date: '27 Sep', tag: 'Opinion' },
       { title: 'Kernel 6.8 brings better power management to laptops', summary: 'Idle draw drops again, and the scheduler learns a few new tricks for hybrid CPUs.', url: 'https://mixtnews.com/article/kernel-68', date: '24 Sep', tag: 'Technology' },
@@ -43,8 +44,8 @@ const FEEDS: Feed[] = [
     color2: '#1f2933',
     description: 'Articles from the free encyclopaedia that ships with the MixtNet.',
     items: [
-      { title: 'Mixt OS', summary: 'A community-driven Linux distribution known for its green branding and its focus on usability.', url: 'https://mixtpedia.org/article/mixt-os', date: 'featured', tag: 'Operating systems' },
-      { title: 'Cinnamon (desktop environment)', summary: 'A desktop environment built on GNOME technologies, providing a panel, a menu and Muffin.', url: 'https://mixtpedia.org/article/cinnamon-desktop', date: 'featured', tag: 'Desktop' },
+      { title: 'Mixt OS', summary: 'A community-driven distribution known for its green branding and its focus on usability.', url: 'https://mixtpedia.org/article/mixt-os', date: 'featured', tag: 'Operating systems' },
+      { title: 'Mixt Shell (desktop environment)', summary: 'The Mixt desktop shell, providing a panel, a menu and a window manager.', url: 'https://mixtpedia.org/article/mixt-shell', date: 'featured', tag: 'Desktop' },
       { title: 'Virtual file system', summary: 'An abstraction layer that presents a uniform interface to different storage back-ends.', url: 'https://mixtpedia.org/article/virtual-file-system', date: 'featured', tag: 'Computer science' },
       { title: 'Web browser', summary: 'An application that retrieves, parses and renders documents from the World Wide Web.', url: 'https://mixtpedia.org/article/web-browser', date: 'featured', tag: 'Software' },
       { title: 'Terminal emulator', summary: 'A program that emulates a character-based video terminal inside a window.', url: 'https://mixtpedia.org/article/terminal-emulator', date: 'featured', tag: 'Software' },
@@ -62,7 +63,6 @@ const FEEDS: Feed[] = [
       { title: 'Installing Mixt Web OS (and why nothing needed installing)', summary: 'A walkthrough of the boot process, from the splash to the panel applets.', url: 'https://mixtube.com/watch/v1', date: '3 days', tag: 'Mixt Tips' },
       { title: 'Snapping windows with a pointer capture in React', summary: 'Pointer capture, transform-based dragging and the snap-preview rectangle.', url: 'https://mixtube.com/watch/v2', date: '1 week', tag: 'Frontend Kitchen' },
       { title: 'I wrote a shell in TypeScript and it has pipes', summary: 'Tokenisation, pipelines and redirection in about 500 lines.', url: 'https://mixtube.com/watch/v3', date: '2 weeks', tag: 'Terminal Velocity' },
-      { title: 'Review: the 2048 clone inside the browser inside the OS', summary: 'It is 2048. It has arrow-key support. Ten out of ten.', url: 'https://mixtube.com/watch/v5', date: '1 month', tag: 'Arcade Corner' },
     ],
   },
   {
@@ -74,9 +74,9 @@ const FEEDS: Feed[] = [
     color2: '#14705f',
     description: 'Products from the shop, including the ones that download into your file manager.',
     items: [
-      { title: 'Tux plush toy — £19.50', summary: 'Seventeen centimetres of unstoppable penguin. Embroidered beak, weighted base.', url: 'https://mixtcart.com/product/tux-plush', date: 'in stock', tag: 'Toys' },
+      { title: 'Tux plush toy — $19.50', summary: 'Seventeen centimetres of unstoppable penguin. Embroidered beak, weighted base.', url: 'https://mixtcart.com/product/tux-plush', date: 'in stock', tag: 'Toys' },
       { title: 'Wallpaper pack (3 images) — Free', summary: 'The wave, the facets and the leaf. Yours to download immediately.', url: 'https://mixtcart.com/product/wallpaper-pack', date: 'digital', tag: 'Digital' },
-      { title: 'Mechanical keyboard, 87 keys — £84.90', summary: 'Tactile brown switches, PBT caps, a volume knob that actually turns.', url: 'https://mixtcart.com/product/keyboard', date: 'in stock', tag: 'Hardware' },
+      { title: 'Mechanical keyboard, 87 keys — $84.90', summary: 'Tactile brown switches, PBT caps, a volume knob that actually turns.', url: 'https://mixtcart.com/product/keyboard', date: 'in stock', tag: 'Hardware' },
       { title: 'Shell cheat sheet (PDF) — Free', summary: 'Pipes, redirects and the commands you always look up.', url: 'https://mixtcart.com/product/cheatsheet', date: 'digital', tag: 'Digital' },
     ],
   },
@@ -90,7 +90,8 @@ export default function NewsApp({ api }: AppProps) {
   const [selected, setSelected] = useState<string | null>(null)
   const [read, setRead] = useState<string[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem(READ_KEY) ?? '[]')
+      const saved = JSON.parse(safeLocal.getItem(READ_KEY) ?? '[]')
+      return Array.isArray(saved) ? saved.filter((v) => typeof v === 'string') : []
     } catch {
       return []
     }
@@ -116,7 +117,7 @@ export default function NewsApp({ api }: AppProps) {
   }, [feed.title])
 
   useEffect(() => {
-    localStorage.setItem(READ_KEY, JSON.stringify(read))
+    safeLocal.setItem(READ_KEY, JSON.stringify(read))
   }, [read])
 
   function markRead(url: string) {

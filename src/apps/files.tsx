@@ -7,7 +7,7 @@ import type { VNode } from '../os/vfs'
 import { AppIcon, FileIcon, Glyph } from '../shell/AppIcon'
 import { Popup, usePopup, type MenuItem } from '../shell/ContextMenu'
 import { appForFile, launch, notify } from '../os/bus'
-import { getApp } from './registry'
+import { getApp, isInstalled } from './registry'
 import { useVFS } from '../os/vfs'
 import type { AppProps } from '../os/types'
 
@@ -19,6 +19,12 @@ interface Clip {
   paths: string[]
 }
 
+/* The Trash is a real folder at ~/.local/share/Trash/files, but none of that
+   path is worth putting in front of anybody: it is plumbing. The sidebar and
+   the path bar both just call it "Trash", and the hidden folders it happens to
+   live inside stay out of reach unless "Show Hidden Files" is switched on. */
+export const TRASH_PATH = `${HOME}/.local/share/Trash/files`
+
 const PLACES: { label: string; path: string; glyph: string; color: string }[] = [
   { label: 'Home', path: HOME, glyph: 'Home', color: '#61ad2b' },
   { label: 'Desktop', path: `${HOME}/Desktop`, glyph: 'Monitor', color: '#5f9bd8' },
@@ -27,9 +33,37 @@ const PLACES: { label: string; path: string; glyph: string; color: string }[] = 
   { label: 'Music', path: `${HOME}/Music`, glyph: 'Music', color: '#b06ee8' },
   { label: 'Pictures', path: `${HOME}/Pictures`, glyph: 'Image', color: '#4aa8a0' },
   { label: 'Videos', path: `${HOME}/Videos`, glyph: 'Video', color: '#e8664a' },
-  { label: 'Trash', path: `${HOME}/.local/share/Trash/files`, glyph: 'Trash2', color: '#7d8a95' },
+  { label: 'Trash', path: TRASH_PATH, glyph: 'Trash2', color: '#7d8a95' },
   { label: 'File System', path: '/', glyph: 'HardDrive', color: '#7d8a95' },
 ]
+
+export function inTrash(p: string): boolean {
+  return p === TRASH_PATH || p.startsWith(TRASH_PATH + '/')
+}
+
+/* A path is hidden if any segment of it starts with a dot. */
+export function isHiddenPath(p: string): boolean {
+  return splitPath(p).some((seg) => seg.startsWith('.'))
+}
+
+/* The crumbs for the path bar. The Trash collapses to a single crumb so the
+   bar reads "🗑 Trash" instead of ".local › share › Trash › files". */
+export function crumbsFor(p: string): { label: string; target: string }[] {
+  if (inTrash(p)) {
+    const rest = splitPath(p).slice(splitPath(TRASH_PATH).length)
+    return [
+      { label: 'Trash', target: TRASH_PATH },
+      ...rest.map((seg, i) => ({
+        label: seg,
+        target: `${TRASH_PATH}/${rest.slice(0, i + 1).join('/')}`,
+      })),
+    ]
+  }
+  return splitPath(p).map((seg, i) => ({
+    label: seg,
+    target: '/' + splitPath(p).slice(0, i + 1).join('/'),
+  }))
+}
 
 function mimeLabel(node: VNode, name: string) {
   if (node.type === 'dir') return 'Folder'
@@ -56,6 +90,10 @@ export default function FilesApp({ win, api }: AppProps) {
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [selection, setSelection] = useState<string[]>([])
   const [clip, setClip] = useState<Clip | null>(null)
+  /* what is being dragged, and which folder is currently highlighted as the
+     drop target — both are state so the view can show where it will land */
+  const [dragging, setDragging] = useState<string[]>([])
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [search, setSearch] = useState('')
@@ -104,6 +142,13 @@ export default function FilesApp({ win, api }: AppProps) {
       notify('Files', `“${target}” is not a folder any more.`)
       return
     }
+    /* Hidden folders stay closed until the user asks for them. The Trash is the
+       one exception: it lives under a hidden path but has its own place in the
+       sidebar, so it is always reachable. */
+    if (!showHidden && isHiddenPath(target) && !inTrash(target)) {
+      notify('Files', 'That folder is hidden. Switch on View → Show Hidden Files to open it.')
+      return
+    }
     setPath(target)
     setSelection([])
     setSearch('')
@@ -145,7 +190,57 @@ export default function FilesApp({ win, api }: AppProps) {
       notify('Files', `There is no application installed for “${name}”.\nOpen the Software Manager to find one.`)
       return
     }
+    // Double-clicking an archive unzips it into a fresh folder beside itself.
+    if (appId === 'archive') {
+      launch('archive', { path: target, mode: 'extract' })
+      return
+    }
     launch(appId, { path: target })
+  }
+
+  /** Where a dragged item lands. Dropping on a folder moves into it; dropping
+   *  on empty space moves into the folder being looked at. */
+  /** `fromEvent` is the payload the drag itself carries. Reading it rather than
+   *  only the state matters: a drop can land before the state set at dragstart
+   *  has been rendered, and a handler that trusts that stale state quietly
+   *  moves nothing. */
+  function dropInto(targetName: string | null, fromEvent?: string) {
+    /* The drag carries full paths, so a drop works no matter which window or
+       folder it came from — including one this window is not showing. */
+    const carried = (fromEvent ?? '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => (s.startsWith('/') ? s : join(path, s)))
+    const sources = carried.length ? carried : dragging.map((n) => join(path, n))
+    setDragging([])
+    setDropTarget(null)
+    if (!sources.length) return
+    const destDir = targetName ? join(path, targetName) : path
+    const destNode = getNode(destDir)
+    if (!destNode || destNode.type !== 'dir') {
+      notify('Files', `“${targetName ?? path}” is not a folder, so nothing was moved there.`)
+      return
+    }
+    let moved = 0
+    let skipped = 0
+    for (const from of sources) {
+      if (parentPath(from) === destDir) continue // already where it is being dropped
+      if (from === destDir || destDir.startsWith(`${from}/`)) {
+        skipped++ // a folder cannot be dropped inside itself
+        continue
+      }
+      const to = join(destDir, baseName(from))
+      if (getNode(to)) {
+        skipped++ // something of that name is already there
+        continue
+      }
+      if (vfs.mv(from, to)) moved++
+      else skipped++
+    }
+    setSelection([])
+    if (moved) notify('Files', `Moved ${moved} item${moved === 1 ? '' : 's'} to ${destDir.replace(HOME, '~')}.`)
+    if (skipped) notify('Files', `${skipped} item${skipped === 1 ? '' : 's'} could not be moved — a folder cannot go inside itself, and nothing is overwritten.`)
   }
 
   function select(name: string, e: React.MouseEvent) {
@@ -350,7 +445,7 @@ export default function FilesApp({ win, api }: AppProps) {
     for (const app of appsForFile(target)) {
       items.push({
         label: app.name,
-        icon: <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={14} rounded={0.3} />,
+        icon: <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={14} rounded={0.3} />,
         onClick: () => launch(app.id, { path: target }),
       })
     }
@@ -366,7 +461,11 @@ export default function FilesApp({ win, api }: AppProps) {
     const primary = appForFile(target)
     const list = ['xed', 'terminal', 'imageviewer', 'mediaplayer', 'archive']
       .map((id) => getApp(id))
-      .filter(Boolean)
+      /* An app that is not on this machine is not a way to open the file.
+         This list used to be offered verbatim, so VLC — which is a download,
+         not part of the system — turned up in "Open With" on a machine that
+         had never downloaded it, and choosing it opened nothing. */
+      .filter((app) => !!app && isInstalled(app.id))
     return list.sort((a, b) => (a!.id === primary ? -1 : b!.id === primary ? 1 : 0)) as any[]
   }
 
@@ -391,25 +490,31 @@ export default function FilesApp({ win, api }: AppProps) {
         </button>
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'var(--wm-entry-bg)', border: '1px solid rgba(0,0,0,0.25)', borderRadius: 5, padding: '2px 6px', margin: '0 6px', minWidth: 0, overflow: 'hidden' }}>
-          <Glyph name="HardDrive" size={13} />
+          {/* the drive icon is the root of the filesystem, and it is a button:
+              it used to be decoration, so clicking it did nothing */}
+          <button
+            className="btn-ghost"
+            title="File System"
+            onClick={() => navigate('/')}
+            style={{ padding: '1px 5px', opacity: splitPath(path).length === 0 ? 0.6 : 1 }}
+          >
+            <Glyph name="HardDrive" size={13} />
+          </button>
           {splitPath(path).length === 0 ? (
             <span style={{ padding: '0 6px' }}>File System</span>
           ) : (
-            splitPath(path).map((seg, i) => {
-              const target = '/' + splitPath(path).slice(0, i + 1).join('/')
-              return (
-                <React.Fragment key={target}>
-                  <button
-                    className="btn-ghost"
-                    style={{ padding: '1px 6px' }}
-                    onClick={() => navigate(target)}
-                  >
-                    {i === 0 && seg === 'home' && splitPath(path)[1] ? '🏠' : seg}
-                  </button>
-                  {i < splitPath(path).length - 1 && <span style={{ opacity: 0.5 }}>›</span>}
-                </React.Fragment>
-              )
-            })
+            crumbsFor(path).map((c, i, arr) => (
+              <React.Fragment key={c.target}>
+                <button
+                  className="btn-ghost"
+                  style={{ padding: '1px 6px' }}
+                  onClick={() => navigate(c.target)}
+                >
+                  {c.target === HOME ? '🏠' : c.target === TRASH_PATH ? '🗑 Trash' : c.label}
+                </button>
+                {i < arr.length - 1 && <span style={{ opacity: 0.5 }}>›</span>}
+              </React.Fragment>
+            ))
           )}
         </div>
 
@@ -496,9 +601,27 @@ export default function FilesApp({ win, api }: AppProps) {
             if (e.key === 'v' && (e.ctrlKey || e.metaKey)) paste()
             if (e.key === 'h' && (e.ctrlKey || e.metaKey)) setShowHidden((s) => !s)
           }}
-          onContextMenu={(e) => popup.open(e, 'context')}
+          onContextMenu={(e) => {
+            // Right-clicking the empty background drops the selection and shows
+            // the folder menu (New / Paste / …), like a real file manager.
+            if (e.target === e.currentTarget) setSelection([])
+            popup.open(e, 'context')
+          }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelection([])
+          }}
+          /* dropping on the empty background moves into the folder being
+             looked at — that is how you drag something out of a subfolder */
+          onDragOver={(e) => {
+            if (!dragging.length) return
+            e.preventDefault()
+            setDropTarget(null)
+          }}
+          onDrop={(e) => {
+            const carried = e.dataTransfer?.getData?.('text/plain') ?? ''
+            if (!dragging.length && !carried) return
+            e.preventDefault()
+            dropInto(null, carried)
           }}
         >
           {entries.length === 0 ? (
@@ -517,7 +640,37 @@ export default function FilesApp({ win, api }: AppProps) {
                     key={en.name}
                     className="desktop-icon"
                     data-selected={selected}
-                    style={{ color: 'var(--wm-window-fg)', width: 104 }}
+                    draggable
+                    onDragStart={(e) => {
+                      /* dragging an unselected item drags just that one */
+                      const names = selection.includes(en.name) ? selection : [en.name]
+                      setDragging(names)
+                      e.dataTransfer.effectAllowed = 'move'
+                      e.dataTransfer.setData('text/plain', names.map((n) => join(path, n)).join('\n'))
+                    }}
+                    onDragEnd={() => {
+                      setDragging([])
+                      setDropTarget(null)
+                    }}
+                    onDragOver={(e) => {
+                      if (en.node.type !== 'dir') return
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setDropTarget(en.name)
+                    }}
+                    onDragLeave={() => setDropTarget((d) => (d === en.name ? null : d))}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      dropInto(en.node.type === 'dir' ? en.name : null, e.dataTransfer?.getData?.('text/plain'))
+                    }}
+                    style={{
+                      color: 'var(--wm-window-fg)',
+                      width: 104,
+                      outline: dropTarget === en.name ? '2px solid var(--wm-accent)' : undefined,
+                      borderRadius: dropTarget === en.name ? 8 : undefined,
+                      opacity: dragging.includes(en.name) ? 0.45 : 1,
+                    }}
                     onClick={(e) => {
                       e.stopPropagation()
                       select(en.name, e)
@@ -525,7 +678,7 @@ export default function FilesApp({ win, api }: AppProps) {
                     onDoubleClick={() => openEntry(en.name)}
                     onContextMenu={(e) => {
                       if (!selection.includes(en.name)) setSelection([en.name])
-                      popup.open(e, en.name)
+                      popup.open(e, 'context')
                     }}
                   >
                     <FileIcon node={{ type: en.node.type, mime: (en.node as any).mime, name: en.name }} size={46} />
@@ -585,7 +738,38 @@ export default function FilesApp({ win, api }: AppProps) {
                   return (
                     <tr
                       key={en.name}
-                      style={{ background: selected ? 'color-mix(in srgb, var(--wm-accent) 45%, transparent)' : undefined, cursor: 'default' }}
+                      draggable
+                      onDragStart={(e) => {
+                        const names = selection.includes(en.name) ? selection : [en.name]
+                        setDragging(names)
+                        e.dataTransfer.effectAllowed = 'move'
+                        e.dataTransfer.setData('text/plain', names.map((n) => join(path, n)).join('\n'))
+                      }}
+                      onDragEnd={() => {
+                        setDragging([])
+                        setDropTarget(null)
+                      }}
+                      onDragOver={(e) => {
+                        if (en.node.type !== 'dir') return
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setDropTarget(en.name)
+                      }}
+                      onDragLeave={() => setDropTarget((d) => (d === en.name ? null : d))}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        dropInto(en.node.type === 'dir' ? en.name : null, e.dataTransfer?.getData?.('text/plain'))
+                      }}
+                      style={{
+                        background: selected
+                          ? 'color-mix(in srgb, var(--wm-accent) 45%, transparent)'
+                          : dropTarget === en.name
+                            ? 'color-mix(in srgb, var(--wm-accent) 25%, transparent)'
+                            : undefined,
+                        cursor: 'default',
+                        opacity: dragging.includes(en.name) ? 0.45 : 1,
+                      }}
                       onClick={(e) => {
                         e.stopPropagation()
                         select(en.name, e)
@@ -593,7 +777,7 @@ export default function FilesApp({ win, api }: AppProps) {
                       onDoubleClick={() => openEntry(en.name)}
                       onContextMenu={(e) => {
                         if (!selection.includes(en.name)) setSelection([en.name])
-                        popup.open(e, en.name)
+                        popup.open(e, 'context')
                       }}
                     >
                       <td style={{ padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -685,9 +869,9 @@ export default function FilesApp({ win, api }: AppProps) {
               label: 'Empty Trash',
               icon: <Glyph name="Trash2" size={14} />,
               onClick: () => {
-                const trash = getNode(`${HOME}/.local/share/Trash/files`)
+                const trash = getNode(TRASH_PATH)
                 if (trash?.type === 'dir') {
-                  for (const name of Object.keys(trash.children)) remove(join(`${HOME}/.local/share/Trash/files`, name))
+                  for (const name of Object.keys(trash.children)) remove(join(TRASH_PATH, name))
                 }
                 notify('Files', 'Trash emptied.')
               },

@@ -53,7 +53,7 @@ const SEED_POSTS: Post[] = [
     author: 'Mira Castellan',
     handle: '@mira_c',
     time: '3 h',
-    text: 'Wrote a 2048 clone inside a browser tab that is itself running inside a browser tab. Recursion has never been so relaxing.',
+    text: 'Wrote a tile puzzle inside a browser tab that is itself running inside a browser tab. Recursion has never been so relaxing.',
     likes: 64,
     comments: [{ who: '@dana', text: 'Put a browser in the browser in the browser. Do it.' }],
   },
@@ -238,7 +238,7 @@ const VIDEOS: Video[] = [
   },
   {
     id: 'v5',
-    title: 'Review: the 2048 clone inside the operating system inside the browser',
+    title: 'Review: the tile puzzle inside the operating system inside the browser',
     channel: 'Arcade Corner',
     views: '96K views',
     age: '1 month ago',
@@ -494,19 +494,7 @@ function GamesHome({ ctx }: { ctx: PageCtx }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 16 }}>
         <ReactionGame />
         <GuessGame />
-        <Card>
-          <H level={3}>2048</H>
-          <p style={{ color: '#39413b' }}>
-            The tile puzzle lives in your application menu, where it can remember your best score between sessions.
-          </p>
-          <Btn
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('mixt:launch', { detail: { appId: 'game2048' } }))
-            }}
-          >
-            Launch 2048
-          </Btn>
-        </Card>
+        
         <Card>
           <H level={3}>Pong, eventually</H>
           <p style={{ color: '#39413b' }}>

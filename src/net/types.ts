@@ -49,7 +49,13 @@ export interface SearchResult {
   domain: string
 }
 
-export type UrlKind = 'site' | 'search' | 'about' | 'real' | 'notfound' | 'invalid'
+/**
+ * `local` is a page that ships in this repository beside the desktop — the site
+ * converter, for one. It is loaded by relative path from the same origin, so it
+ * needs no DNS record, no network, and no exception to the rule that nothing
+ * here reaches the outside.
+ */
+export type UrlKind = 'site' | 'search' | 'about' | 'real' | 'local' | 'notfound' | 'invalid'
 
 export interface ResolvedUrl {
   kind: UrlKind

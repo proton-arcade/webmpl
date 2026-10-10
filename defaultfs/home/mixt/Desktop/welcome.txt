@@ -1,0 +1,3 @@
+Welcome to Mixt Web OS!
+
+Try the Menu (bottom left), open a Terminal and type "neofetch".

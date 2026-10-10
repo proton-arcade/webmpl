@@ -2,6 +2,21 @@
 
 export type Scheme = 'light' | 'dark'
 
+/** A local account. Created with `/startup` in the terminal. */
+export interface User {
+  id: string
+  username: string
+  fullName: string
+  /** '' means no password. Stored hashed; this is a demo, not real security. */
+  passwordHash: string
+  accent: string
+  wallpaper: string
+  created: number
+}
+
+/** Where a window lands when you drag it against a screen edge. */
+export type SnapZone = 'max' | 'left' | 'right' | 'bottom' | 'tl' | 'tr' | 'bl' | 'br'
+
 export interface WinGeometry {
   x: number
   y: number
@@ -37,7 +52,6 @@ export interface Settings {
   username: string
   fullName: string
   hostname: string
-  avatar: string
   scheme: Scheme
   accent: string
   wallpaper: string
@@ -53,11 +67,14 @@ export interface Settings {
   hotCorner: boolean
   focusMode: 'click' | 'sloppy'
   buttonSide: 'left' | 'right'
+  desktopStyle: 'classic' | 'shelf'
   themeName: string
   iconTheme: string
   desktopIcons: string[]
   startupApps: string[]
   autoUpdates: boolean
+  /** which player opens audio and video: the one that ships, or an installed extra */
+  mediaApp: string
 }
 
 export interface AppProps {
@@ -83,6 +100,10 @@ export interface AppDef {
   glyph: string
   color: string
   color2?: string
+  /** Replaces the generated gradient tile entirely, for an app whose real icon
+   *  is artwork rather than a glyph — VLC's cone, for one. Rendered at exactly
+   *  `size` pixels square, with no plate behind it. */
+  icon?: (size: number) => React.ReactNode
   /** categories used by the menu & software manager */
   categories: string[]
   keywords?: string[]
@@ -95,4 +116,8 @@ export interface AppDef {
   singleton?: boolean
   desktop?: boolean
   resident?: boolean
+  /** true => only listed for the signed-in administrator account */
+  adminOnly?: boolean
+  /** hidden from guest sessions, and refused if one launches it anyway */
+  noGuest?: boolean
 }

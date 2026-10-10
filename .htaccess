@@ -1,0 +1,50 @@
+# Mixt Web OS — Apache configuration
+#
+# Drop this folder into your document root (htdocs/, www/, public_html/) and
+# open it. Nothing else to configure.
+#
+# Everything the site asks for is a relative path, so it also works in a
+# subdirectory:
+#   http://localhost/mixt/
+#
+# The desktop runs with no backend at all — one local account, no mail between
+# accounts, no administrator. For accounts and mail, run `npm start` and point
+# Apache's /api at it; that part has to live in the virtual host, and the README
+# has the snippet.
+#
+# If this file is ignored (some hosts set "AllowOverride None"), the site still
+# works — Apache's default mime.types already knows .js and .css. These lines
+# are here for the installs that do not.
+
+# Open the desktop rather than a directory listing.
+DirectoryIndex index.html
+
+# A stylesheet served as anything other than text/css is discarded outright by
+# the browser, and a script served as text/plain is refused — either one leaves
+# a running OS with a white page and nothing in the document to explain it.
+<IfModule mod_mime.c>
+  AddType text/javascript       .js  .mjs
+  AddType text/css              .css
+  AddType image/svg+xml         .svg
+  AddType application/json      .json
+  AddType application/wasm      .wasm
+</IfModule>
+
+# Never serve a stale bundle over a changed one.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+# The bundle is ~730 kB; let Apache compress it when it can. The directive
+# itself comes from mod_filter, which mod_deflate is built on, so guard on
+# mod_filter — guarding on mod_deflate would test the wrong module.
+<IfModule mod_filter.c>
+  AddOutputFilterByType DEFLATE text/javascript text/css application/json image/svg+xml
+</IfModule>
+
+# Note: the /api proxy cannot go here. ProxyPass is registered
+# RSRC_CONF|ACCESS_CONF, and AllowOverride All only grants the OR_* bits, so
+# Apache rejects it in this context with "ProxyPass not allowed here" — which
+# turns every request into a 500. It belongs in the virtual host; see README.

@@ -17,7 +17,19 @@ yarn-error.log*
 .vscode/*
 !.vscode/extensions.json
 
+# The default filesystem is real content, not scratch. `*.local` above matches
+# any path ending in .local, which is home/mixt/.local in there — and git cannot
+# re-include a file whose parent directory was excluded, so the whole XDG
+# directory would silently vanish from a fresh clone. defaultfs/ is the source
+# of the default desktop and everything in it is meant to be tracked.
+!defaultfs/**
+
 # scratch
 .tmp/
 screenshots/
 .smoke-out/
+.diagnose-out/
+.static-build/
+scratch/
+image-search/
+data.json

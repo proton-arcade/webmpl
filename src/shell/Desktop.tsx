@@ -7,8 +7,14 @@ import MainMenu from './MainMenu'
 import Notifications from './Notifications'
 import { Popup, usePopup, type MenuItem } from './ContextMenu'
 import { AppIcon, FileIcon, Glyph } from './AppIcon'
-import { getApp, APPS } from '../apps/registry'
+import { getApp, visibleApps } from '../apps/registry'
 import { Dialog } from '../apps/files'
+import { validateUsername, ACCENTS } from '../os/users'
+import * as api from '../os/api'
+import { setPersistenceEnabled } from '../os/storage'
+import { mountFilesystem, persistNow, setAdminView } from '../os/vfs'
+import { ensureFilesystem } from '../os/bootstrap'
+import { loadInstalled } from '../os/store'
 import { appForFile, launch } from '../os/bus'
 
 export default function Desktop() {
@@ -19,6 +25,7 @@ export default function Desktop() {
   const menuOpen = useOS((s) => s.menuOpen)
   const exposeOpen = useOS((s) => s.exposeOpen)
   const locked = useOS((s) => s.locked)
+  const hasUsers = useOS((s) => s.users.length > 0)
   const runDialogOpen = useOS((s) => s.runDialogOpen)
   const vfsRevision = useVFS((s) => s.revision)
 
@@ -27,6 +34,84 @@ export default function Desktop() {
   const [session, setSession] = useState<null | 'shutdown' | 'reboot' | 'logout'>(null)
   const [altTab, setAltTab] = useState<{ open: boolean; index: number }>({ open: false, index: 0 })
   const [showIcons, setShowIcons] = useState(true)
+  /* Boot splash: the desktop renders underneath it, so nothing is delayed —
+     it is only the moment of arrival that gets a little ceremony. */
+  const [booting, setBooting] = useState(true)
+  const [bootFade, setBootFade] = useState(false)
+  useEffect(() => {
+    const fade = setTimeout(() => setBootFade(true), 700)
+    const done = setTimeout(() => setBooting(false), 1080)
+    return () => {
+      clearTimeout(fade)
+      clearTimeout(done)
+    }
+  }, [])
+
+  const [authGate, setAuthGate] = useState(false)
+  const [serverSession, setServerSession] = useState<api.Session | null>(() => api.getSession())
+  const [, bump] = useState(0)
+
+  /* A backend account IS the account. Without adopting it, signing in as the
+     administrator still showed the first-boot "create an account" form, and the
+     panel, menu and settings kept showing the default local user instead. */
+  const adoptServerSession = (s: api.Session | null) => {
+    setServerSession(s)
+    if (!s) return
+    setPersistenceEnabled(s.role !== 'guest')
+    /* Every account gets its own filesystem, kept in this browser under its own
+     * key. Signing in swaps the mounted tree to theirs; what the previous
+     * session had is written out first, so nothing is lost on the way past. */
+    mountFilesystem(s.username || 'anonymous')
+    /* …and what that account has installed, which is theirs too */
+    loadInstalled(s.username || 'anonymous')
+    /* Filled in again now that this account's tree is the one mounted. Running
+     * it only at boot wrote into a tree that this mount then replaced, so the
+     * home folders, the hosted share and /usr/share/applications were missing
+     * for anybody who signed in. */
+    ensureFilesystem()
+    /* only the administrator gets the /users folder at the root */
+    setAdminView(s.role === 'admin')
+    const st = useOS.getState()
+    st.setServerRole(s.role)
+    if (st.settings.username !== s.username) st.setSettings({ username: s.username, fullName: s.username })
+  }
+
+  useEffect(() => {
+    /* A stored session is adopted straight away, without waiting for the
+     * backend to answer. It used to be adopted only inside this .then, so with
+     * no backend reachable the desktop came up on the default account's
+     * filesystem instead of the signed-in one — the wrong files, and no /users
+     * for an administrator. Whether the server answers only decides whether to
+     * show the sign-in gate. */
+    const stored = api.getSession()
+    if (stored) adoptServerSession(stored)
+
+    /* Adopting the session and asking the server are separate jobs. The
+     * session has to be adopted whatever the server does — it used to happen
+     * only inside this .then, so signing in or out while the backend was
+     * unreachable left the previous person's filesystem mounted, and the next
+     * person to sit down could read their files. */
+    const adopt = () => {
+      const s = api.getSession()
+      if (s) adoptServerSession(s)
+      return s
+    }
+    const refresh = () => {
+      const s = adopt()
+      api
+        .online()
+        .then((ok) => {
+          const now = api.getSession()
+          setAuthGate(ok && !now)
+          if (now) adoptServerSession(now)
+        })
+        .catch(() => setAuthGate(!s))
+    }
+    refresh()
+    // logging out (or the server going away) re-opens the login gate
+    window.addEventListener('mixt:authchanged', refresh)
+    return () => window.removeEventListener('mixt:authchanged', refresh)
+  }, [])
 
   const desktopFiles = useMemo(() => {
     const list = vfs.list(`${HOME}/Desktop`) ?? []
@@ -59,6 +144,7 @@ export default function Desktop() {
       const detail = e.detail
       if (detail === 'shutdown' || detail === 'poweroff') setSession('shutdown')
       else if (detail === 'reboot') setSession('reboot')
+      else if (detail === 'logout') setSession('logout')
     }
     window.addEventListener('mixt:windowmenu', onWindowMenu)
     window.addEventListener('mixt:launch', onLaunch)
@@ -137,6 +223,10 @@ export default function Desktop() {
       if (e.key === 'ArrowUp' && e.metaKey && S.activeId) {
         e.preventDefault()
         S.snap(S.activeId, 'max')
+      }
+      if (e.key === 'ArrowDown' && e.metaKey && S.activeId) {
+        e.preventDefault()
+        S.snap(S.activeId, 'bottom')
       }
     }
     const onKeyUp = (e: KeyboardEvent) => {
@@ -232,11 +322,18 @@ export default function Desktop() {
         fontFamily: 'var(--font-sans)',
       }}
       onContextMenu={(e) => {
-        if ((e.target as HTMLElement).closest('.wm-window')) return
+        const t = e.target as HTMLElement
+        if (t.closest('.wm-window') || t.closest('.wm-shell-ui')) return
         desktopMenu.open(e)
       }}
       onMouseDown={(e) => {
-        if ((e.target as HTMLElement).closest('.wm-window')) return
+        const t = e.target as HTMLElement
+        if (t.closest('.wm-window')) return
+        // The menu, its popups and the panel are part of the shell: closing the
+        // menu on a mousedown inside them unmounts the very element the user is
+        // pressing, and a browser only fires `click` if the element survived —
+        // so every menu item silently did nothing.
+        if (t.closest('.wm-shell-ui')) return
         if (useOS.getState().menuOpen) useOS.getState().setMenuOpen(false)
       }}
     >
@@ -259,6 +356,7 @@ export default function Desktop() {
                 key={app!.id}
                 label={app!.name}
                 node={{ type: 'app', name: app!.name }}
+                openOnClick
                 onOpen={() => launch(app!.id, {})}
                 onMenu={() =>
                   setWinMenu({
@@ -366,6 +464,41 @@ export default function Desktop() {
       {runDialogOpen && <RunDialog onClose={() => useOS.getState().setRunDialog(false)} />}
       {session && <SessionDialog kind={session} onCancel={() => setSession(null)} />}
       {locked && <LockScreen />}
+      {booting && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 400000,
+            background: '#101314',
+            display: 'grid',
+            placeItems: 'center',
+            alignContent: 'center',
+            gap: 16,
+            opacity: bootFade ? 0 : 1,
+            transition: 'opacity .38s ease',
+            pointerEvents: bootFade ? 'none' : 'auto',
+          }}
+        >
+          <img src="logo.svg" width="74" height="74" alt="" />
+          <div style={{ color: '#9ede6a', fontSize: 15, fontWeight: 600, letterSpacing: 0.5 }}>Mixt Web OS</div>
+          <div
+            className="spin"
+            style={{
+              width: 18,
+              height: 18,
+              border: '2px solid rgba(158,222,106,0.22)',
+              borderTopColor: '#9ede6a',
+              borderRadius: 999,
+            }}
+          />
+        </div>
+      )}
+      {authGate && !api.getSession() && <AuthGate onDone={() => { adoptServerSession(api.getSession()); setAuthGate(false); bump((x) => x + 1) }} />}
+      {/* Never for a guest: a guest is not an account and must not be able to
+          create one. Without this the form only stayed hidden by accident,
+          because a guest session happens to set serverSession. */}
+      {!hasUsers && !authGate && !serverSession && <FirstBootSetup />}
     </div>
   )
 }
@@ -376,12 +509,17 @@ function DesktopIcon({
   onOpen,
   onMenu,
   appIcon,
+  openOnClick,
 }: {
   label: string
   node: { type: string; mime?: string; name: string }
   onOpen: () => void
   onMenu: () => void
-  appIcon?: { glyph: string; color: string; color2?: string }
+  appIcon?: { glyph: string; color: string; color2?: string; icon?: (size: number) => React.ReactNode }
+  /* An app on the desktop opens the same way it opens everywhere else — one
+   * click, like the Menu and the taskbar. Waiting for a double-click made the
+   * desktop icons look broken next to the rest of the system. */
+  openOnClick?: boolean
 }) {
   const [selected, setSelected] = useState(false)
   return (
@@ -391,6 +529,7 @@ function DesktopIcon({
       onClick={(e) => {
         e.stopPropagation()
         setSelected(true)
+        if (openOnClick) onOpen()
       }}
       onDoubleClick={onOpen}
       onContextMenu={(e) => {
@@ -402,7 +541,7 @@ function DesktopIcon({
       title={label}
     >
       {appIcon ? (
-        <AppIcon glyph={appIcon.glyph} color={appIcon.color} color2={appIcon.color2} size={46} />
+        <AppIcon glyph={appIcon.glyph} color={appIcon.color} color2={appIcon.color2} icon={appIcon.icon} size={46} />
       ) : (
         <FileIcon node={node} size={46} />
       )}
@@ -445,7 +584,7 @@ function AltTabOverlay({ index }: { index: number }) {
                   border: isActive ? '1px solid var(--wm-accent)' : '1px solid transparent',
                 }}
               >
-                <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} size={40} />
+                <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} icon={def?.icon} size={40} />
                 <div style={{ marginTop: 6, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.title}</div>
               </div>
             )
@@ -496,7 +635,7 @@ function Expose({ onClose }: { onClose: () => void }) {
               }}
             >
               <div style={{ height: 26, display: 'flex', alignItems: 'center', gap: 6, padding: '0 8px', backgroundImage: 'linear-gradient(to bottom,#4b5054,#35393c)', color: '#f0f2ef', fontSize: 12 }}>
-                <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} size={15} rounded={0.3} />
+                <AppIcon glyph={def?.glyph ?? 'AppWindow'} color={def?.color ?? '#5b8def'} icon={def?.icon} size={15} rounded={0.3} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.title}</span>
               </div>
               <div style={{ height: 120, padding: 10, color: 'var(--wm-window-fg)', fontSize: 11.5, opacity: 0.75 }}>
@@ -546,7 +685,7 @@ function RunDialog({ onClose }: { onClose: () => void }) {
     const cmd = value.trim()
     onClose()
     if (!cmd) return
-    const app = APPS.find((a) => a.id === cmd || a.name.toLowerCase() === cmd.toLowerCase())
+    const app = visibleApps().find((a) => a.id === cmd || a.name.toLowerCase() === cmd.toLowerCase())
     if (app) {
       launch(app.id, {})
       return
@@ -609,8 +748,24 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
     setTimeout(() => {
       if (kind === 'logout') {
         S.closeAll()
-        S.setLocked(true)
-        S.notify({ title: 'Logged out', body: 'Your session is locked. Log back in from the lock screen.' })
+        const had = api.getSession()
+        if (had) {
+          // a server account goes back to the sign-in screen, not the local
+          // lock screen — two stacked overlays fought over the keyboard
+          /* write this account's filesystem out, then unmount it */
+          persistNow(useVFS.getState().root)
+          setAdminView(false)
+          api.setSession(null)
+          S.setServerRole(null)
+          S.setLocked(false)
+          window.dispatchEvent(new CustomEvent('mixt:authchanged'))
+        } else {
+          S.setLocked(true)
+        }
+        S.notify({
+          title: 'Logged out',
+          body: had ? `Signed out of ${had.username}. Log back in to continue.` : 'Your session is locked. Log back in from the lock screen.',
+        })
         onCancel()
         return
       }
@@ -656,14 +811,34 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
 }
 
 function LockScreen() {
-  const { settings, setLocked } = useOS()
+  const { settings, setLocked, users, activeUserId, loginUser } = useOS()
   const [value, setValue] = useState('')
+  const [error, setError] = useState('')
   const [time, setTime] = useState(new Date())
+  /* Which account is being unlocked. With no accounts created yet the session
+     is a guest session and any password is accepted, as before. */
+  const [pickedId, setPickedId] = useState<string | null>(activeUserId ?? users[0]?.id ?? null)
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
-  const unlock = () => setLocked(false)
+
+  const picked = users.find((u) => u.id === pickedId) ?? null
+
+  const unlock = () => {
+    if (!picked) {
+      setLocked(false)
+      return
+    }
+    if (loginUser(picked.id, value)) {
+      setError('')
+      setValue('')
+      return
+    }
+    setError('Incorrect password.')
+    setValue('')
+  }
+
   return (
     <div
       style={{
@@ -684,34 +859,346 @@ function LockScreen() {
           {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: !settings.clock24 })}
         </div>
         <div style={{ fontSize: 17, opacity: 0.85, marginTop: -6 }}>{time.toDateString()}</div>
-        <div style={{ marginTop: 34, display: 'grid', placeItems: 'center', gap: 10 }}>
-          <div style={{ width: 84, height: 84, borderRadius: 999, background: 'linear-gradient(135deg,#9ede6a,#3b6f18)', display: 'grid', placeItems: 'center', fontSize: 34 }}>
-            {settings.avatar}
+
+        {/* account chooser */}
+        {users.length > 1 && (
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 26, flexWrap: 'wrap' }}>
+            {users.map((u) => (
+              <button
+                key={u.id}
+                className="btn-ghost"
+                onClick={() => {
+                  setPickedId(u.id)
+                  setError('')
+                  setValue('')
+                }}
+                style={{
+                  color: '#e7ece8',
+                  display: 'grid',
+                  placeItems: 'center',
+                  gap: 4,
+                  padding: '8px 12px',
+                  border: u.id === pickedId ? '2px solid var(--wm-accent)' : '2px solid rgba(255,255,255,0.18)',
+                  borderRadius: 12,
+                  minWidth: 82,
+                }}
+              >
+                <span style={{ fontSize: 12.5 }}>{u.fullName}</span>
+              </button>
+            ))}
           </div>
-          <div style={{ fontSize: 17 }}>{settings.fullName}</div>
-          <input
-            className="entry"
-            autoFocus
-            type="password"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && unlock()}
-            placeholder="Password (any will do)"
-            style={{ width: 240, textAlign: 'center' }}
-          />
+        )}
+
+        <div style={{ marginTop: 34, display: 'grid', placeItems: 'center', gap: 10 }}>
+          <div style={{ fontSize: 17 }}>{picked?.fullName ?? settings.fullName}</div>
+          {picked && !picked.passwordHash ? (
+            <div style={{ fontSize: 12.5, opacity: 0.8 }}>This account has no password.</div>
+          ) : (
+            <input
+              className="entry"
+              autoFocus
+              type="password"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && unlock()}
+              placeholder={users.length ? 'Password' : 'Password (any will do)'}
+              style={{ width: 240, textAlign: 'center' }}
+            />
+          )}
+          {error && <div style={{ color: '#ffb3ad', fontSize: 12.5 }}>{error}</div>}
           <button className="btn-mixt" onClick={unlock}>
             Unlock
           </button>
-          <button
-            className="btn-ghost"
-            style={{ color: '#e7ece8' }}
-            onClick={() => {
-              setLocked(false)
-              useOS.getState().notify({ title: 'Session', body: 'Switch user is not available in the web edition.' })
-            }}
-          >
-            Switch user…
+          {users.length === 0 && (
+            <div style={{ fontSize: 12, opacity: 0.75, maxWidth: 300, lineHeight: 1.5 }}>
+              No accounts yet. Open the Terminal and type <b>/startup</b> to create one — it is
+              saved in this browser.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ----------------------- first-boot account setup ------------------------ */
+/* Shown instead of the desktop until an account exists, mirroring the Linux
+   Mint installer's "who are you?" step: your name, the computer's name, a
+   username and a password. */
+function FirstBootSetup() {
+  const settings = useOS((s) => s.settings)
+  /* Guarded here too, so nothing that mounts this component by mistake can
+     hand a guest the account form. */
+  const guest = api.getSession()?.role === 'guest'
+  const setSettings = useOS((s) => s.setSettings)
+  const createUser = useOS((s) => s.createUser)
+  const [fullName, setFullName] = useState('')
+  const [hostname, setHostname] = useState('mixt-desktop')
+  const [username, setUsername] = useState('')
+  const [usernameTouched, setUsernameTouched] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [accent, setAccent] = useState(ACCENTS[0])
+  const [error, setError] = useState('')
+
+  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9._-]+/g, '.').replace(/^\.+|\.+$/g, '') || 'mixt'
+  const onName = (v: string) => {
+    setFullName(v)
+    if (!usernameTouched) setUsername(slug(v))
+  }
+
+  const submit = () => {
+    const uErr = validateUsername(username)
+    if (uErr) return setError(uErr)
+    if (password !== confirm) return setError('The passwords do not match.')
+    setSettings({ hostname: hostname.trim().replace(/\s+/g, '-') || 'mixt-desktop', accent })
+    const res = createUser({ username, fullName, password, accent, wallpaper: settings.wallpaper })
+    if (!('ok' in res) || !res.ok) return setError((res as { error?: string }).error ?? 'Could not create the account.')
+    setError('')
+  }
+
+  const field = (label: string, node: React.ReactNode, hint?: string) => (
+    <label style={{ display: 'grid', gap: 4, textAlign: 'left' }}>
+      <span style={{ fontSize: 12.5, opacity: 0.8 }}>{label}</span>
+      {node}
+      {hint && <span style={{ fontSize: 11, opacity: 0.6 }}>{hint}</span>}
+    </label>
+  )
+
+  /* A guest is let in without an account, so there is nothing to set up and no
+     account for them to create. */
+  if (guest) return null
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 300000,
+        backgroundImage: `url(${settings.wallpaper})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,14,12,0.6)', backdropFilter: 'blur(8px)' }} />
+      <div style={{ position: 'relative', width: 430, maxWidth: '92vw', background: '#fbfbf9', color: '#22261f', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+        <div style={{ background: 'linear-gradient(180deg,#87cf3e,#6fa34c)', color: '#fff', padding: '16px 22px' }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Welcome to Mixt</div>
+          <div style={{ fontSize: 12.5, opacity: 0.95 }}>Let&apos;s set up an account for you, just like a fresh install.</div>
+        </div>
+        <div style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
+          {field('Your name', <input className="entry" value={fullName} onChange={(e) => onName(e.target.value)} placeholder="e.g. Ada Lovelace" />)}
+          {field(
+            "Your computer's name",
+            <input className="entry" value={hostname} onChange={(e) => setHostname(e.target.value)} />,
+            'The name it uses on the network and in the terminal.',
+          )}
+          {field(
+            'Pick a username',
+            <input
+              className="entry"
+              value={username}
+              onChange={(e) => {
+                setUsernameTouched(true)
+                setUsername(e.target.value.toLowerCase())
+              }}
+            />,
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {field('Choose a password', <input className="entry" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />)}
+            {field('Confirm password', <input className="entry" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />)}
+          </div>
+          {field(
+            'Accent colour',
+            <div style={{ display: 'flex', gap: 8 }}>
+              {ACCENTS.map((c) => (
+                <span
+                  key={c}
+                  onClick={() => setAccent(c)}
+                  style={{ width: 24, height: 24, borderRadius: '50%', cursor: 'pointer', background: c, border: accent === c ? '3px solid #22261f' : '1px solid rgba(0,0,0,0.25)' }}
+                />
+              ))}
+            </div>,
+          )}
+          {error && <div style={{ color: '#c0392b', fontSize: 12.5 }}>{error}</div>}
+          <button className="btn-mixt" onClick={submit} style={{ justifyContent: 'center' }}>
+            Create account &amp; start using Mixt
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* --------------------------- online login gate --------------------------- */
+/* Shown only when the Mixt backend (server.cjs) is reachable on this origin.
+   Whitelisted users log in; anyone else may continue as a guest, which is
+   never saved. Offline, this never renders and the OS behaves as before.    */
+function AuthGate({ onDone }: { onDone: () => void }) {
+  const settings = useOS((s) => s.settings)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  /* A guest is still not an account — nothing of theirs is saved — but they
+   * sign in with a username, a name and a password, so the administrator sees
+   * who has been using the machine instead of an anonymous extra session. */
+  const [guestMode, setGuestMode] = useState(false)
+  const [guestName, setGuestName] = useState('')
+  const [guestUser, setGuestUser] = useState('')
+  const [guestPass, setGuestPass] = useState('')
+
+  const doGuest = async () => {
+    if (!guestUser.trim() || !guestPass) {
+      setError('A guest signs in with a username and a password, and a name to be known by.')
+      return
+    }
+    setBusy(true)
+    await api.guest({ username: guestUser.trim(), name: guestName.trim(), password: guestPass })
+    setBusy(false)
+    onDone()
+  }
+  /* Pressing Enter with nothing typed at all still goes straight in, as before:
+   * no password to get wrong, no account to create. The sign-in is logged. */
+  const doAnonymous = async () => {
+    setBusy(true)
+    await api.guest({})
+    setBusy(false)
+    onDone()
+  }
+  const doLogin = async () => {
+    if (!username.trim() && !password) return doAnonymous()
+    setBusy(true)
+    const res = await api.login(username.trim(), password)
+    setBusy(false)
+    if (!res.ok) return setError(res.error ?? 'Could not sign in.')
+    onDone()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300000, backgroundImage: `url(${settings.wallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'grid', placeItems: 'center' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,14,12,0.6)', backdropFilter: 'blur(8px)' }} />
+      <div style={{ position: 'relative', width: 360, maxWidth: '92vw', background: '#fbfbf9', color: '#22261f', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+        <div style={{ background: 'linear-gradient(180deg,#87cf3e,#6fa34c)', color: '#fff', padding: '14px 20px' }}>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{guestMode ? 'Guest sign-in' : 'Sign in to Mixt'}</div>
+          <div style={{ fontSize: 12.5, opacity: 0.95 }}>
+            {guestMode
+              ? 'No account is created and nothing is saved for you — but the administrator sees this sign-in.'
+              : 'Whitelisted accounts are saved. Guests are not.'}
+          </div>
+          {!guestMode && (
+            <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 2 }}>
+              Leave both boxes empty and press Enter to go straight in without an account.
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '16px 20px', display: 'grid', gap: 12 }}>
+          {!guestMode && (
+            <>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Username</span>
+                <input
+                  className="entry"
+                  autoFocus
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doLogin()}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Password</span>
+                <input
+                  className="entry"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doLogin()}
+                />
+              </label>
+            </>
+          )}
+          {guestMode && (
+            <>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Your name</span>
+                <input
+                  className="entry"
+                  autoFocus
+                  placeholder="Who is using this computer?"
+                  value={guestName}
+                  onChange={(e) => {
+                    setGuestName(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doGuest()}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Username</span>
+                <input
+                  className="entry"
+                  placeholder="visitor"
+                  value={guestUser}
+                  onChange={(e) => {
+                    setGuestUser(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doGuest()}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>Password</span>
+                <input
+                  className="entry"
+                  type="password"
+                  value={guestPass}
+                  onChange={(e) => {
+                    setGuestPass(e.target.value)
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && doGuest()}
+                />
+              </label>
+            </>
+          )}
+          {error && <div style={{ color: '#c0392b', fontSize: 12.5 }}>{error}</div>}
+          {!guestMode ? (
+            <>
+              <button className="btn-mixt" disabled={busy} onClick={doLogin} style={{ justifyContent: 'center' }}>
+                Log in
+              </button>
+              <button
+                className="btn-ghost"
+                disabled={busy}
+                onClick={() => {
+                  setError('')
+                  setGuestMode(true)
+                }}
+                style={{ justifyContent: 'center' }}
+              >
+                Continue as guest
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn-mixt" disabled={busy} onClick={doGuest} style={{ justifyContent: 'center' }}>
+                Enter as guest
+              </button>
+              <button className="btn-ghost" disabled={busy} onClick={() => setGuestMode(false)} style={{ justifyContent: 'center' }}>
+                Back to sign-in
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

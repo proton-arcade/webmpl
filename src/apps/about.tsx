@@ -2,7 +2,7 @@ import React from 'react'
 import { useOS } from '../os/store'
 import { useVFS, nodeSize, humanSize, countNodes } from '../os/vfs'
 import { AppIcon, Glyph } from '../shell/AppIcon'
-import { APPS } from './registry'
+import { visibleApps } from './registry'
 import { openUrl } from '../os/bus'
 import type { AppProps } from '../os/types'
 
@@ -19,7 +19,8 @@ export default function AboutApp({ api }: AppProps) {
     api.setTitle('About This Computer')
   }, [])
 
-  const installCount = APPS.filter((a) => a.preinstalled !== false || installed[a.id]).length
+  const list = visibleApps()
+  const installCount = list.filter((a) => a.preinstalled !== false || installed[a.id]).length
 
   return (
     <div style={{ flex: 1, overflow: 'auto', background: 'var(--wm-window-bg)' }}>
@@ -37,7 +38,7 @@ export default function AboutApp({ api }: AppProps) {
         <div>
           <div style={{ fontSize: 25, fontWeight: 700 }}>Mixt Web OS 1.0 “Mixty”</div>
           <div style={{ opacity: 0.9 }}>
-            Cinnamon web edition · Mixt-Y theme · GNU/JavaScript · running in {settings.username}@{settings.hostname}
+            Mixt Shell web edition · Mixt-Y theme · pure JavaScript · running in {settings.username}@{settings.hostname}
           </div>
           <div style={{ opacity: 0.75, fontSize: 12.5, marginTop: 4 }}>
             64-bit · 1 virtual CPU socket · no telemetry · no servers involved
@@ -53,18 +54,18 @@ export default function AboutApp({ api }: AppProps) {
               {[
                 ['Operating system', 'Mixt Web OS 1.0 (mixtwebos) · built on Mixt OS design language'],
                 ['Kernel', '6.8.0-mixt #1 SMP PREEMPT_DYNAMIC (simulated)'],
-                ['Desktop environment', 'Cinnamon (web edition) — panel, menu, window manager, applets'],
+                ['Desktop environment', 'Mixt Shell (web edition) — panel, menu, window manager, applets'],
                 ['Window manager', 'mixtwm (React + pointer events)'],
                 ['Processor', `JS Virtual Core × ${navigator.hardwareConcurrency || 4} @ 3.20 GHz`],
                 ['Memory', `${Math.round(380 + windows.length * 34)} MiB of 3939 MiB in use`],
                 ['Graphics', 'WebGPU Virtual Display Adapter · CSS compositor'],
                 ['Storage', `${humanSize(nodeSize(root))} used across ${countNodes(root)} files (localStorage filesystem)`],
-                ['Packages', `${installCount} installed of ${APPS.length} available · filesystem revision ${revision}`],
+                ['Packages', `${installCount} installed of ${list.length} available · filesystem revision ${revision}`],
                 ['Uptime', `${Math.floor(up / 60)} min ${up % 60} s since boot`],
                 ['Resolution', `${window.innerWidth} × ${window.innerHeight} at ${window.devicePixelRatio}×`],
                 ['Locale', navigator.language],
                 ['Theme', `${settings.themeName} · ${settings.iconTheme} icons · accent ${settings.accent}`],
-                ['Browser engine', navigator.userAgent.match(/(Firefox|Chrome|Chromium|Safari|Edg)\/[\d.]+/)?.[0] ?? 'unknown'],
+                ['Browser engine', 'MixtNet renderer'],
               ].map(([k, v]) => (
                 <tr key={k}>
                   <td style={{ padding: '5px 10px 5px 0', opacity: 0.65, width: 150, verticalAlign: 'top' }}>{k}</td>
@@ -76,7 +77,7 @@ export default function AboutApp({ api }: AppProps) {
 
           <h3>Credits</h3>
           <p style={{ lineHeight: 1.7, fontSize: 13.5 }}>
-            Interface inspired by <strong>Mixt OS</strong> and its <strong>Cinnamon</strong> desktop, both of which are
+            Interface inspired by <strong>Mixt OS</strong> and its <strong>Mixt Shell</strong> desktop, both of which are
             excellent and free software. Application icons drawn with <strong>lucide</strong>. Built with{' '}
             <strong>React</strong>, <strong>Vite</strong>, <strong>Tailwind</strong> and <strong>zustand</strong>. The
             MixtNet, the MixtNet sites and every word of their contents were written for this project.
@@ -107,8 +108,8 @@ export default function AboutApp({ api }: AppProps) {
                   '    Y8,          ,8 Kernel: 6.8.0-mixt',
                   '     `8b,,____,,d8" Uptime: ' + `${Math.floor(up / 60)} mins`,
                   '       "Y8b,,d8P"   Shell: bash 5.2.21',
-                  '                    DE: Cinnamon (web edition)',
-                  `                    Packages: ${installCount} (dpkg)`,
+                  '                    DE: Mixt Shell (web edition)',
+                  `                    Packages: ${installCount} (mixtinstall)`,
                 ].join('\n')
                 navigator.clipboard?.writeText(text).catch(() => {})
                 useOS.getState().notify({ title: 'About This Computer', body: 'The neofetch output was copied (or would have been, with clipboard permission).' })
@@ -130,9 +131,6 @@ export default function AboutApp({ api }: AppProps) {
           >
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Session</div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <div style={{ width: 52, height: 52, borderRadius: 999, background: 'linear-gradient(135deg,#9ede6a,#3b6f18)', display: 'grid', placeItems: 'center', fontSize: 24 }}>
-                {settings.avatar}
-              </div>
               <div>
                 <div style={{ fontWeight: 600 }}>{settings.fullName}</div>
                 <div style={{ opacity: 0.7, fontSize: 12.5 }}>

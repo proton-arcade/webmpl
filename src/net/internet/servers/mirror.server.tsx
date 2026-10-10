@@ -9,7 +9,7 @@ export default defineServer({
   operator: 'Mixt OS project',
   location: 'London',
   since: '2006-08-27',
-  os: 'Debian GNU/Linux 12',
+  os: 'Mixt 12',
   software: 'nginx 1.24 (mirror)',
   banner: 'nginx/1.24.0 (Mixt mirror)',
   ports: [

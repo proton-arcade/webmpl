@@ -6,20 +6,58 @@
     <title>Mixt Web OS — a full computer in your browser</title>
     <meta
       name="description"
-      content="Mixt turns your browser into a complete desktop computer: window manager, terminal, file manager, app centre and the Mixtsfox browser that opens real websites inside windows. Styled after Linux Mint's Cinnamon desktop."
+      content="Mixt turns your browser into a complete desktop computer: window manager, terminal, file manager, app centre and the Mixtsfox browser that opens real websites inside windows. Styled after a classic panel-and-menu desktop."
     />
     <meta name="theme-color" content="#2b2b2b" />
-    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&family=Ubuntu+Mono:wght@400;700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+
+    <!--
+      This is a plain website: one stylesheet, one classic script, one folder of
+      images. There is no build step to visit it and nothing for a server to
+      configure — no modules, no MIME-type rules, no CORS, no proxy, no CDN, no
+      network calls. Serve this folder with anything (a bare static file server,
+      Live Server, nginx, GitHub Pages) or open index.html straight from disk.
+
+      Paths are relative on purpose, so the site also works from a subdirectory
+      such as http://localhost:8080/mixt/.
+
+      Editing the sources? `npm run build` regenerates the two bundle files
+      below. There is no dev server to run — this folder is the site.
+    -->
+    <link rel="stylesheet" href="mixt.bundle.css" />
   </head>
   <body>
     <div id="root"></div>
     <noscript>Mixt Web OS needs JavaScript to boot.</noscript>
-    <script type="module" src="/src/main.tsx"></script>
+    <script src="mixt.bundle.js" defer></script>
+
+    <!--
+      The bundle draws its own failure screen for anything that goes wrong once
+      it is running. This covers the other case: the file never ran at all —
+      a 404, a server that will not hand out .js, an extension blocking scripts.
+      Without it that is a white page with no explanation.
+    -->
+    <script>
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          var root = document.getElementById('root')
+          if (!root || root.children.length > 0) return
+          root.innerHTML =
+            '<div style="position:fixed;inset:0;display:grid;place-items:center;padding:32px;' +
+            'background:#16181a;color:#eceeed;font:13px/1.6 system-ui,\'Segoe UI\',sans-serif;text-align:center">' +
+            '<div style="max-width:560px">' +
+            '<div style="font-size:17px;margin-bottom:10px">Mixt Web OS could not start</div>' +
+            '<div style="opacity:.78;margin-bottom:12px">The page loaded, but ' +
+            '<code style="color:#9ede6a">mixt.bundle.js</code> did not run. It should sit next to ' +
+            '<code style="color:#9ede6a">index.html</code>. Open the browser console and the network ' +
+            'tab to see why it was refused — a missing file and a server sending the wrong type are ' +
+            'the usual two.</div>' +
+            '<div style="opacity:.55;font-size:12px">Any static server can host this folder — ' +
+            'drop it into Apache\'s document root, or run <code>npm start</code> to serve it ' +
+            'with the backend on port 8080.</div>' +
+            '</div></div>'
+        }, 2500)
+      })
+    </script>
   </body>
 </html>

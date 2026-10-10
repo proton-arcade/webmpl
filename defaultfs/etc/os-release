@@ -1,0 +1,9 @@
+NAME="Mixt Web OS"
+VERSION="1.0 (Mixty)"
+ID=mixtwebos
+ID_LIKE=mixtos
+PRETTY_NAME="Mixt Web OS 1.0"
+VERSION_ID="1.0"
+HOME_URL="https://mixt.local/"
+SUPPORT_URL="https://mixt.local/help"
+BUG_REPORT="https://mixt.local/bugs"

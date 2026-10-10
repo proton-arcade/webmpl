@@ -7,6 +7,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import Desktop from '../shell/Desktop'
 import { APPS } from '../apps/registry'
+import { AppIcon } from '../shell/AppIcon'
 import {
   SITES,
   SERVERS,
@@ -30,12 +31,21 @@ import {
   serverAddress,
   zoneRecords,
 } from '../net'
-import { useOS } from '../os/store'
-import { vfs, useVFS } from '../os/vfs'
+import { useOS, sanitizeSettings, DEFAULT_SETTINGS } from '../os/store'
+import { vfs, useVFS, parseTree, ensureWebShare, mountFilesystem, vfsKey, savedOwners } from '../os/vfs'
+import { ensureAppTree, APPS_DIR, APP_INDEX_FILE, appTreeFiles } from '../os/appfiles'
+import { APP_INDEX, APP_SHARED_FILES } from '../os/appindex'
 import { migrateBranding } from '../os/migrate'
+import { bootstrap } from '../os/bootstrap'
+import { safeLocal, safeSession, clearSavedData } from '../os/storage'
+import { appForFile, mediaPlayer } from '../os/bus'
+import { TRASH_PATH, crumbsFor, inTrash, isHiddenPath } from '../apps/files'
+import { isInstalled, installedApps, getApp } from '../apps/registry'
+import { BootBoundary, renderPlainFailure } from '../os/errorboundary'
 import type { PageCtx } from '../net/types'
 import type { ServerDef } from '../net/internet/types'
 import type { WinState } from '../os/types'
+import { INSTALLED_VERSION, REPO_VERSIONS, hasUpdate, installedVersion, repoVersion, versionLabel } from '../apps/versions'
 
 interface Result {
   name: string
@@ -206,6 +216,306 @@ export async function runSmoke() {
     vfs.rm('/home/mixt/smoke-dir')
   })
 
+  await check('the hosted share and its manifest', () => {
+    const manifest = vfs.read('/srv/www/mixt/index.js') ?? ''
+    assert(manifest.length > 0, '/srv/www/mixt/index.js is missing')
+    assert(/ALL_FILES/.test(manifest) && /ALL_DIRS/.test(manifest), 'the manifest does not list files and directories')
+    /* every path the manifest names must really exist, or the site would serve
+       a listing of files that are not there */
+    const paths = [
+      '/srv/www/mixt/audio/chime.ogg',
+      '/srv/www/mixt/audio/notify.wav',
+      '/srv/www/mixt/audio/startup.ogg',
+      '/srv/www/mixt/text/welcome.txt',
+      '/srv/www/mixt/text/readme.txt',
+      '/srv/www/mixt/text/notes.txt',
+      '/srv/www/mixt/images/banner.png',
+      '/srv/www/mixt/images/leaf.svg',
+      '/srv/www/mixt/video/intro.mp4',
+    ]
+    for (const p of paths) assert(vfs.exists(p), `the manifest names ${p} but it is not there`)
+    for (const d of ['/srv/www/mixt/audio', '/srv/www/mixt/text', '/srv/www/mixt/images', '/srv/www/mixt/video'])
+      assert(vfs.node(d)?.type === 'dir', `${d} is not a directory`)
+    assert((vfs.read('/srv/www/mixt/text/welcome.txt') ?? '').includes('Mixt Web OS'), 'welcome.txt has no content')
+    assert(vfs.exists('/srv/www/index.html'), 'the hosted site has no index.html')
+
+    /* the record describing the hosted site is INI: a [Website] section, one
+       key per line, and every key the format promises */
+    const ini = vfs.read('/srv/www/website.ini') ?? ''
+    assert(ini.startsWith('[Website]'), `the record does not open with a [Website] section:\n${ini}`)
+    const keys: Record<string, string> = {}
+    for (const line of ini.split('\n')) {
+      const m = line.match(/^([A-Za-z]+)=(.*)$/)
+      if (m) keys[m[1]] = m[2]
+    }
+    for (const k of ['URL', 'Server', 'Path', 'Description', 'keywords'])
+      assert(k in keys, `the record is missing ${k}=`)
+    assert(keys.Path === '/srv/www', `Path= says ${keys.Path}, not where the share is`)
+    assert(!!keys.URL && !!keys.Server, 'the record names no URL or Server')
+    assert(keys.keywords.split(',').length >= 2, 'keywords= should be a comma-separated list')
+
+    /* a filesystem saved before the share existed must gain it on boot */
+    vfs.rm('/srv')
+    assert(!vfs.exists('/srv/www/mixt/index.js'), 'the share was not removed for the migration test')
+    ensureWebShare()
+    assert(vfs.exists('/srv/www/mixt/index.js'), 'ensureWebShare did not walk the share back in')
+    assert(vfs.exists('/srv/www/website.ini'), 'ensureWebShare did not write the website record')
+    assert(vfs.exists('/srv/www/mixt/text/welcome.txt'), 'the migration left the text files behind')
+  })
+
+  /* --- audio and video open a player that is actually installed --- */
+
+  await check('media opens the player that ships, not an uninstalled extra', () => {
+    const st = useOS.getState()
+    st.setInstalled('mediaplayer', false) // VLC not installed
+    st.setSettings({ mediaApp: 'mixtplayer' })
+    assert(mediaPlayer() === 'mixtplayer', `wanted the built-in player, got ${mediaPlayer()}`)
+    assert(appForFile('/srv/www/mixt/audio/chime.ogg') === 'mixtplayer', 'an audio file did not open the built-in player')
+    assert(appForFile('/srv/www/mixt/video/intro.mp4') === 'mixtplayer', 'a video file did not open the built-in player')
+    /* a stale choice must fall back rather than launch something absent */
+    st.setSettings({ mediaApp: 'mediaplayer' })
+    assert(mediaPlayer() === 'mixtplayer', 'a player that is not installed was still chosen')
+    /* choosing an installed VLC is honoured */
+    st.setInstalled('mediaplayer', true)
+    assert(mediaPlayer() === 'mediaplayer', 'the installed VLC was not chosen')
+    st.setSettings({ mediaApp: 'mixtplayer' })
+  })
+
+  await check('an app that was never downloaded is not a way to open a file', () => {
+    const st = useOS.getState()
+    /* VLC is a download, not part of the system. */
+    assert(getApp('mediaplayer')!.preinstalled === false, 'VLC should be a download, not preinstalled')
+    st.setInstalled('mediaplayer', false)
+    assert(!isInstalled('mediaplayer'), 'isInstalled said VLC is present on a machine without it')
+    assert(!installedApps().some((a) => a.id === 'mediaplayer'), 'installedApps() listed an app that is not installed')
+    /* everything the system ships with is installed without being downloaded */
+    for (const id of ['xed', 'terminal', 'imageviewer', 'archive', 'mixtplayer']) {
+      assert(isInstalled(id), `${id} ships with the system and must count as installed`)
+    }
+    st.setInstalled('mediaplayer', true)
+    assert(isInstalled('mediaplayer'), 'VLC stopped counting as installed once it was downloaded')
+    st.setInstalled('mediaplayer', false)
+  })
+
+  await check('the Trash is called Trash, and hidden folders stay shut', () => {
+    /* The path bar must never spell out the plumbing the Trash lives in. */
+    const crumbs = crumbsFor(TRASH_PATH)
+    assert(crumbs.length === 1, `the Trash should be one crumb, got ${crumbs.length}`)
+    assert(crumbs[0].label === 'Trash', `the Trash crumb read "${crumbs[0].label}"`)
+    assert(crumbs[0].target === TRASH_PATH, 'the Trash crumb no longer points at the Trash')
+    assert(!crumbsFor(TRASH_PATH).some((c) => c.label.startsWith('.')), 'a hidden segment leaked into the path bar')
+    /* something inside the Trash keeps its own name under the Trash crumb */
+    const deeper = crumbsFor(`${TRASH_PATH}/old.txt`)
+    assert(deeper.length === 2 && deeper[1].label === 'old.txt', 'a file inside the Trash lost its crumb')
+    /* and the hidden folders themselves are recognised as hidden */
+    assert(isHiddenPath('/home/mixt/.config'), '.config should count as hidden')
+    assert(isHiddenPath('/home/mixt/.local/share/Trash/files'), 'the Trash path should count as hidden')
+    assert(!isHiddenPath('/home/mixt/Documents'), 'Documents is not hidden')
+    /* the Trash is hidden but always reachable, so it must be excepted */
+    assert(inTrash(TRASH_PATH) && inTrash(`${TRASH_PATH}/old.txt`), 'inTrash did not recognise the Trash')
+    assert(!inTrash('/home/mixt/.config'), 'inTrash matched something that is not the Trash')
+    /* an ordinary folder keeps its normal crumbs */
+    const docs = crumbsFor('/home/mixt/Documents')
+    assert(docs.length === 3 && docs[2].target === '/home/mixt/Documents', 'ordinary paths lost their crumbs')
+  })
+
+  await check('the player that ships is installed by default and renders', () => {
+    const found = APPS.find((a) => a.id === 'mixtplayer')
+    assert(!!found, 'Mixt Player is not in the registry')
+    assert(found!.preinstalled !== false, 'Mixt Player must ship with the system')
+    const Player = found!.component
+    const out = renderToString(<Player win={{ id: 'w-mp', appId: 'mixtplayer', title: 'Mixt Player', props: {}, z: 1, minimized: false, maximized: false, x: 0, y: 0, w: 780, h: 520 } as any} api={{} as any} />)
+    assert(/Mixt Player|Music/.test(out), 'the player did not render its library')
+  })
+
+  /* VLC's icon has to be the cone, not a generic glyph on the usual tile —
+   * the whole point of the artwork. These points come straight out of
+   * extras/package/macosx/asset_sources/vlc_app_icon.svg in the VLC source, so
+   * if somebody swaps the artwork back for a placeholder these fail. */
+  await check('VLC carries its real cone artwork, and the icon renders it', () => {
+    const vlc = APPS.find((a) => a.id === 'mediaplayer')
+    assert(!!vlc, 'VLC is not in the registry')
+    assert(typeof vlc!.icon === 'function', 'VLC has no icon override, so it would fall back to the generic tile')
+
+    const icon = renderToString(<>{vlc!.icon!(48)}</>)
+    assert(icon.includes('M206.969,427C70.306,427'), 'the cone body from the VLC source is missing')
+    assert(icon.includes('M161.722,66.066C170.962'), 'the upper reflective band is missing')
+    assert(icon.includes('M109.422,232.618'), 'the lower reflective band is missing')
+    assert(icon.includes('rgb(243,130,0)'), 'the cone gradient from the VLC source is missing')
+    /* The source sets x1/y1/x2/y2 on every linearGradient. Drop them and SVG
+       falls back to 0%/100%, which under gradientUnits="userSpaceOnUse"
+       resolves against the 512 viewport rather than one user unit — stretching
+       each gradient 512x and flattening the cone to a single flat orange. That
+       is a silent, good-looking-in-code, wrong-on-screen failure. */
+    const gradCount = (icon.match(/<linearGradient/g) ?? []).length
+    assert(gradCount === 5, `expected 5 linear gradients, found ${gradCount}`)
+    const withEnds = (icon.match(/<linearGradient[^>]*x1="0"[^>]*x2="1"/g) ?? []).length
+    assert(withEnds === gradCount, `only ${withEnds} of ${gradCount} gradients carry their endpoints — the cone will render flat`)
+    /* and the endpoints must come from the source, not a plausible guess */
+    assert(icon.includes('-2.93098e-30'), 'the cone body gradientTransform is not the one from the VLC source')
+    /* the artwork is drawn as itself, not dropped onto a gradient plate */
+    assert(!icon.includes('linearGradient id="g'), 'the cone was rendered on the generic app tile')
+
+    /* AppIcon must honour the override rather than drawing a tile */
+    const viaAppIcon = renderToString(<AppIcon glyph="Cone" color="#ff8800" icon={vlc!.icon} size={32} />)
+    assert(viaAppIcon.includes('M206.969,427C70.306,427'), 'AppIcon ignored the app\'s own icon')
+    assert(!viaAppIcon.includes('<rect'), 'AppIcon still drew the gradient tile behind the cone')
+
+    /* the hand-drawn placeholder must not come back */
+    assert(!icon.includes('M50 4 L74 84 L26 84 Z'), 'the old hand-drawn cone is back')
+  })
+
+  /* The override has to survive every place an app is drawn, not just the
+     desktop. Nineteen call sites pass `icon` through; if one of them stops, the
+     app silently reverts to a generic tile and nothing else fails. */
+  await check('every app with its own artwork keeps it through AppIcon', () => {
+    const withIcon = APPS.filter((a) => typeof a.icon === 'function')
+    assert(withIcon.length > 0, 'no app declares its own artwork, so the override is untested')
+
+    for (const app of withIcon) {
+      /* the sizes the shell and the in-app lists actually use */
+      for (const size of [12, 15, 18, 22, 26, 30, 40, 46, 72]) {
+        const html = renderToString(
+          <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={size} rounded={0.3} />,
+        )
+        assert(
+          html.includes('M206.969,427C70.306,427'),
+          `${app.id} lost its artwork at size ${size}`,
+        )
+        assert(!html.includes('<rect'), `${app.id} was drawn on the generic tile at size ${size}`)
+      }
+    }
+
+    /* and an app with no override still gets the tile — the fallback matters */
+    const plain = APPS.find((a) => typeof a.icon !== 'function')!
+    const tiled = renderToString(<AppIcon glyph={plain.glyph} color={plain.color} size={22} />)
+    assert(tiled.includes('<rect'), `${plain.id} lost its tile`)
+    assert(!tiled.includes('M206.969,427C70.306,427'), 'an unrelated app picked up the cone')
+  })
+
+  await check('the VLC window renders the real cone and its menus', () => {
+    const vlc = APPS.find((a) => a.id === 'mediaplayer')!
+    const Vlc = vlc.component
+    const out = renderToString(
+      <Vlc win={{ id: 'w-vlc', appId: 'mediaplayer', title: 'VLC media player', props: {}, z: 1, minimized: false, maximized: false, x: 0, y: 0, w: 900, h: 600 } as any} api={{} as any} />,
+    )
+    for (const menu of ['Media', 'Playback', 'Audio', 'Video', 'Subtitle', 'Tools', 'View', 'Help']) {
+      assert(out.includes(`>${menu}</button>`), `the ${menu} menu is missing`)
+    }
+    assert(out.includes('M206.969,427C70.306,427'), 'the player no longer shows the cone in its empty stage')
+    /* VLC 3.0's chrome is light; the dark skin was what made it not look like VLC */
+    assert(out.includes('#f2f1f0'), 'the VLC chrome is not the light Qt colour')
+  })
+
+  /* --- an archive can actually be unzipped --- */
+  await check('an archive round-trips: compress writes it, extract unpacks it', async () => {
+    const zip = '/home/mixt/Downloads/roundtrip.zip'
+    const body = {
+      kind: 'mixt-archive',
+      version: 1,
+      created: Date.now(),
+      entries: [
+        { path: 'notes/', type: 'dir', size: 0, modified: Date.now() },
+        { path: 'notes/readme.txt', type: 'file', size: 24, modified: Date.now(), content: 'extracted correctly', mime: 'text/plain' },
+        { path: 'top.txt', type: 'file', size: 9, modified: Date.now(), content: 'top level', mime: 'text/plain' },
+      ],
+    }
+    vfs.mkdirp('/home/mixt/Downloads')
+    vfs.write(zip, JSON.stringify(body), 'application/zip')
+
+    /* Extracting opens the file manager on the result; remember what was open
+       so this check does not leave windows behind for the next one. */
+    const before = new Set(useOS.getState().windows.map((w) => w.id))
+    const host = await mountApp('archive', { path: zip })
+    assert(host.text().includes('readme.txt'), `the archive listing did not show its entries: ${host.text().slice(0, 200)}`)
+
+    const btns = [...host.host.querySelectorAll('button')]
+    const extractAll = btns.find((b) => (b.textContent ?? '').includes('Extract All'))
+    assert(!!extractAll, 'there is no Extract All button')
+    extractAll!.click()
+    /* extraction now runs on a clock scaled to the payload, so give it room */
+    await new Promise((r) => setTimeout(r, 1400))
+
+    const made = (vfs.list('/home/mixt/Downloads') ?? []).map((e) => e.name).filter((n) => n !== 'roundtrip.zip')
+    assert(made.length > 0, 'nothing was extracted next to the archive')
+    const root = `/home/mixt/Downloads/${made[0]}`
+    assert(vfs.exists(`${root}/notes/readme.txt`), `the tree was not preserved: ${JSON.stringify(made)}`)
+    assert(vfs.read(`${root}/notes/readme.txt`) === 'extracted correctly', 'the extracted file lost its contents')
+    assert(vfs.exists(`${root}/top.txt`), 'the top-level entry was not extracted')
+    host.unmount()
+    for (const w of useOS.getState().windows) if (!before.has(w.id)) useOS.getState().closeWindow(w.id)
+    vfs.rm(zip)
+    vfs.rm(root)
+  })
+
+  /* The reported bug: an archive this system did not create refused to open at
+     all, so nothing could ever be unzipped from it. */
+  await check('an archive with no manifest still lists and extracts', async () => {
+    const foreign = '/home/mixt/Downloads/someone-elses.zip'
+    vfs.mkdirp('/home/mixt/Downloads')
+    vfs.write(foreign, 'PK\u0003\u0004 not a manifest, just bytes ' + 'x'.repeat(4000), 'application/zip')
+    const before = new Set(useOS.getState().windows.map((w) => w.id))
+    const host = await mountApp('archive', { path: foreign })
+    assert(!/can’t be decoded|nothing is extracted/.test(host.text()), 'the archive was still refused')
+    assert(/items/.test(host.text()), `no listing was shown: ${host.text().slice(0, 160)}`)
+    const btn = [...host.host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Extract All'))
+    assert(!!btn, 'there is no Extract All button')
+    btn!.click()
+    await new Promise((r) => setTimeout(r, 1600))
+    const made = (vfs.list('/home/mixt/Downloads') ?? []).map((e) => e.name).filter((n) => n.includes('someone-elses') && n !== 'someone-elses.zip')
+    assert(made.length > 0, 'a foreign archive extracted nothing')
+    const inner = vfs.list(`/home/mixt/Downloads/${made[0]}`) ?? []
+    assert(inner.length > 0, `the extracted folder is empty: ${made[0]}`)
+    host.unmount()
+    for (const w of useOS.getState().windows) if (!before.has(w.id)) useOS.getState().closeWindow(w.id)
+    vfs.rm(foreign)
+    vfs.rm(`/home/mixt/Downloads/${made[0]}`)
+  })
+
+  /* Bigger payloads must take longer, not both snap to done at once. */
+  await check('a big archive takes longer to extract than a small one', async () => {
+    const mk = (path: string, kb: number) => {
+      const body = {
+        kind: 'mixt-archive', version: 1, created: Date.now(),
+        entries: [{ path: 'payload.bin', type: 'file', size: kb * 1024, modified: Date.now(), content: 'y'.repeat(64), mime: 'application/octet-stream' }],
+      }
+      vfs.write(path, JSON.stringify(body), 'application/zip')
+    }
+    const small = '/home/mixt/Downloads/small.zip'
+    const big = '/home/mixt/Downloads/big.zip'
+    vfs.mkdirp('/home/mixt/Downloads')
+    mk(small, 1)
+    mk(big, 900)
+    const before = new Set(useOS.getState().windows.map((w) => w.id))
+
+    /* The notification goes to the desktop, not into the app's own DOM, so the
+       filesystem itself is the signal: has the extracted folder appeared yet? */
+    const folderFor = (n: string) =>
+      (vfs.list('/home/mixt/Downloads') ?? []).map((e) => e.name).find((x) => x === n || x.startsWith(`${n} (`))
+
+    const a = await mountApp('archive', { path: small })
+    ;[...a.host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Extract All'))!.click()
+    await new Promise((r) => setTimeout(r, 1400))
+    const smallFolder = folderFor('small')
+    a.unmount()
+
+    const b = await mountApp('archive', { path: big })
+    ;[...b.host.querySelectorAll('button')].find((x) => (x.textContent ?? '').includes('Extract All'))!.click()
+    /* at the moment the small one had landed, the big one must still be going */
+    await new Promise((r) => setTimeout(r, 1400))
+    const bigFolderEarly = folderFor('big')
+    await new Promise((r) => setTimeout(r, 8000))
+    const bigFolderLate = folderFor('big')
+    b.unmount()
+
+    assert(!!smallFolder, 'the small archive did not finish extracting')
+    assert(!bigFolderEarly, 'the big archive finished at the same speed as the small one')
+    assert(!!bigFolderLate, 'the big archive never finished')
+    for (const w of useOS.getState().windows) if (!before.has(w.id)) useOS.getState().closeWindow(w.id)
+    for (const f of [small, big]) vfs.rm(f)
+    for (const e of vfs.list('/home/mixt/Downloads') ?? []) if (/^(small|big)( \(\d+\))?$/.test(e.name)) vfs.rm(`/home/mixt/Downloads/${e.name}`)
+  })
+
   await check('url resolution', () => {
     assert(resolveUrl('mixtnews.com').kind === 'site', 'mixtnews.com should resolve to a site')
     assert(resolveUrl('https://mixtpedia.org/article/mixt-os').path === '/article/mixt-os', 'path parsing failed')
@@ -365,10 +675,10 @@ export async function runSmoke() {
   await check('search index finds articles', () => {
     const index = buildIndex()
     assert(index.length > 30, `index too small: ${index.length}`)
-    const hits = searchMixtNet('cinnamon desktop')
-    assert(hits.length > 0, 'no results for "cinnamon desktop"')
-    const linux = searchMixtNet('mixt os')
-    assert(linux.some((h) => h.url.includes('mixt-os')), 'expected the Mixt OS article in the results')
+    const hits = searchMixtNet('mixt-shell desktop')
+    assert(hits.length > 0, 'no results for "mixt-shell desktop"')
+    const mixtHits = searchMixtNet('mixt os')
+    assert(mixtHits.some((h) => h.url.includes('mixt-os')), 'expected the Mixt OS article in the results')
   })
 
   await check('plain-text rendering works for the terminal', async () => {
@@ -439,8 +749,8 @@ export async function runSmoke() {
     assert(vfs.read('/home/mixt/Documents/terminal-write.txt')?.includes('write-me'), 'redirection did not write the file')
     await runTerminal(term.host, 'neofetch')
     assert(term.text().includes('Mixt Web OS'), 'neofetch output missing OS line')
-    await runTerminal(term.host, 'apt search game')
-    assert(term.text().includes('2048'), 'apt search did not find the game')
+    await runTerminal(term.host, 'apt search paint')
+    assert(term.text().includes('Drawing'), 'apt search did not find the drawing package')
     await runTerminal(term.host, 'curl https://mixtpedia.org/article/mixt-os')
     await new Promise((r) => setTimeout(r, 300))
     assert(term.text().includes('Mixt OS'), 'curl did not render the MixtNet page as text')
@@ -496,8 +806,8 @@ export async function runSmoke() {
     const browser = await mountApp('browser', { url: 'https://mixtnews.com/' })
     await new Promise((r) => setTimeout(r, 700))
     const text = browser.text()
-    assert(text.includes('Cinnamon 6.4'), `front page did not render (saw: ${text.slice(0, 120)})`)
-    assert(text.includes('MixtNews'), 'site chrome missing')
+    assert(text.includes('Mixt Shell 6.4'), `front page did not render (saw: ${text.slice(0, 120)})`)
+    assert(text.includes('MixtNews'), 'site frame missing')
     browser.unmount()
   })
 
@@ -588,9 +898,260 @@ export async function runSmoke() {
   })
 
   await new Promise((r) => setTimeout(r, 700))
-  await check('filesystem persists to localStorage', () => {
-    const raw = localStorage.getItem('mixt.vfs.v2')
-    assert(raw && raw.length > 100, 'vfs was never written to localStorage')
+  await check('each account has its own filesystem, saved under its own key', async () => {
+    /* No account is signed in here, so nothing should have been written under
+       anybody's name yet — a shared key would mean everybody's files mixed. */
+    assert(savedOwners().length === 0, `something was saved before anyone signed in: ${savedOwners()}`)
+
+    mountFilesystem('smoke-alice')
+    vfs.write('/home/mixt/alice-only.txt', 'alice', 'text/plain')
+    /* writes are debounced, so give the save a moment to land */
+    await new Promise((r) => setTimeout(r, 600))
+    const alice = localStorage.getItem(vfsKey('smoke-alice'))
+    assert(alice && alice.length > 100, 'alice’s filesystem was never written to localStorage')
+    assert(alice!.includes('alice-only.txt'), 'alice’s file is not in alice’s saved filesystem')
+
+    mountFilesystem('smoke-bob')
+    await new Promise((r) => setTimeout(r, 600))
+    const bob = localStorage.getItem(vfsKey('smoke-bob'))
+    assert(bob !== null, 'bob’s filesystem was never saved')
+    assert(!bob!.includes('alice-only.txt'), 'bob was handed alice’s files')
+
+    /* and alice still has hers when she comes back */
+    mountFilesystem('smoke-alice')
+    assert(vfs.read('/home/mixt/alice-only.txt') === 'alice', 'alice’s file did not come back')
+    assert(savedOwners().includes('smoke-alice') && savedOwners().includes('smoke-bob'), 'both accounts should be listed')
+
+    for (const who of ['smoke-alice', 'smoke-bob']) localStorage.removeItem(vfsKey(who))
+  })
+
+  /* ---- the application tree in /usr/share/applications -------------------- */
+  await check('every application has a directory, laid out the same way', () => {
+    ensureAppTree()
+    const built = appTreeFiles()
+    assert(built.length > APP_INDEX.length * 2, `the tree only holds ${built.length} files`)
+    for (const a of APP_INDEX) {
+      const dir = `${APPS_DIR}/${a.id}`
+      assert(vfs.node(dir)?.type === 'dir', `${dir} is not a directory`)
+      const main = vfs.read(`${dir}/main.js`) ?? ''
+      assert(main.includes(a.name), `${a.id}/main.js does not name the application`)
+      assert(main.includes(a.file), `${a.id}/main.js does not say which file implements it`)
+      assert(vfs.node(`${dir}/_Dependencies`)?.type === 'dir', `${a.id} has no _Dependencies folder`)
+      assert((vfs.read(`${dir}/README.md`) ?? '').includes(a.description), `${a.id}/README.md has no description`)
+    }
+  })
+
+  await check('the application index lists name, summary, description and file', () => {
+    const index = vfs.read(APP_INDEX_FILE) ?? ''
+    assert(index.startsWith(';'), 'the index does not read as a comment-led INI file')
+    for (const a of APP_INDEX) {
+      assert(index.includes(`[${a.name}]`), `the index has no section for ${a.name}`)
+      assert(index.includes(`Summary=${a.summary}`), `the index has no summary for ${a.name}`)
+      assert(index.includes(`Description=${a.description}`), `the index has no description for ${a.name}`)
+      assert(index.includes(`File=${APPS_DIR}/${a.id}/main.js`), `the index does not name the file for ${a.name}`)
+    }
+    /* the shared helpers are listed too, so the tree covers all of src/apps */
+    for (const f of APP_SHARED_FILES)
+      assert((vfs.read(`${APPS_DIR}/_shared.txt`) ?? '').includes(f), `the shared list is missing ${f}`)
+  })
+
+  await check('the application tree is filled in for a filesystem that predates it', () => {
+    vfs.rm(APPS_DIR)
+    assert(!vfs.exists(APP_INDEX_FILE), 'the tree was not removed for the test')
+    ensureAppTree()
+    assert(vfs.exists(APP_INDEX_FILE), 'ensureAppTree did not walk the index back in')
+    assert(vfs.exists(`${APPS_DIR}/${APP_INDEX[0].id}/main.js`), 'ensureAppTree left the applications behind')
+  })
+
+  /* ---- the white-screen regressions: a desktop that never mounts ---------- *
+   * Each of these used to throw before React's first render, which leaves a
+   * blank page with no message and no way out until the browser is cleared.  */
+
+  await check('a damaged saved filesystem cannot stop the boot', () => {
+    // a directory with no children map (older build, interrupted write)
+    const damaged = parseTree(
+      JSON.stringify({ type: 'dir', children: { home: { type: 'dir', name: 'home', children: { mixt: { type: 'dir' } } } } }),
+    )
+    assert(damaged.type === 'dir', 'the root should always be a directory')
+    const home = damaged.children.home as any
+    assert(home?.type === 'dir' && typeof home.children?.mixt?.children === 'object', 'a children-less directory was not repaired')
+
+    // rubbish in storage falls back to the seed filesystem rather than nothing
+    assert(vfs.list('/home/mixt/Desktop') !== undefined, 'listing should never throw')
+    const seeded = parseTree('{ this is not json')
+    assert(seeded.type === 'dir' && !!(seeded.children.home as any)?.children?.mixt, 'a corrupt blob should reseed the filesystem')
+
+    // and the tree itself is defensive even if something bypasses parseTree
+    const broken: any = { type: 'dir', children: { home: { type: 'dir', children: { mixt: { type: 'dir' } } } }, created: 0, modified: 0 }
+    useVFS.setState({ root: broken })
+    assert(vfs.list('/home/mixt/Desktop') === null, 'a damaged tree should read as "not there"')
+    assert(vfs.node('/home/mixt/Desktop/nope.txt') === null, 'walking a damaged tree must not throw')
+    assert(vfs.mkdir('/home/mixt/Desktop') === true, 'writing should repair the damaged directory')
+    assert(vfs.exists('/home/mixt/Desktop') === true, 'the repaired directory should exist')
+    vfs.reset()
+    assert(vfs.exists('/home/mixt/Documents/welcome.md'), 'reset should restore the seed filesystem')
+  })
+
+  await check('settings from an older build are repaired, not trusted', () => {
+    const repaired = sanitizeSettings({
+      wallpaper: null,
+      desktopIcons: null,
+      startupApps: null,
+      panelSize: 'huge',
+      panelPosition: 'sideways',
+      accent: 'not-a-colour',
+      scheme: 'neon',
+      volume: 900,
+      username: '',
+      clock24: 'yes',
+    })
+    assert(typeof repaired.wallpaper === 'string' && repaired.wallpaper.length > 0, 'wallpaper must stay a string')
+    assert(Array.isArray(repaired.desktopIcons) && Array.isArray(repaired.startupApps), 'icon lists must stay arrays')
+    assert(repaired.panelSize >= 24 && repaired.panelSize <= 96, 'panel size must stay usable')
+    assert(!repaired.panelPosition || repaired.panelPosition === 'bottom' || repaired.panelPosition === 'top', 'bad panel position survived')
+    assert(repaired.accent.startsWith('#'), 'accent must stay a colour')
+    assert(repaired.scheme === 'light' || repaired.scheme === 'dark', 'scheme must stay light or dark')
+    assert(repaired.volume <= 100, 'volume must stay in range')
+    assert(repaired.username.length > 0, 'an empty username should fall back to the default')
+    assert(sanitizeSettings(null).hostname === DEFAULT_SETTINGS.hostname, 'no blob at all should give defaults')
+    assert(sanitizeSettings('[]').panelSize === DEFAULT_SETTINGS.panelSize, 'a non-object blob should give defaults')
+  })
+
+  await check('the OS boots in a browser that blocks web storage', () => {
+    const realLocal = globalThis.localStorage
+    const realSession = globalThis.sessionStorage
+    const denied = () => {
+      throw new DOMException('Access is denied for this document.', 'SecurityError')
+    }
+    const blocked = new Proxy(
+      {},
+      {
+        get(_t, prop) {
+          if (prop === Symbol.toPrimitive || prop === 'then') return undefined
+          denied()
+        },
+        set: denied,
+      },
+    )
+    try {
+      Object.defineProperty(globalThis, 'localStorage', { value: blocked, configurable: true })
+      Object.defineProperty(globalThis, 'sessionStorage', { value: blocked, configurable: true })
+
+      // boot must survive: this is the call that used to leave a white page
+      bootstrap()
+
+      // and the wrappers keep working in memory, so the OS keeps behaving
+      assert(safeLocal.setItem('mixt.smoke.probe', 'yes') === false, 'a blocked store cannot report a successful write')
+      assert(safeLocal.getItem('mixt.smoke.probe') === 'yes', 'in-memory fallback lost the value')
+      assert(safeSession.getItem('mixt.boot.cycle') !== null, 'the boot counter should still be tracked')
+      safeLocal.setItem('mixt.smoke.probe', 'again')
+      safeLocal.removeItem('mixt.smoke.probe')
+      assert(safeLocal.getItem('mixt.smoke.probe') === null, 'the in-memory fallback did not forget the value')
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', { value: realLocal, configurable: true })
+      Object.defineProperty(globalThis, 'sessionStorage', { value: realSession, configurable: true })
+    }
+
+    assert(safeLocal.getItem('mixt.settings.v2') !== null, 'real storage should be visible again')
+  })
+
+  await check('saved data can be cleared from the recovery screen', () => {
+    safeLocal.setItem('mixt.settings.v2', JSON.stringify({ accent: '#000000' }))
+    safeSession.setItem('mixt.boot.cycle', '9')
+    clearSavedData()
+    assert(safeLocal.getItem('mixt.settings.v2') === null, 'settings were not cleared')
+    assert(safeSession.getItem('mixt.boot.cycle') === null, 'the boot counter was not cleared')
+    mountFilesystem('smoke-clear')
+    assert(safeLocal.getItem(vfsKey('smoke-clear')) !== null, 'the account filesystem was not saved to clear')
+    clearSavedData()
+    assert(safeLocal.getItem(vfsKey('smoke-clear')) === null, 'the filesystem was not cleared')
+  })
+
+  await check('a crash during rendering shows a report, not a white page', async () => {
+    const host = document.createElement('div')
+    host.id = 'boundary-probe'
+    document.body.appendChild(host)
+    const node = createRoot(host)
+    function Broken(): JSX.Element {
+      throw new Error('smoke test: deliberate render failure')
+    }
+    try {
+      node.render(
+        React.createElement(BootBoundary, null, React.createElement(Broken)),
+      )
+      await new Promise((r) => setTimeout(r, 260))
+      const text = host.textContent ?? ''
+      assert(text.includes('could not start'), 'the boot failure screen did not render')
+      assert(text.includes('deliberate render failure'), 'the error itself was not shown')
+      const buttons = Array.from(host.querySelectorAll('button')).map((b) => b.textContent ?? '')
+      assert(buttons.some((b) => b.includes('Reload')), 'no reload action offered')
+      assert(buttons.some((b) => b.includes('Reset saved data')), 'no reset action offered')
+      assert(host.innerHTML.length > 200, 'the failure screen is empty')
+    } finally {
+      node.unmount()
+      host.remove()
+    }
+
+    // the no-React fallback must work too, and must not itself throw
+    const plain = renderPlainFailure(new Error('smoke test: fallback path'))
+    try {
+      assert(plain, 'the plain fallback did not render')
+      assert((plain!.textContent ?? '').includes('could not start'), 'the plain fallback is missing its heading')
+      assert((plain!.textContent ?? '').includes('fallback path'), 'the plain fallback hid the error')
+    } finally {
+      plain?.remove()
+    }
+    assert(renderPlainFailure(new Error('removed again'), host) !== null, 'the plain fallback should accept a host')
+    host.innerHTML = ''
+  })
+
+  /* An update is an installed package the repository has a newer build of —
+     never an extra you have simply not installed yet. */
+  await check('updates are real updates, and stop being updates once applied', () => {
+    const S = useOS.getState()
+    const applied: Record<string, string> = {}
+
+    // an optional extra that is not installed is NOT an update
+    assert(!hasUpdate('weather', applied), 'an uninstalled extra counted as an update')
+
+    // a preinstalled package with a newer repo build IS one
+    const id = Object.keys(REPO_VERSIONS)[0]
+    assert(hasUpdate(id, applied), `${id} should have an update available`)
+    assert(installedVersion(id, applied) === INSTALLED_VERSION, 'the installed version is wrong')
+    assert(versionLabel(id, applied) === `${INSTALLED_VERSION} → ${REPO_VERSIONS[id]}`, `the version label reads ${versionLabel(id, applied)}`)
+
+    // applying it clears the update
+    S.applyUpdate(id, repoVersion(id))
+    assert(!hasUpdate(id, useOS.getState().updatesApplied), 'an applied update is still listed')
+    assert(versionLabel(id, useOS.getState().updatesApplied) === repoVersion(id), 'the version did not move forward')
+
+    // a package with no newer build never shows one
+    assert(!hasUpdate('calculator', {}), 'calculator invented an update')
+  })
+
+  /* Accounts have no avatars: nothing to pick, nothing stored, nothing drawn. */
+  await check('an account is created with no avatar, and none is drawn', () => {
+    const S = useOS.getState()
+    const before = S.users.length
+    const res = S.createUser({
+      username: 'smoke.user',
+      fullName: 'Smoke User',
+      password: 'secret',
+      accent: DEFAULT_SETTINGS.accent,
+      wallpaper: DEFAULT_SETTINGS.wallpaper,
+    })
+    assert(res.ok, 'creating an account failed')
+    if (!res.ok) return
+    assert((res.user as any).avatar === undefined, `the account still carries an avatar: ${(res.user as any).avatar}`)
+    assert(useOS.getState().users.length === before + 1, 'the account was not added')
+    assert(useOS.getState().settings.username === 'smoke.user', 'creating an account did not sign in as it')
+    assert((useOS.getState().settings as any).avatar === undefined, 'the session still carries an avatar')
+
+    const picker = ['🦊', '🐧', '🌿', '🚀', '🎧', '🐙', '🍋', '🌙', '🔥', '🧊', '🐝', '🎲']
+    const drawn = picker.filter((a) => container.innerHTML.includes(a))
+    assert(drawn.length === 0, `avatar emoji are on screen: ${drawn.join(' ')}`)
+
+    useOS.getState().removeUser(res.user.id)
   })
 
   await check('desktop unmounts cleanly', () => {

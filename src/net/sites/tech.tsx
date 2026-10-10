@@ -39,7 +39,7 @@ function MixtHome({ ctx }: { ctx: PageCtx }) {
           <Btn tone="grey" onClick={() => ctx.navigate('https://mixtos.com/download.php')}>
             Download
           </Btn>
-          <Btn tone="outline" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.6)' }} onClick={() => ctx.navigate('https://mixtnews.com/article/cinnamon-64')}>
+          <Btn tone="outline" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.6)' }} onClick={() => ctx.navigate('https://mixtnews.com/article/mixt-shell-64')}>
             Read the release notes
           </Btn>
         </div>
@@ -47,7 +47,7 @@ function MixtHome({ ctx }: { ctx: PageCtx }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
         {[
-          ['Cinnamon', 'A traditional desktop with modern touches: panel, menu, applets, workspaces.', 'cinnamon-desktop'],
+          ['Mixt Shell', 'A traditional desktop with modern touches: panel, menu, applets, workspaces.', 'mixt-shell'],
           ['Software Manager', 'Tens of thousands of packages, one search box, zero command line required.', 'mixt-os'],
           ['Update Manager', 'Tiered safety levels so you decide how brave today is.', 'mixt-os'],
         ].map(([title, text, slug]) => (
@@ -80,7 +80,7 @@ function MixtDownload({ ctx }: { ctx: PageCtx }) {
         watch the progress in the browser's status bar and in the Files application.
       </p>
       {[
-        ['mixtos-iso', 'Cinnamon Edition — 64-bit', '2.9 GB', 'The flagship edition, with the desktop you are using right now (allegedly).'],
+        ['mixtos-iso', 'Mixt Edition — 64-bit', '2.9 GB', 'The flagship edition, with the desktop you are using right now (allegedly).'],
         ['mixt-wallpaper-pack', 'Wallpaper pack', '18 MB', 'Three wallpapers for people who like green and geometry.'],
         ['mixtnet-spec', 'MixtNet protocol spec (PDF)', '420 kB', 'How the fictional internet inside this computer is put together.'],
       ].map(([fileId, title, size, blurb]) => (
@@ -206,8 +206,8 @@ function mixtHome({ ctx }: { ctx: PageCtx }) {
       <H level={1}>Mixt Web OS</H>
       <p style={{ color: '#4a524d', maxWidth: 760, lineHeight: 1.75 }}>
         A complete desktop computer that runs inside a web page: window manager, panel, virtual filesystem, terminal,
-        file manager, software store, media players and a browser that surfs a fictional internet. Styled after Linux
-        Mixt because green is a nice colour and because the Cinnamon layout is a genuinely good idea.
+        file manager, software store, media players and a browser that surfs a fictional internet. Styled after the Mixt desktop
+        Mixt because green is a nice colour and because the Mixt Shell layout is a genuinely good idea.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 8 }}>
         <Card>
@@ -267,14 +267,14 @@ export const MIXTOS: SiteDef = {
   color: '#2f6b12',
   color2: '#1c4309',
   description: 'The homepage of the Mixt OS project: downloads, features and documentation.',
-  tags: ['linux', 'mixt', 'download', 'distro', 'iso'],
+  tags: ['mixt', 'download', 'distro', 'iso'],
   defaultPath: '/',
   pages: [
     { path: '/', title: 'Mixt OS — home', keywords: ['mixt os', 'distro', 'distribution', 'homepage'], snippet: 'A modern, elegant and comfortable operating system.', render: (ctx) => <MixtHome ctx={ctx} /> },
     {
       path: '/download.php',
       title: 'Mixt OS — download',
-      keywords: ['download', 'iso', 'cinnamon edition', 'mirror'],
+      keywords: ['download', 'iso', 'mixt edition', 'mirror'],
       snippet: 'Download Mixt OS images: the ISO really downloads into your Downloads folder.',
       render: (ctx) => <MixtDownload ctx={ctx} />,
     },

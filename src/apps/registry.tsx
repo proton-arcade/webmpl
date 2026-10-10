@@ -9,16 +9,21 @@ import TextEditorApp from './texteditor'
 import CalculatorApp from './calculator'
 import SystemMonitorApp from './system-monitor'
 import MediaPlayerApp from './mediaplayer'
+import { VlcCone } from './vlc-art'
+import MixtPlayerApp from './mixtplayer'
+import ScreenViewerApp from './screenviewer'
 import ImageViewerApp from './imageviewer'
 import WeatherApp from './weather'
 import ArchiveApp from './archive'
 import HelpApp from './help'
 import AboutApp from './about'
 import ScreenshotApp from './screenshot'
-import Game2048App from './game2048'
 import PaintApp from './paint'
 import MailApp from './mail'
 import NewsApp from './news'
+import AdminApp from './admin'
+import * as backend from '../os/api'
+import { useOS } from '../os/store'
 
 export const APPS: AppDef[] = [
   {
@@ -38,13 +43,16 @@ export const APPS: AppDef[] = [
   {
     id: 'terminal',
     name: 'Terminal',
+    /* A guest gets no shell: it is the one place on this machine where anything
+       could be typed at the system. */
+    noGuest: true,
     generic: 'Terminal Emulator',
     comment: 'Run commands, scripts and system tools',
     glyph: 'Terminal',
     color: '#3a4046',
     color2: '#20242a',
     categories: ['Accessories', 'System'],
-    keywords: ['bash', 'shell', 'console', 'command', 'gnome-terminal'],
+    keywords: ['bash', 'shell', 'console', 'command', 'mixt-terminal'],
     component: TerminalApp,
     defaultSize: { w: 780, h: 480 },
     desktop: true,
@@ -58,7 +66,7 @@ export const APPS: AppDef[] = [
     color: '#4a7fe8',
     color2: '#2b4fb0',
     categories: ['Internet'],
-    keywords: ['browser', 'mixtsfox', 'mixtnet', 'web', 'internet', 'firefox', 'surf'],
+    keywords: ['browser', 'mixtsfox', 'mixtnet', 'web', 'internet', 'surf'],
     component: BrowserApp,
     defaultSize: { w: 1080, h: 720 },
     desktop: true,
@@ -71,7 +79,7 @@ export const APPS: AppDef[] = [
     glyph: 'ShoppingBag',
     color: '#61ad2b',
     color2: '#3b6f18',
-    categories: ['System'],
+    categories: ['System', 'Administration'],
     keywords: ['install', 'apps', 'packages', 'apt', 'store'],
     component: SoftwareApp,
     defaultSize: { w: 940, h: 620 },
@@ -83,7 +91,7 @@ export const APPS: AppDef[] = [
     glyph: 'Settings',
     color: '#7d8a95',
     color2: '#4d565e',
-    categories: ['System', 'Preferences'],
+    categories: ['System', 'Preferences', 'Administration'],
     keywords: ['control centre', 'config', 'theme', 'wallpaper', 'display'],
     component: SettingsApp,
     defaultSize: { w: 980, h: 640 },
@@ -110,7 +118,7 @@ export const APPS: AppDef[] = [
     color: '#e0793a',
     color2: '#a8521c',
     categories: ['Accessories'],
-    keywords: ['math', 'sum', 'numbers', 'gnome-calculator'],
+    keywords: ['math', 'sum', 'numbers', 'mixt-calculator'],
     component: CalculatorApp,
     defaultSize: { w: 380, h: 560 },
     minSize: { w: 340, h: 460 },
@@ -127,16 +135,35 @@ export const APPS: AppDef[] = [
     component: SystemMonitorApp,
     defaultSize: { w: 880, h: 600 },
   },
+  /* Ships with the system: audio and video open here unless the user installs
+     something else and chooses it in System Settings. */
+  {
+    id: 'mixtplayer',
+    name: 'Mixt Player',
+    generic: 'Media Player',
+    comment: 'Play the music and videos in your home folder',
+    glyph: 'Play',
+    color: '#4a7fd0',
+    color2: '#2a5396',
+    categories: ['Sound & Video'],
+    keywords: ['music', 'player', 'audio', 'video', 'media', 'mp3'],
+    component: MixtPlayerApp,
+    defaultSize: { w: 780, h: 520 },
+  },
   {
     id: 'mediaplayer',
-    name: 'Media Player',
+    name: 'VLC media player',
     generic: 'Media Player',
     comment: 'Play music and video from your library',
-    glyph: 'Play',
-    color: '#b06ee8',
-    color2: '#6d28d9',
+    glyph: 'Cone',
+    color: '#ff8800',
+    color2: '#e8590c',
+    /* The cone IS the icon. `glyph` stays as the fallback for anything that
+       only has a name, but everywhere an app is actually drawn this wins. */
+    icon: (size) => <VlcCone size={size} />,
     categories: ['Sound & Video'],
-    keywords: ['music', 'rhythmbox', 'player', 'audio', 'video', 'mp3'],
+    keywords: ['vlc', 'music', 'player', 'audio', 'video', 'mp3'],
+    preinstalled: false,
     component: MediaPlayerApp,
     defaultSize: { w: 900, h: 600 },
   },
@@ -162,6 +189,7 @@ export const APPS: AppDef[] = [
     color2: '#1f6f96',
     categories: ['Internet', 'Accessories'],
     keywords: ['forecast', 'temperature', 'rain', 'climate'],
+    preinstalled: false,
     component: WeatherApp,
     defaultSize: { w: 780, h: 600 },
   },
@@ -190,18 +218,6 @@ export const APPS: AppDef[] = [
     component: ScreenshotApp,
     defaultSize: { w: 560, h: 470 },
     minSize: { w: 480, h: 400 },
-  },
-  {
-    id: 'game2048',
-    name: '2048',
-    comment: 'Slide the tiles, reach 2048',
-    glyph: 'Gamepad2',
-    color: '#e05f8a',
-    color2: '#a32a55',
-    categories: ['Games'],
-    keywords: ['game', 'puzzle', 'play', 'tiles'],
-    component: Game2048App,
-    defaultSize: { w: 520, h: 620 },
   },
   {
     id: 'help',
@@ -273,6 +289,36 @@ export const APPS: AppDef[] = [
     defaultSize: { w: 900, h: 620 },
     preinstalled: false,
   },
+  /* Administrator only: looks at what another account or a guest is doing. */
+  {
+    id: 'screenviewer',
+    name: 'Screen Viewer',
+    generic: 'Session Viewer',
+    comment: 'See what another account or a guest has open',
+    glyph: 'Monitor',
+    color: '#5b8fd6',
+    color2: '#2f5c9e',
+    categories: ['Administration'],
+    keywords: ['screen', 'session', 'view', 'admin', 'monitor', 'guests'],
+    component: ScreenViewerApp,
+    defaultSize: { w: 940, h: 620 },
+    adminOnly: true,
+  },
+  {
+    id: 'administration',
+    name: 'Administration',
+    generic: 'Administrator Console',
+    comment: 'Approve published apps, manage whitelisted accounts and inspect the server',
+    glyph: 'ShieldCheck',
+    color: '#6fa34c',
+    color2: '#4a7231',
+    categories: ['Administration', 'System'],
+    keywords: ['admin', 'administrator', 'approve', 'users', 'server', 'root', 'privileged'],
+    component: AdminApp,
+    defaultSize: { w: 900, h: 620 },
+    preinstalled: true,
+    adminOnly: true,
+  },
 ]
 
 const byId = new Map(APPS.map((a) => [a.id, a]))
@@ -281,13 +327,47 @@ export function getApp(id: string): AppDef | undefined {
 }
 export function searchApps(q: string): AppDef[] {
   const s = q.trim().toLowerCase()
-  if (!s) return APPS
-  return APPS.filter((a) =>
+  const pool = visibleApps()
+  if (!s) return pool
+  return pool.filter((a) =>
     [a.name, a.generic ?? '', a.comment, a.id, ...(a.keywords ?? []), ...a.categories]
       .join(' ')
       .toLowerCase()
       .includes(s),
   )
+}
+
+/* Apps that only the administrator account may see. Everyone else gets the
+   same list minus these, in the menu, the Software Manager and Settings. */
+export function isAdmin(): boolean {
+  return backend.getSession()?.role === 'admin'
+}
+export function isGuest(): boolean {
+  return backend.getSession()?.role === 'guest'
+}
+export function visibleApps(): AppDef[] {
+  const guest = isGuest()
+  return APPS.filter((a) => (a.adminOnly ? isAdmin() : true) && (a.noGuest ? !guest : true))
+}
+
+/* Is this app actually present on the machine?
+ *
+ * This used to be open-coded as `app.preinstalled !== false || installed[id]`
+ * in eight different files, and the "Open With" menu simply never ran it — so
+ * VLC, which is a download, was offered as a way to open a file on a system
+ * that had never downloaded it. One definition, and everything that offers to
+ * run an app goes through it.
+ */
+export function isInstalled(id: string): boolean {
+  const app = byId.get(id)
+  if (!app) return false
+  if (app.preinstalled !== false) return true
+  return !!useOS.getState().installed[id]
+}
+
+/* The installed subset of the visible apps, in catalogue order. */
+export function installedApps(): AppDef[] {
+  return visibleApps().filter((a) => isInstalled(a.id))
 }
 
 export const CATEGORIES = [
@@ -296,7 +376,6 @@ export const CATEGORIES = [
   'Accessories',
   'Graphics',
   'Internet',
-  'Games',
   'Sound & Video',
   'System',
   'Preferences',
