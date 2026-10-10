@@ -31,7 +31,7 @@ import {
   zoneRecords,
 } from '../net'
 import { useOS, sanitizeSettings, DEFAULT_SETTINGS } from '../os/store'
-import { vfs, useVFS, parseTree, ensureWebShare } from '../os/vfs'
+import { vfs, useVFS, parseTree, ensureWebShare, mountFilesystem, vfsKey, savedOwners } from '../os/vfs'
 import { migrateBranding } from '../os/migrate'
 import { bootstrap } from '../os/bootstrap'
 import { safeLocal, safeSession, clearSavedData } from '../os/storage'
@@ -776,9 +776,31 @@ export async function runSmoke() {
   })
 
   await new Promise((r) => setTimeout(r, 700))
-  await check('filesystem persists to localStorage', () => {
-    const raw = localStorage.getItem('mixt.vfs.v2')
-    assert(raw && raw.length > 100, 'vfs was never written to localStorage')
+  await check('each account has its own filesystem, saved under its own key', async () => {
+    /* No account is signed in here, so nothing should have been written under
+       anybody's name yet — a shared key would mean everybody's files mixed. */
+    assert(savedOwners().length === 0, `something was saved before anyone signed in: ${savedOwners()}`)
+
+    mountFilesystem('smoke-alice')
+    vfs.write('/home/mixt/alice-only.txt', 'alice', 'text/plain')
+    /* writes are debounced, so give the save a moment to land */
+    await new Promise((r) => setTimeout(r, 600))
+    const alice = localStorage.getItem(vfsKey('smoke-alice'))
+    assert(alice && alice.length > 100, 'alice’s filesystem was never written to localStorage')
+    assert(alice!.includes('alice-only.txt'), 'alice’s file is not in alice’s saved filesystem')
+
+    mountFilesystem('smoke-bob')
+    await new Promise((r) => setTimeout(r, 600))
+    const bob = localStorage.getItem(vfsKey('smoke-bob'))
+    assert(bob !== null, 'bob’s filesystem was never saved')
+    assert(!bob!.includes('alice-only.txt'), 'bob was handed alice’s files')
+
+    /* and alice still has hers when she comes back */
+    mountFilesystem('smoke-alice')
+    assert(vfs.read('/home/mixt/alice-only.txt') === 'alice', 'alice’s file did not come back')
+    assert(savedOwners().includes('smoke-alice') && savedOwners().includes('smoke-bob'), 'both accounts should be listed')
+
+    for (const who of ['smoke-alice', 'smoke-bob']) localStorage.removeItem(vfsKey(who))
   })
 
   /* ---- the white-screen regressions: a desktop that never mounts ---------- *
@@ -870,7 +892,7 @@ export async function runSmoke() {
       Object.defineProperty(globalThis, 'sessionStorage', { value: realSession, configurable: true })
     }
 
-    assert(safeLocal.getItem('mixt.vfs.v2') !== null, 'real storage should be visible again')
+    assert(safeLocal.getItem('mixt.settings.v2') !== null, 'real storage should be visible again')
   })
 
   await check('saved data can be cleared from the recovery screen', () => {
@@ -879,7 +901,10 @@ export async function runSmoke() {
     clearSavedData()
     assert(safeLocal.getItem('mixt.settings.v2') === null, 'settings were not cleared')
     assert(safeSession.getItem('mixt.boot.cycle') === null, 'the boot counter was not cleared')
-    assert(safeLocal.getItem('mixt.vfs.v2') === null, 'the filesystem was not cleared')
+    mountFilesystem('smoke-clear')
+    assert(safeLocal.getItem(vfsKey('smoke-clear')) !== null, 'the account filesystem was not saved to clear')
+    clearSavedData()
+    assert(safeLocal.getItem(vfsKey('smoke-clear')) === null, 'the filesystem was not cleared')
   })
 
   await check('a crash during rendering shows a report, not a white page', async () => {

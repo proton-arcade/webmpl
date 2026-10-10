@@ -6,6 +6,7 @@ import { AppIcon, Glyph } from '../shell/AppIcon'
 import { Dialog } from './files'
 import { visibleApps } from './registry'
 import { notify } from '../os/bus'
+import { collectBackup, downloadBackup, backupFileName, describeBackup, parseBackup, restoreBackup, backupSize, type AccountBackup } from '../os/backup'
 import type { AppProps } from '../os/types'
 import * as backend from '../os/api'
 
@@ -22,6 +23,7 @@ const SECTIONS = [
   { id: 'clock', label: 'Date &amp; Time', glyph: 'Clock', group: 'System' },
   { id: 'startup', label: 'Startup Applications', glyph: 'Play', group: 'System' },
   { id: 'users', label: 'Users &amp; Groups', glyph: 'User', group: 'System' },
+  { id: 'backup', label: 'Backups', glyph: 'Save', group: 'System' },
   { id: 'privacy', label: 'Privacy', glyph: 'Shield', group: 'System' },
   { id: 'info', label: 'System Info', glyph: 'Info', group: 'System' },
 ]
@@ -103,6 +105,7 @@ export default function SettingsApp({ win, api }: AppProps) {
         {page === 'clock' && <ClockSection />}
         {page === 'startup' && <StartupSection />}
         {page === 'users' && <UsersSection />}
+        {page === 'backup' && <BackupSection />}
         {page === 'privacy' && <PrivacySection onReset={() => setConfirmReset(true)} onWipe={() => setConfirmWipe(true)} />}
         {page === 'info' && <InfoSection />}
       </div>
@@ -818,6 +821,133 @@ function UsersSection() {
           {backend.roleLabel()} · groups: {backend.groups()}
         </div>
       </Card>
+    </Section>
+  )
+}
+
+function BackupSection() {
+  const settings = useOS((s) => s.settings)
+  const [message, setMessage] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const fileRef = React.useRef<HTMLInputElement | null>(null)
+
+  const who = settings.username || 'account'
+
+  function makeBackup() {
+    const b = collectBackup(who)
+    if (downloadBackup(b)) {
+      notify('Backups', `Saved ${backupFileName(who)} — your files, settings and mailbox.`, 'settings')
+      setMessage(`Backup written: ${describeBackup(b)}. Keep the file somewhere safe; this browser is the only copy otherwise.`)
+    } else {
+      setMessage('The browser would not let this page offer a download.')
+    }
+  }
+
+  async function takeFile(ev: React.ChangeEvent<HTMLInputElement>) {
+    const f = ev.target.files?.[0]
+    ev.target.value = '' // so picking the same file twice still fires
+    if (!f) return
+    let text = ''
+    try {
+      text = await f.text()
+    } catch {
+      setMessage('That file could not be read.')
+      return
+    }
+    const parsed = parseBackup(text) as { ok: boolean; error?: string; backup?: AccountBackup }
+    if (!parsed.ok || !parsed.backup) {
+      setMessage(parsed.error ?? 'That file could not be read as a backup.')
+      return
+    }
+    const b = parsed.backup
+    setConfirming(true)
+    pending.current = b
+    setMessage(`Read a backup of ${b.username} from ${new Date(b.created).toLocaleString()}.`)
+  }
+
+  const pending = React.useRef<AccountBackup | null>(null)
+
+  function doRestore() {
+    const b = pending.current
+    setConfirming(false)
+    if (!b) return
+    const res = restoreBackup(b)
+    if (res.ok) {
+      notify('Backups', `Restored ${b.username}'s files and settings.`, 'settings')
+      setMessage('Restored. Your files and settings are the ones from that backup.')
+    } else {
+      setMessage(res.error ?? 'The restore failed.')
+    }
+    pending.current = null
+  }
+
+  return (
+    <Section
+      title="Backups"
+      subtitle="Everything this browser holds for your account, in one file you keep."
+    >
+      <Card title="What a backup holds" hint={`${backupSize()} right now`}>
+        <Row label="Your files" hint="the whole filesystem, exactly as it is">
+          <span style={{ opacity: 0.7 }}>{humanSize(nodeSize(vfs.node('/')!))}</span>
+        </Row>
+        <Row label="Your settings" hint="appearance, panel, sound, installed applications">
+          <span style={{ opacity: 0.7 }}>included</span>
+        </Row>
+        <Row label="Your mailbox cache" hint="the offline copy of your mail">
+          <span style={{ opacity: 0.7 }}>included</span>
+        </Row>
+        <Row label="Your password" hint="the server holds that, and it never leaves it">
+          <span style={{ opacity: 0.7 }}>not included</span>
+        </Row>
+      </Card>
+
+      <Card title="Back up this account">
+        <Row label="Download a backup" hint="a .json file with everything above in it">
+          <button className="btn-mixt" onClick={makeBackup}>
+            <Glyph name="Save" size={14} /> Back up now
+          </button>
+        </Row>
+      </Card>
+
+      <Card title="Restore from a backup" hint="This replaces your current files and settings. It cannot be undone.">
+        <Row label="Choose a backup file">
+          <button className="btn-ghost" onClick={() => fileRef.current?.click()}>
+            <Glyph name="Upload" size={14} /> Choose file…
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={takeFile}
+          />
+        </Row>
+        {confirming && (
+          <Row label="Replace everything with that backup?">
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-mixt" onClick={doRestore}>
+                <Glyph name="Check" size={14} /> Yes, restore it
+              </button>
+              <button
+                className="btn-ghost"
+                onClick={() => {
+                  setConfirming(false)
+                  pending.current = null
+                  setMessage('')
+                }}
+              >
+                <Glyph name="X" size={14} /> Cancel
+              </button>
+            </div>
+          </Row>
+        )}
+      </Card>
+
+      {message && (
+        <Card>
+          <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>{message}</div>
+        </Card>
+      )}
     </Section>
   )
 }

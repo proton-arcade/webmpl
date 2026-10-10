@@ -20,7 +20,25 @@ export interface VDirNode {
 }
 export type VNode = VFileNode | VDirNode
 
-const LS_KEY = 'mixt.vfs.v2'
+/* Every account has its own filesystem, stored under its own key in this
+ * browser. Nothing about the files goes to the server — the server only knows
+ * the account itself (username, password, role, mailbox). A guest gets a
+ * filesystem for the session too, so it behaves like a real one, but it is
+ * never written to disk. */
+const LS_PREFIX = 'mixt.vfs.v2'
+/** the key one account's filesystem lives under */
+export function vfsKey(owner: string): string {
+  return owner ? `${LS_PREFIX}:${owner}` : `${LS_PREFIX}:anonymous`
+}
+/** the shared key every session used before filesystems were per-account */
+const LEGACY_KEY = 'mixt.vfs.v2'
+
+let owner = ''
+/** whose filesystem is mounted right now */
+export function currentOwner(): string {
+  return owner
+}
+
 const now = () => Date.now()
 
 export function file(content: string, mime = 'text/plain', url?: string): VFileNode {
@@ -412,16 +430,105 @@ export function parseTree(raw: string | null | undefined): VDirNode {
   return seedTree()
 }
 
-function loadRoot(): VDirNode {
-  return parseTree(safeLocal.getItem(LS_KEY))
+/** Read one account's saved filesystem. `null` when it has never been saved. */
+export function savedTreeOf(who: string): string | null {
+  return safeLocal.getItem(vfsKey(who))
+}
+
+/** every account with a filesystem saved in this browser */
+export function savedOwners(): string[] {
+  return safeLocal
+    .keys()
+    .filter((k) => k.startsWith(`${LS_PREFIX}:`))
+    .map((k) => k.slice(LS_PREFIX.length + 1))
+    .filter((who) => who !== 'anonymous')
+    .sort()
+}
+
+function loadRoot(who = owner): VDirNode {
+  const mine = safeLocal.getItem(vfsKey(who))
+  if (mine !== null) return parseTree(mine)
+  /* The first account to boot on a browser that already had files under the
+     old shared key inherits them, so nothing anybody saved is thrown away. */
+  const legacy = safeLocal.getItem(LEGACY_KEY)
+  if (legacy !== null && who) {
+    safeLocal.setItem(vfsKey(who), legacy)
+    return parseTree(legacy)
+  }
+  return parseTree(null)
 }
 
 let persistTimer: any = null
 function schedulePersist(get: () => VFSState) {
   clearTimeout(persistTimer)
+  const who = owner
   persistTimer = setTimeout(() => {
-    safeLocal.setItem(LS_KEY, JSON.stringify(get().root))
+    if (who) safeLocal.setItem(vfsKey(who), JSON.stringify(get().root))
   }, 350)
+}
+
+/* ---------------------------------------------------------------------------
+ * /users — the administrator's view of everybody else's filesystem.
+ *
+ * Each account's tree is already saved under its own key, so there is nothing
+ * to copy: this reads those trees straight out of storage and presents them as
+ * one folder per account. It only resolves for an administrator, and it is read
+ * only — writing into somebody else's files is not something this offers.
+ * ------------------------------------------------------------------------- */
+
+/** set when the signed-in session is the administrator */
+let adminView = false
+export function setAdminView(v: boolean) {
+  adminView = v
+}
+export function isAdminView(): boolean {
+  return adminView
+}
+
+export const USERS_DIR = '/users'
+
+const overlayCache = new Map<string, { raw: string | null; tree: VDirNode | null }>()
+
+/** another account's saved tree, parsed once per stored revision of it */
+function otherTree(who: string): VDirNode | null {
+  const raw = safeLocal.getItem(vfsKey(who))
+  const hit = overlayCache.get(who)
+  if (hit && hit.raw === raw) return hit.tree
+  const tree = raw === null ? null : parseTree(raw)
+  overlayCache.set(who, { raw, tree })
+  return tree
+}
+
+/** Resolve a path under /users against the saved filesystems. */
+function resolveUsers(path: string): VNode | null {
+  const rest = path.slice(USERS_DIR.length)
+  const segs = splitPath(rest)
+  if (segs.length === 0) {
+    /* the folder itself: one entry per account that has files here */
+    const children: Record<string, VNode> = {}
+    for (const who of savedOwners()) {
+      const tree = otherTree(who)
+      if (!tree) continue
+      children[who] = tree
+    }
+    return dir(children)
+  }
+  let node: VNode | null = otherTree(segs[0])
+  for (const seg of segs.slice(1)) {
+    if (!node || node.type !== 'dir') return null
+    node = node.children?.[seg] ?? null
+  }
+  return node
+}
+
+/** true for any path inside the administrator's /users view */
+export function isUsersPath(path: string): boolean {
+  return path === USERS_DIR || path.startsWith(`${USERS_DIR}/`)
+}
+
+/** Write the mounted filesystem now, rather than waiting for the debounce. */
+export function persistNow(root: VDirNode) {
+  if (owner) safeLocal.setItem(vfsKey(owner), JSON.stringify(root))
 }
 
 /** Directories read from storage always carry a children map, but a tree can
@@ -437,6 +544,9 @@ export const useVFS = create<VFSState>()((set, get) => ({
   revision: 0,
 
   getNode: (path) => {
+    /* the administrator's /users folder is not part of their own tree — it is
+       a window onto the trees the other accounts saved */
+    if (adminView && isUsersPath(path)) return resolveUsers(path)
     if (path === '/' || path === '') return get().root
     let node: VNode = get().root
     for (const seg of splitPath(path)) {
@@ -453,7 +563,14 @@ export const useVFS = create<VFSState>()((set, get) => ({
   list: (path) => {
     const node = get().getNode(path)
     if (!node || node.type !== 'dir') return null
-    return Object.entries(node.children ?? {})
+    const entries = Object.entries(node.children ?? {})
+    /* the administrator sees /users at the root, next to /home and /srv. It is
+       not in their own tree — it is the window onto everybody else's. */
+    if (adminView && (path === '/' || path === '') && !entries.some(([n]) => n === 'users')) {
+      const overlay = resolveUsers(USERS_DIR)
+      if (overlay && overlay.type === 'dir') entries.push(['users', overlay])
+    }
+    return entries
       .map(([name, n]) => ({ name, node: n }))
       .sort((a, b) => {
         if (a.node.type !== b.node.type) return a.node.type === 'dir' ? -1 : 1
@@ -462,6 +579,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
   },
 
   mkdir: (path) => {
+    if (isUsersPath(path)) return false // somebody else's files are not ours to change
     const parent = parentPath(path)
     const name = baseName(path)
     const p = get().getNode(parent)
@@ -476,6 +594,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
   },
 
   writeFile: (path, content, mime = 'text/plain', url) => {
+    if (isUsersPath(path)) return false // another account's files are read-only here
     const parent = parentPath(path)
     const name = baseName(path)
     const p = get().getNode(parent)
@@ -512,6 +631,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
   },
 
   remove: (path) => {
+    if (isUsersPath(path)) return false
     const p = get().getNode(parentPath(path))
     const name = baseName(path)
     if (!p || p.type !== 'dir') return false
@@ -525,6 +645,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
   },
 
   move: (from, to) => {
+    if (isUsersPath(from) || isUsersPath(to)) return false
     const srcParent = get().getNode(parentPath(from))
     const node = get().getNode(from)
     if (!node || !srcParent || srcParent.type !== 'dir') return false
@@ -543,6 +664,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
   },
 
   copy: (from, to) => {
+    if (isUsersPath(to)) return false // reading from /users is fine, writing into it is not
     const node = get().getNode(from)
     if (!node) return false
     let destPath = to
@@ -560,7 +682,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
   reset: () => {
     const root = seedTree()
     set((s) => ({ root, revision: s.revision + 1 }))
-    safeLocal.setItem(LS_KEY, JSON.stringify(root))
+    if (owner) safeLocal.setItem(vfsKey(owner), JSON.stringify(root))
   },
 
   persist: () => schedulePersist(get),
@@ -602,6 +724,26 @@ export function ensureWebShare() {
       /* a blocked or full store must not cost the user their session */
     }
   }
+}
+
+/**
+ * Mount one account's filesystem.
+ *
+ * Called when somebody signs in, and again when they sign out. The filesystem
+ * that is mounted is written out first, so signing out never loses what the
+ * person who was signed in had just done. A guest's tree is kept in memory for
+ * the session and simply dropped, which is what a guest is for.
+ */
+export function mountFilesystem(who: string) {
+  if (who !== owner) persistNow(useVFS.getState().root)
+  owner = who || ''
+  const root = loadRoot(owner)
+  useVFS.setState((s) => ({ root, revision: s.revision + 1 }))
+  /* Saved from the moment the account first signs in, not only after something
+     changes — this browser is the only copy of these files, and an account that
+     has a filesystem should have one on disk. A guest is never written out. */
+  if (owner && owner !== 'anonymous') persistNow(root)
+  return root
 }
 
 export const HOME = '/home/mixt'

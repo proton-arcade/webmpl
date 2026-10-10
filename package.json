@@ -16,7 +16,9 @@
     "served": "node scripts/served.mjs",
     "session": "node scripts/session.mjs",
     "mail": "node scripts/mail.mjs",
-    "devgate": "node scripts/devgate.mjs http://127.0.0.1:3000"
+    "devgate": "node scripts/devgate.mjs http://127.0.0.1:3000",
+    "gen:appindex": "node scripts/gen-appindex.mjs",
+    "files": "node scripts/files.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

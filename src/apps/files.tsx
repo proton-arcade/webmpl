@@ -56,6 +56,10 @@ export default function FilesApp({ win, api }: AppProps) {
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [selection, setSelection] = useState<string[]>([])
   const [clip, setClip] = useState<Clip | null>(null)
+  /* what is being dragged, and which folder is currently highlighted as the
+     drop target — both are state so the view can show where it will land */
+  const [dragging, setDragging] = useState<string[]>([])
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [search, setSearch] = useState('')
@@ -151,6 +155,51 @@ export default function FilesApp({ win, api }: AppProps) {
       return
     }
     launch(appId, { path: target })
+  }
+
+  /** Where a dragged item lands. Dropping on a folder moves into it; dropping
+   *  on empty space moves into the folder being looked at. */
+  /** `fromEvent` is the payload the drag itself carries. Reading it rather than
+   *  only the state matters: a drop can land before the state set at dragstart
+   *  has been rendered, and a handler that trusts that stale state quietly
+   *  moves nothing. */
+  function dropInto(targetName: string | null, fromEvent?: string) {
+    /* The drag carries full paths, so a drop works no matter which window or
+       folder it came from — including one this window is not showing. */
+    const carried = (fromEvent ?? '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => (s.startsWith('/') ? s : join(path, s)))
+    const sources = carried.length ? carried : dragging.map((n) => join(path, n))
+    setDragging([])
+    setDropTarget(null)
+    if (!sources.length) return
+    const destDir = targetName ? join(path, targetName) : path
+    const destNode = getNode(destDir)
+    if (!destNode || destNode.type !== 'dir') {
+      notify('Files', `“${targetName ?? path}” is not a folder, so nothing was moved there.`)
+      return
+    }
+    let moved = 0
+    let skipped = 0
+    for (const from of sources) {
+      if (parentPath(from) === destDir) continue // already where it is being dropped
+      if (from === destDir || destDir.startsWith(`${from}/`)) {
+        skipped++ // a folder cannot be dropped inside itself
+        continue
+      }
+      const to = join(destDir, baseName(from))
+      if (getNode(to)) {
+        skipped++ // something of that name is already there
+        continue
+      }
+      if (vfs.mv(from, to)) moved++
+      else skipped++
+    }
+    setSelection([])
+    if (moved) notify('Files', `Moved ${moved} item${moved === 1 ? '' : 's'} to ${destDir.replace(HOME, '~')}.`)
+    if (skipped) notify('Files', `${skipped} item${skipped === 1 ? '' : 's'} could not be moved — a folder cannot go inside itself, and nothing is overwritten.`)
   }
 
   function select(name: string, e: React.MouseEvent) {
@@ -396,7 +445,16 @@ export default function FilesApp({ win, api }: AppProps) {
         </button>
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'var(--wm-entry-bg)', border: '1px solid rgba(0,0,0,0.25)', borderRadius: 5, padding: '2px 6px', margin: '0 6px', minWidth: 0, overflow: 'hidden' }}>
-          <Glyph name="HardDrive" size={13} />
+          {/* the drive icon is the root of the filesystem, and it is a button:
+              it used to be decoration, so clicking it did nothing */}
+          <button
+            className="btn-ghost"
+            title="File System"
+            onClick={() => navigate('/')}
+            style={{ padding: '1px 5px', opacity: splitPath(path).length === 0 ? 0.6 : 1 }}
+          >
+            <Glyph name="HardDrive" size={13} />
+          </button>
           {splitPath(path).length === 0 ? (
             <span style={{ padding: '0 6px' }}>File System</span>
           ) : (
@@ -510,6 +568,19 @@ export default function FilesApp({ win, api }: AppProps) {
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelection([])
           }}
+          /* dropping on the empty background moves into the folder being
+             looked at — that is how you drag something out of a subfolder */
+          onDragOver={(e) => {
+            if (!dragging.length) return
+            e.preventDefault()
+            setDropTarget(null)
+          }}
+          onDrop={(e) => {
+            const carried = e.dataTransfer?.getData?.('text/plain') ?? ''
+            if (!dragging.length && !carried) return
+            e.preventDefault()
+            dropInto(null, carried)
+          }}
         >
           {entries.length === 0 ? (
             <div style={{ display: 'grid', placeItems: 'center', height: '100%', opacity: 0.55, gap: 8 }}>
@@ -527,7 +598,37 @@ export default function FilesApp({ win, api }: AppProps) {
                     key={en.name}
                     className="desktop-icon"
                     data-selected={selected}
-                    style={{ color: 'var(--wm-window-fg)', width: 104 }}
+                    draggable
+                    onDragStart={(e) => {
+                      /* dragging an unselected item drags just that one */
+                      const names = selection.includes(en.name) ? selection : [en.name]
+                      setDragging(names)
+                      e.dataTransfer.effectAllowed = 'move'
+                      e.dataTransfer.setData('text/plain', names.map((n) => join(path, n)).join('\n'))
+                    }}
+                    onDragEnd={() => {
+                      setDragging([])
+                      setDropTarget(null)
+                    }}
+                    onDragOver={(e) => {
+                      if (en.node.type !== 'dir') return
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setDropTarget(en.name)
+                    }}
+                    onDragLeave={() => setDropTarget((d) => (d === en.name ? null : d))}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      dropInto(en.node.type === 'dir' ? en.name : null, e.dataTransfer?.getData?.('text/plain'))
+                    }}
+                    style={{
+                      color: 'var(--wm-window-fg)',
+                      width: 104,
+                      outline: dropTarget === en.name ? '2px solid var(--wm-accent)' : undefined,
+                      borderRadius: dropTarget === en.name ? 8 : undefined,
+                      opacity: dragging.includes(en.name) ? 0.45 : 1,
+                    }}
                     onClick={(e) => {
                       e.stopPropagation()
                       select(en.name, e)
@@ -595,7 +696,38 @@ export default function FilesApp({ win, api }: AppProps) {
                   return (
                     <tr
                       key={en.name}
-                      style={{ background: selected ? 'color-mix(in srgb, var(--wm-accent) 45%, transparent)' : undefined, cursor: 'default' }}
+                      draggable
+                      onDragStart={(e) => {
+                        const names = selection.includes(en.name) ? selection : [en.name]
+                        setDragging(names)
+                        e.dataTransfer.effectAllowed = 'move'
+                        e.dataTransfer.setData('text/plain', names.map((n) => join(path, n)).join('\n'))
+                      }}
+                      onDragEnd={() => {
+                        setDragging([])
+                        setDropTarget(null)
+                      }}
+                      onDragOver={(e) => {
+                        if (en.node.type !== 'dir') return
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setDropTarget(en.name)
+                      }}
+                      onDragLeave={() => setDropTarget((d) => (d === en.name ? null : d))}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        dropInto(en.node.type === 'dir' ? en.name : null, e.dataTransfer?.getData?.('text/plain'))
+                      }}
+                      style={{
+                        background: selected
+                          ? 'color-mix(in srgb, var(--wm-accent) 45%, transparent)'
+                          : dropTarget === en.name
+                            ? 'color-mix(in srgb, var(--wm-accent) 25%, transparent)'
+                            : undefined,
+                        cursor: 'default',
+                        opacity: dragging.includes(en.name) ? 0.45 : 1,
+                      }}
                       onClick={(e) => {
                         e.stopPropagation()
                         select(en.name, e)

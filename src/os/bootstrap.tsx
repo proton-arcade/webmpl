@@ -3,6 +3,7 @@ import { useOS } from '../os/store'
 import { vfs } from '../os/vfs'
 import { ensureNetworkFiles } from '../net/internet/hosts'
 import { ensureWebShare } from '../os/vfs'
+import { ensureAppTree } from './appfiles'
 import { safeSession } from './storage'
 import { INSTALLED_VERSION, REPO_VERSIONS } from '../apps/versions'
 import { getSession, serverMail } from './api'
@@ -52,6 +53,16 @@ export function bootstrap() {
    * share existed needs it walked in; anything already there is left alone. */
   try {
     ensureWebShare()
+  } catch {
+    /* ignore */
+  }
+
+  /* /usr/share/applications — one directory per application, laid out as
+   * main.js / _Dependencies/ / everything else, plus the index that lists them.
+   * Generated from src/apps, and filled in for any filesystem that booted
+   * before it existed. */
+  try {
+    ensureAppTree()
   } catch {
     /* ignore */
   }

@@ -12,6 +12,7 @@ import { Dialog } from '../apps/files'
 import { validateUsername, ACCENTS } from '../os/users'
 import * as api from '../os/api'
 import { setPersistenceEnabled } from '../os/storage'
+import { mountFilesystem, persistNow, setAdminView } from '../os/vfs'
 import { appForFile, launch } from '../os/bus'
 
 export default function Desktop() {
@@ -55,12 +56,27 @@ export default function Desktop() {
     setServerSession(s)
     if (!s) return
     setPersistenceEnabled(s.role !== 'guest')
+    /* Every account gets its own filesystem, kept in this browser under its own
+     * key. Signing in swaps the mounted tree to theirs; what the previous
+     * session had is written out first, so nothing is lost on the way past. */
+    mountFilesystem(s.username || 'anonymous')
+    /* only the administrator gets the /users folder at the root */
+    setAdminView(s.role === 'admin')
     const st = useOS.getState()
     st.setServerRole(s.role)
     if (st.settings.username !== s.username) st.setSettings({ username: s.username, fullName: s.username })
   }
 
   useEffect(() => {
+    /* A stored session is adopted straight away, without waiting for the
+     * backend to answer. It used to be adopted only inside this .then, so with
+     * no backend reachable the desktop came up on the default account's
+     * filesystem instead of the signed-in one — the wrong files, and no /users
+     * for an administrator. Whether the server answers only decides whether to
+     * show the sign-in gate. */
+    const stored = api.getSession()
+    if (stored) adoptServerSession(stored)
+
     const refresh = () =>
       api.online().then((ok) => {
         const s = api.getSession()
@@ -716,6 +732,9 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
         if (had) {
           // a server account goes back to the sign-in screen, not the local
           // lock screen — two stacked overlays fought over the keyboard
+          /* write this account's filesystem out, then unmount it */
+          persistNow(useVFS.getState().root)
+          setAdminView(false)
           api.setSession(null)
           S.setServerRole(null)
           S.setLocked(false)

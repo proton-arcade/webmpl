@@ -23,6 +23,11 @@ const BUILD_DIR = '.static-build'
 const SITE_FILES = ['mixt.bundle.js', 'mixt.bundle.css']
 const ASSETS = ['wallpapers', 'logo.svg']
 
+/* the application index is read out of src/apps, so it is rebuilt before the
+   bundle is made and can never lag behind the code it describes */
+console.log('• reading the applications in src/apps…')
+execSync('node scripts/gen-appindex.mjs', { stdio: 'inherit' })
+
 console.log('• building mixt.bundle.js (classic script) and mixt.bundle.css…')
 rmSync(BUILD_DIR, { recursive: true, force: true })
 execSync('npx vite build --config vite.static.config.ts --logLevel warn', { stdio: 'inherit' })
