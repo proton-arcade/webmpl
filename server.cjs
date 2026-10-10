@@ -78,13 +78,13 @@ const tokenOf = (req) => (req.headers.authorization || '').replace(/^Bearer /, '
  * top-level domain, and the server never opens a socket to deliver anything.
  * Two domains, both invented and both local:
  *
- *   whitelisted accounts   name@proper.com
+ *   whitelisted accounts   name@Mixt.MPL
  *   guests                 NAME@Guest.MPL
  *
  * A guest's address is their own, so two people sharing a machine do not read
  * each other's mail the way one shared guest mailbox made them. */
 const GUEST_DOMAIN = 'Guest.MPL'
-const USER_DOMAIN = 'proper.com'
+const USER_DOMAIN = 'Mixt.MPL'
 
 /** the mailbox key a session writes to and reads from, or null for none */
 function mailboxFor(db, sess) {
@@ -381,7 +381,7 @@ async function route(req, res, p) {
     /* Deliver a message to another mailbox on this computer.
      *
      * The address is resolved against the mailboxes that exist here:
-     * `demo@proper.com` and bare `demo` both mean the account `demo`, and
+     * `demo@Mixt.MPL` and bare `demo` both mean the account `demo`, and
      * `sam@Guest.MPL` means the guest signed in as sam. There is no relay to
      * the outside world and no DNS lookup — this machine only carries mail
      * between its own mailboxes. The sender keeps a copy in Sent, exactly as a

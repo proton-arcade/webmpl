@@ -239,7 +239,7 @@ opens a socket to deliver anything:
 
 | | address |
 | --- | --- |
-| a whitelisted account | `name@proper.com` |
+| a whitelisted account | `name@Mixt.MPL` |
 | a guest | `NAME@Guest.MPL` |
 
 With guest mail switched on in the Administration console, **each guest gets a mailbox of their

@@ -249,7 +249,7 @@ await check('whoami never includes a password', () => {
 
 await check("this session's address is on the local domain", () => {
   const address = w.mixt.mail.address()
-  return address === 'demo@proper.com' || `address is ${address}`
+  return address === 'demo@Mixt.MPL' || `address is ${address}`
 })
 
 await check('a notification can be posted', () => {

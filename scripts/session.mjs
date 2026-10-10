@@ -88,7 +88,7 @@ const server = createServer(async (req, res) => {
       const target = USERS.find((x) => x.toLowerCase() === local)
       if (!target) return send(404, { ok: false, error: `no mailbox for ${local} on this computer` })
       const id = 'srv' + Date.now().toString(36) + deliveries.length
-      const base = { from: `${u}@proper.com`, fromName: u, to: `${target}@proper.com`, subject: d.subject || '(no subject)', date: Date.now(), body: d.body || '', starred: false, labels: [] }
+      const base = { from: `${u}@Mixt.MPL`, fromName: u, to: `${target}@Mixt.MPL`, subject: d.subject || '(no subject)', date: Date.now(), body: d.body || '', starred: false, labels: [] }
       ;(mailboxes[target] ||= []).push({ ...base, id, folder: 'Inbox', read: false })
       ;(mailboxes[u] ||= []).push({ ...base, id: id + 'c', folder: 'Sent', read: true })
       deliveries.push({ from: u, to: target, subject: base.subject })
@@ -446,9 +446,9 @@ if (!mailWin) bad('the Mail app did not open')
 else {
   /* the mailbox on show must be the signed-in account's, not a generic "you" */
   const sideText = mailWin.textContent ?? ''
-  if (/you@proper\.com/.test(sideText)) bad('the Mail app still shows a generic you@proper.com account')
-  else if (!/demo@proper\.com/.test(sideText)) bad('the Mail app does not say whose mailbox it is showing')
-  else ok('the sidebar shows the signed-in mailbox, demo@proper.com')
+  if (/you@Mixt\.MPL/.test(sideText)) bad('the Mail app still shows a generic you@Mixt.MPL account')
+  else if (!/demo@Mixt\.MPL/.test(sideText)) bad('the Mail app does not say whose mailbox it is showing')
+  else ok('the sidebar shows the signed-in mailbox, demo@Mixt.MPL')
 
   const compose = byText(post.d, '.wm-window button', /^\s*Compose\s*$/)
   if (!(await realClick(post.w, compose))) bad('the Mail app has no working Compose button')
@@ -456,15 +456,15 @@ else {
     await tick(400)
     mailWin = [...post.d.querySelectorAll('.wm-window')].pop()
     const fromLine = mailWin.textContent ?? ''
-    if (!/From demo@proper\.com/.test(fromLine)) bad('the compose form does not say who the message is from')
-    else ok('the compose form is signed demo@proper.com')
+    if (!/From demo@Mixt\.MPL/.test(fromLine)) bad('the compose form does not say who the message is from')
+    else ok('the compose form is signed demo@Mixt.MPL')
 
     const to = mailWin.querySelector('input[placeholder="To"]')
     const subj = mailWin.querySelector('input[placeholder="Subject"]')
     const area = mailWin.querySelector('textarea')
     if (!to || !subj || !area) bad('the compose form is missing a To, Subject or body box')
     else {
-      typeInto(post.w, to, 'Mixt_MPL@proper.com')
+      typeInto(post.w, to, 'Mixt_MPL@Mixt.MPL')
       typeInto(post.w, subj, 'Seconds on the clock?')
       typeArea(post.w, area, 'I time my tea with the panel clock.')
       await tick(150)
@@ -492,7 +492,7 @@ else {
         await realClick(post.w, again)
         await tick(400)
         mailWin = [...post.d.querySelectorAll('.wm-window')].pop()
-        typeInto(post.w, mailWin.querySelector('input[placeholder="To"]'), 'nobody@proper.com')
+        typeInto(post.w, mailWin.querySelector('input[placeholder="To"]'), 'nobody@Mixt.MPL')
         typeInto(post.w, mailWin.querySelector('input[placeholder="Subject"]'), 'Lost')
         await tick(150)
         await realClick(post.w, [...mailWin.querySelectorAll('button')].find((b) => /^\s*Send\s*$/.test(b.textContent ?? '')))
@@ -541,9 +541,9 @@ else {
       boxWin = [...awaited.d.querySelectorAll('.wm-window')].pop()
       const toBox = boxWin.querySelector('input[placeholder="To"]')
       if (!toBox) bad('Reply opened no compose form')
-      else if (toBox.value !== 'demo@proper.com') bad(`Reply is addressed to ${toBox.value || '(nobody)'}, not demo@proper.com`)
+      else if (toBox.value !== 'demo@Mixt.MPL') bad(`Reply is addressed to ${toBox.value || '(nobody)'}, not demo@Mixt.MPL`)
       else {
-        ok('Reply is already addressed to demo@proper.com')
+        ok('Reply is already addressed to demo@Mixt.MPL')
         typeArea(awaited.w, boxWin.querySelector('textarea'), 'Seconds are on. Steep well.')
         await tick(150)
         await realClick(awaited.w, [...boxWin.querySelectorAll('button')].find((b) => /^\s*Send\s*$/.test(b.textContent ?? '')))

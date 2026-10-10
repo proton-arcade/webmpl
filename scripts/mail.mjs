@@ -11,7 +11,7 @@
  *
  * What it proves:
  *   - a message sent by `demo` appears in `Mixt_MPL`'s Inbox, unread, from
- *     demo@proper.com, with the subject and body intact;
+ *     demo@Mixt.MPL, with the subject and body intact;
  *   - the sender keeps a copy in Sent;
  *   - reading the mailbox twice does not duplicate anything;
  *   - a bare local part (`Mixt_MPL`) resolves like the full address;
@@ -113,7 +113,7 @@ try {
   const sent = await api('/api/mail/send', {
     method: 'POST',
     token: demo,
-    body: { to: 'Mixt_MPL@proper.com', subject, body: bodyText },
+    body: { to: 'Mixt_MPL@Mixt.MPL', subject, body: bodyText },
   })
   if (sent.status !== 200 || !sent.data.ok) bad(`sending failed: ${sent.status} ${JSON.stringify(sent.data)}`)
   else {
@@ -127,8 +127,8 @@ try {
       ok('it arrived in the administrator\'s Inbox')
       if (got.folder !== 'Inbox') bad(`it landed in ${got.folder}, not Inbox`)
       if (got.read !== false) bad('it arrived already marked read')
-      if (got.from !== 'demo@proper.com') bad(`it says it is from ${got.from}, not demo@proper.com`)
-      if (got.to !== 'Mixt_MPL@proper.com') bad(`it is addressed to ${got.to}`)
+      if (got.from !== 'demo@Mixt.MPL') bad(`it says it is from ${got.from}, not demo@Mixt.MPL`)
+      if (got.to !== 'Mixt_MPL@Mixt.MPL') bad(`it is addressed to ${got.to}`)
       if (got.body !== bodyText) bad('the body was altered in transit')
       else ok('from, to, subject and body all survived the trip')
     }
@@ -156,11 +156,11 @@ try {
     const inbox = await api('/api/mail', { token: root })
     const got = (inbox.data || []).find((m) => m.subject === 'bare local part')
     if (!got) bad('the bare local part was accepted but nothing was delivered')
-    else if (got.to !== 'Mixt_MPL@proper.com') bad(`it was delivered to ${got.to} instead of the canonical address`)
+    else if (got.to !== 'Mixt_MPL@Mixt.MPL') bad(`it was delivered to ${got.to} instead of the canonical address`)
     else ok('a bare local part resolves to the same mailbox')
   }
 
-  const nobody = await api('/api/mail/send', { method: 'POST', token: demo, body: { to: 'nobody@proper.com', subject: 'lost', body: 'x' } })
+  const nobody = await api('/api/mail/send', { method: 'POST', token: demo, body: { to: 'nobody@Mixt.MPL', subject: 'lost', body: 'x' } })
   if (nobody.status !== 404) bad(`an unknown recipient gave ${nobody.status}, expected 404`)
   else if (!/nobody/.test(nobody.data.error || '')) bad(`the refusal does not name the address: ${nobody.data.error}`)
   else ok('an address with no account behind it is refused with a reason')

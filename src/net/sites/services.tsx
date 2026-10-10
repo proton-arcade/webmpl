@@ -255,7 +255,7 @@ interface Mail {
 const SEED_MAIL: Mail[] = [
   {
     id: 'm1',
-    from: 'Mixt Update Manager <updates@proper.com>',
+    from: 'Mixt Update Manager <updates@Mixt.MPL>',
     subject: '3 optional applications are available',
     time: '09:12',
     folder: 'inbox',
@@ -270,7 +270,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm2',
-    from: 'Mixt Shell Team <hello@proper.com>',
+    from: 'Mixt Shell Team <hello@Mixt.MPL>',
     subject: 'Your window snapped correctly',
     time: 'Yesterday, 18:40',
     folder: 'inbox',
@@ -282,7 +282,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm3',
-    from: 'MixtCart <orders@proper.com>',
+    from: 'MixtCart <orders@Mixt.MPL>',
     subject: 'Your digital downloads are ready',
     time: 'Yesterday, 11:02',
     folder: 'inbox',
@@ -294,7 +294,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm4',
-    from: 'Petra Lindgren <petra@proper.com>',
+    from: 'Petra Lindgren <petra@Mixt.MPL>',
     subject: 'Re: desktop feature ideas',
     time: 'Monday',
     folder: 'inbox',
@@ -308,7 +308,7 @@ const SEED_MAIL: Mail[] = [
   },
   {
     id: 'm5',
-    from: 'you@proper.com',
+    from: 'you@Mixt.MPL',
     subject: 'Re: desktop feature ideas',
     time: 'Monday',
     folder: 'sent',
@@ -322,7 +322,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
   const settings = useOS((s) => s.settings)
   const me = localAddress(settings.username)
   const [folder, setFolder] = React.useState<'inbox' | 'sent' | 'trash'>('inbox')
-  const [mails, setMails] = React.useState<Mail[]>(() => SEED_MAIL.map((m) => (m.from === 'you@proper.com' ? { ...m, from: me } : m)))
+  const [mails, setMails] = React.useState<Mail[]>(() => SEED_MAIL.map((m) => (m.from === 'you@Mixt.MPL' ? { ...m, from: me } : m)))
   const [selected, setSelected] = React.useState<string | null>('m1')
   const [writing, setWriting] = React.useState(false)
   const [to, setTo] = React.useState('')
@@ -785,7 +785,7 @@ export const MIXTMAIL: SiteDef = {
     { path: '/', title: 'MixtMail — inbox', keywords: ['email', 'inbox', 'messages', 'compose', 'send'], snippet: 'Read your inbox, compose and send messages.', render: (ctx) => <MailApp ctx={ctx} /> },
     { path: '/compose', title: 'MixtMail — compose', keywords: ['compose', 'new message', 'write'], snippet: 'Write a new message.', render: (ctx) => <MailApp ctx={ctx} /> },
   ],
-  text: () => ['MixtMail — inbox', '================', '1. 3 optional applications are available        — updates@proper.com', '2. Your window snapped correctly                 — hello@proper.com', '3. Your digital downloads are ready              — orders@proper.com', '', 'Open https://mixtmail.com/ in the browser to read them.'].join('\n'),
+  text: () => ['MixtMail — inbox', '================', '1. 3 optional applications are available        — updates@Mixt.MPL', '2. Your window snapped correctly                 — hello@Mixt.MPL', '3. Your digital downloads are ready              — orders@Mixt.MPL', '', 'Open https://mixtmail.com/ in the browser to read them.'].join('\n'),
 }
 
 export const MIXTMAPS: SiteDef = {

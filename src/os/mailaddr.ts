@@ -6,7 +6,7 @@
  * domain resolves in real DNS — `.mpl` is not a top-level domain that exists.
  * So nothing here can reach the internet, and nothing needs to.
  *
- *   whitelisted accounts   name@proper.com
+ *   whitelisted accounts   name@Mixt.MPL
  *   guests                 NAME@Guest.MPL
  *
  * A guest's address is their own rather than one shared guest mailbox, so two
@@ -14,7 +14,7 @@
  */
 import { getSession } from './api'
 
-export const USER_DOMAIN = 'proper.com'
+export const USER_DOMAIN = 'Mixt.MPL'
 export const GUEST_DOMAIN = 'Guest.MPL'
 
 /** the address the signed-in identity is reached at */

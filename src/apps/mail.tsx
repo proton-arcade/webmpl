@@ -28,7 +28,7 @@ function seed(me: string, name: string): Message[] {
   return [
   {
     id: 'm1',
-    from: 'updates@proper.com',
+    from: 'updates@Mixt.MPL',
     fromName: 'Mixt Update Manager',
     to: me,
     subject: '3 optional applications are available',
@@ -42,7 +42,7 @@ function seed(me: string, name: string): Message[] {
   },
   {
     id: 'm2',
-    from: 'hello@proper.com',
+    from: 'hello@Mixt.MPL',
     fromName: 'Mixt Team',
     to: me,
     subject: 'Your window snapped correctly',
@@ -56,7 +56,7 @@ function seed(me: string, name: string): Message[] {
   },
   {
     id: 'm3',
-    from: 'orders@proper.com',
+    from: 'orders@Mixt.MPL',
     fromName: 'MixtCart',
     to: me,
     subject: 'Your digital downloads are ready',
@@ -70,7 +70,7 @@ function seed(me: string, name: string): Message[] {
   },
   {
     id: 'm4',
-    from: 'petra@proper.com',
+    from: 'petra@Mixt.MPL',
     fromName: 'Petra Lindgren',
     to: me,
     subject: 'Re: desktop feature ideas',
@@ -84,7 +84,7 @@ function seed(me: string, name: string): Message[] {
   },
   {
     id: 'm5',
-    from: 'dev@proper.com',
+    from: 'dev@Mixt.MPL',
     fromName: 'mixt.dev',
     to: me,
     subject: 'Welcome to Mixt Web OS',
@@ -98,7 +98,7 @@ function seed(me: string, name: string): Message[] {
   },
   {
     id: 'm6',
-    from: 'editor@proper.com',
+    from: 'editor@Mixt.MPL',
     fromName: 'MixtNews Editor',
     to: me,
     subject: 'Pitch accepted: “Why the browser is the new OS”',
@@ -113,7 +113,7 @@ function seed(me: string, name: string): Message[] {
     id: 'm7',
     from: me,
     fromName: name,
-    to: 'petra@proper.com',
+    to: 'petra@Mixt.MPL',
     subject: 'Re: desktop feature ideas',
     date: Date.now() - 4 * 86400_000,
     body: 'Petra,\n\nRight-click the clock, choose preferences, tick “Show seconds”. Enjoy the tea.\n\n— Mixt',
@@ -144,7 +144,7 @@ function mergeMail(all: Message[], remote: ServerMail[]): Message[] {
 
 export default function MailApp({ api }: AppProps) {
   const settings = useOS((s) => s.settings)
-  /* this account's address on this machine — @proper.com for a whitelisted
+  /* this account's address on this machine — @Mixt.MPL for a whitelisted
      account, NAME@Guest.MPL for a guest, both local to this computer */
   const me = localAddress(settings.username)
   const [messages, setMessages] = useState<Message[]>(() => load(settings.username, me, settings.fullName || settings.username))
