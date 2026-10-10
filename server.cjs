@@ -417,6 +417,21 @@ async function route(req, res, p) {
     return json(res, 404, { ok: false })
   }
 
+  /* The development build.
+   *
+   * dev.html loads /src/main.tsx, which is TypeScript containing JSX. Only the
+   * Vite dev server can turn that into something a browser will run — this
+   * server has no transform pipeline, so handing the file back raw (which is
+   * what it used to do, as `application/octet-stream`) produced a blank page
+   * and a console full of MIME errors. Starting the backend and then opening
+   * /dev.html on this port simply did not work.
+   *
+   * So anything the development build needs is forwarded to Vite. Run
+   * `npm run dev` alongside `node server.cjs` and this port serves the live
+   * source build; if Vite is not running the page says so instead of failing
+   * silently. */
+  if (isDevPath(p)) return proxyToDev(req, res)
+
   /* static */
   let file = p === '/' ? '/index.html' : p
   fs.readFile(path.join(ROOT, file), (e, buf) => {
@@ -424,6 +439,51 @@ async function route(req, res, p) {
     res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream' })
     res.end(buf)
   })
+}
+
+/* Where the Vite dev server is expected. Override with MIXT_DEV. */
+const DEV_UPSTREAM = process.env.MIXT_DEV || 'http://127.0.0.1:3000'
+
+/* Request paths that only Vite can answer: the module graph it builds. */
+const DEV_PREFIXES = ['/src/', '/@vite/', '/@react-refresh', '/@id/', '/@fs/', '/node_modules/']
+
+function isDevPath(p) {
+  return DEV_PREFIXES.some((pre) => p === pre || p.startsWith(pre))
+}
+
+/* Forward to Vite, preserving method, headers and body. On a connection
+ * refusal — Vite is not running — answer with a page that explains what to do
+ * rather than an empty 502. */
+function proxyToDev(req, res) {
+  const upstream = new URL(DEV_UPSTREAM)
+  const up = http.request(
+    {
+      protocol: upstream.protocol,
+      hostname: upstream.hostname,
+      port: upstream.port,
+      method: req.method,
+      path: req.url,
+      headers: { ...req.headers, host: upstream.host },
+    },
+    (r) => {
+      res.writeHead(r.statusCode, r.headers)
+      r.pipe(res)
+    },
+  )
+  up.on('error', () => {
+    res.writeHead(503, { 'content-type': 'text/html; charset=utf-8' })
+    res.end(
+      '<!doctype html><meta charset="utf-8"><title>Development build unavailable</title>' +
+        '<div style="font:14px system-ui,sans-serif;max-width:36em;margin:20vh auto;line-height:1.65;color:#2b2b2b">' +
+        '<h1 style="font-size:19px;margin:0 0 .6em">The development build needs Vite</h1>' +
+        '<p>This page serves the TypeScript sources, which only the Vite dev ' +
+        'server can compile. Start it next to the backend:</p>' +
+        '<pre style="background:#f2f2f2;padding:10px 12px;border-radius:6px">npm run dev</pre>' +
+        '<p>Then reload this page. The published site needs no build step and ' +
+        'is ready now at <a href="/index.html">/index.html</a>.</p></div>',
+    )
+  })
+  req.pipe(up)
 }
 
 /* Last line of defence: something thrown outside a request (a bad timer, a

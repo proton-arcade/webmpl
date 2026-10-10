@@ -1,6 +1,6 @@
 /* App launching helpers shared by every application. */
 import { useOS } from './store'
-import { getApp } from '../apps/registry'
+import { getApp, isInstalled } from '../apps/registry'
 import { vfs, baseName } from './vfs'
 
 export function launch(appId: string, props: Record<string, any> = {}, title?: string) {
@@ -18,13 +18,8 @@ export function notify(title: string, body?: string, appId?: string) {
  *  or was never installed, this falls back to the built-in player rather than
  *  opening an application that is not there. */
 export function mediaPlayer(): string {
-  const s = useOS.getState()
-  const chosen = s.settings.mediaApp || 'mixtplayer'
-  const installed = (id: string) => {
-    const app = getApp(id)
-    return !!app && (app.preinstalled !== false || !!s.installed[id])
-  }
-  if (installed(chosen)) return chosen
+  const chosen = useOS.getState().settings.mediaApp || 'mixtplayer'
+  if (isInstalled(chosen)) return chosen
   /* The built-in player is always present, so this is always a real app. */
   return 'mixtplayer'
 }

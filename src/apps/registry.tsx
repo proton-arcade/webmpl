@@ -22,6 +22,7 @@ import MailApp from './mail'
 import NewsApp from './news'
 import AdminApp from './admin'
 import * as backend from '../os/api'
+import { useOS } from '../os/store'
 
 export const APPS: AppDef[] = [
   {
@@ -343,6 +344,26 @@ export function isGuest(): boolean {
 export function visibleApps(): AppDef[] {
   const guest = isGuest()
   return APPS.filter((a) => (a.adminOnly ? isAdmin() : true) && (a.noGuest ? !guest : true))
+}
+
+/* Is this app actually present on the machine?
+ *
+ * This used to be open-coded as `app.preinstalled !== false || installed[id]`
+ * in eight different files, and the "Open With" menu simply never ran it — so
+ * VLC, which is a download, was offered as a way to open a file on a system
+ * that had never downloaded it. One definition, and everything that offers to
+ * run an app goes through it.
+ */
+export function isInstalled(id: string): boolean {
+  const app = byId.get(id)
+  if (!app) return false
+  if (app.preinstalled !== false) return true
+  return !!useOS.getState().installed[id]
+}
+
+/* The installed subset of the visible apps, in catalogue order. */
+export function installedApps(): AppDef[] {
+  return visibleApps().filter((a) => isInstalled(a.id))
 }
 
 export const CATEGORIES = [

@@ -38,6 +38,8 @@ import { migrateBranding } from '../os/migrate'
 import { bootstrap } from '../os/bootstrap'
 import { safeLocal, safeSession, clearSavedData } from '../os/storage'
 import { appForFile, mediaPlayer } from '../os/bus'
+import { TRASH_PATH, crumbsFor, inTrash, isHiddenPath } from '../apps/files'
+import { isInstalled, installedApps, getApp } from '../apps/registry'
 import { BootBoundary, renderPlainFailure } from '../os/errorboundary'
 import type { PageCtx } from '../net/types'
 import type { ServerDef } from '../net/internet/types'
@@ -276,6 +278,44 @@ export async function runSmoke() {
     st.setInstalled('mediaplayer', true)
     assert(mediaPlayer() === 'mediaplayer', 'the installed VLC was not chosen')
     st.setSettings({ mediaApp: 'mixtplayer' })
+  })
+
+  await check('an app that was never downloaded is not a way to open a file', () => {
+    const st = useOS.getState()
+    /* VLC is a download, not part of the system. */
+    assert(getApp('mediaplayer')!.preinstalled === false, 'VLC should be a download, not preinstalled')
+    st.setInstalled('mediaplayer', false)
+    assert(!isInstalled('mediaplayer'), 'isInstalled said VLC is present on a machine without it')
+    assert(!installedApps().some((a) => a.id === 'mediaplayer'), 'installedApps() listed an app that is not installed')
+    /* everything the system ships with is installed without being downloaded */
+    for (const id of ['xed', 'terminal', 'imageviewer', 'archive', 'mixtplayer']) {
+      assert(isInstalled(id), `${id} ships with the system and must count as installed`)
+    }
+    st.setInstalled('mediaplayer', true)
+    assert(isInstalled('mediaplayer'), 'VLC stopped counting as installed once it was downloaded')
+    st.setInstalled('mediaplayer', false)
+  })
+
+  await check('the Trash is called Trash, and hidden folders stay shut', () => {
+    /* The path bar must never spell out the plumbing the Trash lives in. */
+    const crumbs = crumbsFor(TRASH_PATH)
+    assert(crumbs.length === 1, `the Trash should be one crumb, got ${crumbs.length}`)
+    assert(crumbs[0].label === 'Trash', `the Trash crumb read "${crumbs[0].label}"`)
+    assert(crumbs[0].target === TRASH_PATH, 'the Trash crumb no longer points at the Trash')
+    assert(!crumbsFor(TRASH_PATH).some((c) => c.label.startsWith('.')), 'a hidden segment leaked into the path bar')
+    /* something inside the Trash keeps its own name under the Trash crumb */
+    const deeper = crumbsFor(`${TRASH_PATH}/old.txt`)
+    assert(deeper.length === 2 && deeper[1].label === 'old.txt', 'a file inside the Trash lost its crumb')
+    /* and the hidden folders themselves are recognised as hidden */
+    assert(isHiddenPath('/home/mixt/.config'), '.config should count as hidden')
+    assert(isHiddenPath('/home/mixt/.local/share/Trash/files'), 'the Trash path should count as hidden')
+    assert(!isHiddenPath('/home/mixt/Documents'), 'Documents is not hidden')
+    /* the Trash is hidden but always reachable, so it must be excepted */
+    assert(inTrash(TRASH_PATH) && inTrash(`${TRASH_PATH}/old.txt`), 'inTrash did not recognise the Trash')
+    assert(!inTrash('/home/mixt/.config'), 'inTrash matched something that is not the Trash')
+    /* an ordinary folder keeps its normal crumbs */
+    const docs = crumbsFor('/home/mixt/Documents')
+    assert(docs.length === 3 && docs[2].target === '/home/mixt/Documents', 'ordinary paths lost their crumbs')
   })
 
   await check('the player that ships is installed by default and renders', () => {

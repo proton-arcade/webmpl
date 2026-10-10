@@ -7,7 +7,7 @@ import type { VNode } from '../os/vfs'
 import { AppIcon, FileIcon, Glyph } from '../shell/AppIcon'
 import { Popup, usePopup, type MenuItem } from '../shell/ContextMenu'
 import { appForFile, launch, notify } from '../os/bus'
-import { getApp } from './registry'
+import { getApp, isInstalled } from './registry'
 import { useVFS } from '../os/vfs'
 import type { AppProps } from '../os/types'
 
@@ -19,6 +19,12 @@ interface Clip {
   paths: string[]
 }
 
+/* The Trash is a real folder at ~/.local/share/Trash/files, but none of that
+   path is worth putting in front of anybody: it is plumbing. The sidebar and
+   the path bar both just call it "Trash", and the hidden folders it happens to
+   live inside stay out of reach unless "Show Hidden Files" is switched on. */
+export const TRASH_PATH = `${HOME}/.local/share/Trash/files`
+
 const PLACES: { label: string; path: string; glyph: string; color: string }[] = [
   { label: 'Home', path: HOME, glyph: 'Home', color: '#61ad2b' },
   { label: 'Desktop', path: `${HOME}/Desktop`, glyph: 'Monitor', color: '#5f9bd8' },
@@ -27,9 +33,37 @@ const PLACES: { label: string; path: string; glyph: string; color: string }[] = 
   { label: 'Music', path: `${HOME}/Music`, glyph: 'Music', color: '#b06ee8' },
   { label: 'Pictures', path: `${HOME}/Pictures`, glyph: 'Image', color: '#4aa8a0' },
   { label: 'Videos', path: `${HOME}/Videos`, glyph: 'Video', color: '#e8664a' },
-  { label: 'Trash', path: `${HOME}/.local/share/Trash/files`, glyph: 'Trash2', color: '#7d8a95' },
+  { label: 'Trash', path: TRASH_PATH, glyph: 'Trash2', color: '#7d8a95' },
   { label: 'File System', path: '/', glyph: 'HardDrive', color: '#7d8a95' },
 ]
+
+export function inTrash(p: string): boolean {
+  return p === TRASH_PATH || p.startsWith(TRASH_PATH + '/')
+}
+
+/* A path is hidden if any segment of it starts with a dot. */
+export function isHiddenPath(p: string): boolean {
+  return splitPath(p).some((seg) => seg.startsWith('.'))
+}
+
+/* The crumbs for the path bar. The Trash collapses to a single crumb so the
+   bar reads "🗑 Trash" instead of ".local › share › Trash › files". */
+export function crumbsFor(p: string): { label: string; target: string }[] {
+  if (inTrash(p)) {
+    const rest = splitPath(p).slice(splitPath(TRASH_PATH).length)
+    return [
+      { label: 'Trash', target: TRASH_PATH },
+      ...rest.map((seg, i) => ({
+        label: seg,
+        target: `${TRASH_PATH}/${rest.slice(0, i + 1).join('/')}`,
+      })),
+    ]
+  }
+  return splitPath(p).map((seg, i) => ({
+    label: seg,
+    target: '/' + splitPath(p).slice(0, i + 1).join('/'),
+  }))
+}
 
 function mimeLabel(node: VNode, name: string) {
   if (node.type === 'dir') return 'Folder'
@@ -106,6 +140,13 @@ export default function FilesApp({ win, api }: AppProps) {
     const node = getNode(target)
     if (!node || node.type !== 'dir') {
       notify('Files', `“${target}” is not a folder any more.`)
+      return
+    }
+    /* Hidden folders stay closed until the user asks for them. The Trash is the
+       one exception: it lives under a hidden path but has its own place in the
+       sidebar, so it is always reachable. */
+    if (!showHidden && isHiddenPath(target) && !inTrash(target)) {
+      notify('Files', 'That folder is hidden. Switch on View → Show Hidden Files to open it.')
       return
     }
     setPath(target)
@@ -420,7 +461,11 @@ export default function FilesApp({ win, api }: AppProps) {
     const primary = appForFile(target)
     const list = ['xed', 'terminal', 'imageviewer', 'mediaplayer', 'archive']
       .map((id) => getApp(id))
-      .filter(Boolean)
+      /* An app that is not on this machine is not a way to open the file.
+         This list used to be offered verbatim, so VLC — which is a download,
+         not part of the system — turned up in "Open With" on a machine that
+         had never downloaded it, and choosing it opened nothing. */
+      .filter((app) => !!app && isInstalled(app.id))
     return list.sort((a, b) => (a!.id === primary ? -1 : b!.id === primary ? 1 : 0)) as any[]
   }
 
@@ -458,21 +503,18 @@ export default function FilesApp({ win, api }: AppProps) {
           {splitPath(path).length === 0 ? (
             <span style={{ padding: '0 6px' }}>File System</span>
           ) : (
-            splitPath(path).map((seg, i) => {
-              const target = '/' + splitPath(path).slice(0, i + 1).join('/')
-              return (
-                <React.Fragment key={target}>
-                  <button
-                    className="btn-ghost"
-                    style={{ padding: '1px 6px' }}
-                    onClick={() => navigate(target)}
-                  >
-                    {i === 0 && seg === 'home' && splitPath(path)[1] ? '🏠' : seg}
-                  </button>
-                  {i < splitPath(path).length - 1 && <span style={{ opacity: 0.5 }}>›</span>}
-                </React.Fragment>
-              )
-            })
+            crumbsFor(path).map((c, i, arr) => (
+              <React.Fragment key={c.target}>
+                <button
+                  className="btn-ghost"
+                  style={{ padding: '1px 6px' }}
+                  onClick={() => navigate(c.target)}
+                >
+                  {c.target === HOME ? '🏠' : c.target === TRASH_PATH ? '🗑 Trash' : c.label}
+                </button>
+                {i < arr.length - 1 && <span style={{ opacity: 0.5 }}>›</span>}
+              </React.Fragment>
+            ))
           )}
         </div>
 
@@ -827,9 +869,9 @@ export default function FilesApp({ win, api }: AppProps) {
               label: 'Empty Trash',
               icon: <Glyph name="Trash2" size={14} />,
               onClick: () => {
-                const trash = getNode(`${HOME}/.local/share/Trash/files`)
+                const trash = getNode(TRASH_PATH)
                 if (trash?.type === 'dir') {
-                  for (const name of Object.keys(trash.children)) remove(join(`${HOME}/.local/share/Trash/files`, name))
+                  for (const name of Object.keys(trash.children)) remove(join(TRASH_PATH, name))
                 }
                 notify('Files', 'Trash emptied.')
               },
