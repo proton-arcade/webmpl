@@ -66,8 +66,10 @@ export const APP_INDEX: AppIndexEntry[] = [
       "react",
       "src/apps/registry.tsx",
       "src/net/index.tsx",
+      "src/os/api.ts",
       "src/os/bus.ts",
       "src/os/store.ts",
+      "src/os/sync.ts",
       "src/os/types.ts",
       "src/os/users.ts",
       "src/os/vfs.ts"

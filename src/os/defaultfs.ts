@@ -3,7 +3,7 @@
  * `npm run gen:defaultfs` (or `npm run build`, which runs it for you).
  *
  * This is the filesystem every new account and every guest starts with:
- * 24 files in 29 directories, read straight off disk so it can be
+ * 23 files in 15 directories, read straight off disk so it can be
  * read and changed like any other part of the repository. It is compiled into
  * the bundle, so the desktop needs no network to produce it.
  */
@@ -71,33 +71,6 @@ export const DEFAULT_FILESYSTEM: Record<string, DefaultNode> = {
               }
             }
           },
-          ".local": {
-            "type": "dir",
-            "children": {
-              "share": {
-                "type": "dir",
-                "children": {
-                  "Trash": {
-                    "type": "dir",
-                    "children": {
-                      "files": {
-                        "type": "dir",
-                        "children": {}
-                      },
-                      "info": {
-                        "type": "dir",
-                        "children": {}
-                      }
-                    }
-                  },
-                  "recently-used.xbel": {
-                    "type": "file",
-                    "content": "<?xml version=\"1.0\"?><xbel version=\"1.0\"/>"
-                  }
-                }
-              }
-            }
-          },
           ".profile": {
             "type": "file",
             "content": "export PATH=\"$HOME/bin:$PATH\"\nexport EDITOR=xed\n"
@@ -130,10 +103,6 @@ export const DEFAULT_FILESYSTEM: Record<string, DefaultNode> = {
               }
             }
           },
-          "Downloads": {
-            "type": "dir",
-            "children": {}
-          },
           "Music": {
             "type": "dir",
             "children": {
@@ -153,19 +122,6 @@ export const DEFAULT_FILESYSTEM: Record<string, DefaultNode> = {
                 "mime": "audio/ogg"
               }
             }
-          },
-          "Pictures": {
-            "type": "dir",
-            "children": {
-              "Wallpapers": {
-                "type": "dir",
-                "children": {}
-              }
-            }
-          },
-          "Public": {
-            "type": "dir",
-            "children": {}
           },
           "Templates": {
             "type": "dir",
@@ -193,22 +149,9 @@ export const DEFAULT_FILESYSTEM: Record<string, DefaultNode> = {
   "usr": {
     "type": "dir",
     "children": {
-      "local": {
-        "type": "dir",
-        "children": {
-          "bin": {
-            "type": "dir",
-            "children": {}
-          }
-        }
-      },
       "share": {
         "type": "dir",
         "children": {
-          "backgrounds": {
-            "type": "dir",
-            "children": {}
-          },
           "doc": {
             "type": "dir",
             "children": {
@@ -230,10 +173,6 @@ export const DEFAULT_FILESYSTEM: Record<string, DefaultNode> = {
   "var": {
     "type": "dir",
     "children": {
-      "cache": {
-        "type": "dir",
-        "children": {}
-      },
       "log": {
         "type": "dir",
         "children": {
@@ -246,14 +185,10 @@ export const DEFAULT_FILESYSTEM: Record<string, DefaultNode> = {
             "content": "2026-09-30 09:12:44 install mixt-shell:all <none> 1.0\n2026-09-30 09:12:44 status half-installed mixt-shell:all 1.0\n2026-09-30 09:12:45 status installed mixt-shell:all 1.0\n"
           }
         }
-      },
-      "tmp": {
-        "type": "dir",
-        "children": {}
       }
     }
   }
 }
 
-export const DEFAULT_FILE_COUNT = 24
-export const DEFAULT_DIR_COUNT = 29
+export const DEFAULT_FILE_COUNT = 23
+export const DEFAULT_DIR_COUNT = 15

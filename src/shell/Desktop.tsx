@@ -12,10 +12,11 @@ import { Dialog } from '../apps/files'
 import { validateUsername, ACCENTS } from '../os/users'
 import * as api from '../os/api'
 import { setPersistenceEnabled } from '../os/storage'
-import { mountFilesystem, persistNow, setAdminView } from '../os/vfs'
+import { mountFilesystem, persistNow, setAdminView, replaceRoot, parseTree } from '../os/vfs'
 import { ensureFilesystem } from '../os/bootstrap'
-import { loadInstalled } from '../os/store'
+import { loadInstalled, adoptServerSettings } from '../os/store'
 import { appForFile, launch } from '../os/bus'
+import * as sync from '../os/sync'
 
 export default function Desktop() {
   const settings = useOS((s) => s.settings)
@@ -48,6 +49,9 @@ export default function Desktop() {
   }, [])
 
   const [authGate, setAuthGate] = useState(false)
+  /* Is the machine there? Mixt is a computer on the network, not a web page:
+     with no server answering there is nothing to sign in to. */
+  const [serverUp, setServerUp] = useState(true)
   const [serverSession, setServerSession] = useState<api.Session | null>(() => api.getSession())
   const [, bump] = useState(0)
 
@@ -74,7 +78,31 @@ export default function Desktop() {
     const st = useOS.getState()
     st.setServerRole(s.role)
     if (st.settings.username !== s.username) st.setSettings({ username: s.username, fullName: s.username })
+    /* Take the tree the server holds for this account, and the settings it
+       saved. Both replace what this browser cached: the machine is the one
+       that remembers, and a browser is only a place it is being looked at
+       from. ensureFilesystem() runs again afterwards (see onAdopt below),
+       because the generated folders have to exist in the tree that won. */
+    void sync.pull({ force: true })
+    void api.getSettings().then((saved) => adoptServerSettings(saved))
+    sync.openStream()
   }
+
+  /* When the server's tree arrives, it wins — and then the folders the desktop
+     generates (the hosted share, /usr/share/applications, mixt.js) are walked
+     in again, because they have to exist in the tree that is now mounted. */
+  useEffect(() => {
+    sync.onAdopt((root) => {
+      try {
+        replaceRoot(parseTree(JSON.stringify(root)))
+        ensureFilesystem()
+        bump((x) => x + 1)
+      } catch {
+        /* a tree the desktop cannot read must not stop the session */
+      }
+    })
+    return () => sync.onAdopt(null)
+  }, [])
 
   useEffect(() => {
     /* A stored session is adopted straight away, without waiting for the
@@ -96,16 +124,23 @@ export default function Desktop() {
       if (s) adoptServerSession(s)
       return s
     }
+    /* The server is the computer. Without it there is no filesystem, no
+       account and no terminal, so the desktop says so instead of pretending
+       to be a working machine that will forget everything. */
     const refresh = () => {
       const s = adopt()
       api
         .online()
         .then((ok) => {
           const now = api.getSession()
+          setServerUp(ok)
           setAuthGate(ok && !now)
           if (now) adoptServerSession(now)
         })
-        .catch(() => setAuthGate(!s))
+        .catch(() => {
+          setServerUp(false)
+          setAuthGate(false)
+        })
     }
     refresh()
     // logging out (or the server going away) re-opens the login gate
@@ -494,7 +529,10 @@ export default function Desktop() {
           />
         </div>
       )}
-      {authGate && !api.getSession() && <AuthGate onDone={() => { adoptServerSession(api.getSession()); setAuthGate(false); bump((x) => x + 1) }} />}
+      {!serverUp && <NoServer onRetry={() => { setServerUp(true); window.dispatchEvent(new CustomEvent('mixt:authchanged')) }} />}
+      {serverUp && authGate && !api.getSession() && (
+        <AuthGate onDone={() => { adoptServerSession(api.getSession()); setAuthGate(false); bump((x) => x + 1) }} />
+      )}
       {/* Never for a guest: a guest is not an account and must not be able to
           create one. Without this the form only stayed hidden by accident,
           because a guest session happens to set serverSession. */}
@@ -752,13 +790,18 @@ function SessionDialog({ kind, onCancel }: { kind: 'shutdown' | 'reboot' | 'logo
         if (had) {
           // a server account goes back to the sign-in screen, not the local
           // lock screen — two stacked overlays fought over the keyboard
-          /* write this account's filesystem out, then unmount it */
+          /* write this account's filesystem out, then unmount it. The queue is
+             forced empty first: what this person did has to be on the server
+             before the next person signs in, and signing out is the one moment
+             there is no excuse for leaving a change behind. */
+          sync.flushNow()
           persistNow(useVFS.getState().root)
+          sync.closeStream()
+          sync.stop()
           setAdminView(false)
-          api.setSession(null)
+          void api.logout()
           S.setServerRole(null)
           S.setLocked(false)
-          window.dispatchEvent(new CustomEvent('mixt:authchanged'))
         } else {
           S.setLocked(true)
         }
@@ -1032,6 +1075,89 @@ function FirstBootSetup() {
   )
 }
 
+/* ------------------------------ no server -------------------------------- */
+/* Mixt is a computer on the network, not a page: the accounts, the files, the
+   mail and the terminal are all on the server. With nothing answering there is
+   no machine to sign in to, so the desktop says exactly that instead of
+   starting up a desktop that would forget everything it was told.            */
+function NoServer({ onRetry }: { onRetry: () => void }) {
+  const settings = useOS((s) => s.settings)
+  const [busy, setBusy] = useState(false)
+  const retry = () => {
+    setBusy(true)
+    api
+      .online()
+      .then((ok) => {
+        setBusy(false)
+        if (ok) onRetry()
+      })
+      .catch(() => setBusy(false))
+  }
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 300000,
+        backgroundImage: `url(${settings.wallpaper})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,14,12,0.6)', backdropFilter: 'blur(8px)' }} />
+      <div
+        style={{
+          position: 'relative',
+          width: 420,
+          maxWidth: '92vw',
+          background: '#fbfbf9',
+          color: '#22261f',
+          borderRadius: 12,
+          boxShadow: '0 30px 80px rgba(0,0,0,0.5)',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ background: 'linear-gradient(180deg,#87cf3e,#6fa34c)', color: '#fff', padding: '14px 20px' }}>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>No Mixt server</div>
+          <div style={{ fontSize: 12.5, opacity: 0.95 }}>
+            This computer is a machine on the network, and it is not answering.
+          </div>
+        </div>
+        <div style={{ padding: '16px 20px', display: 'grid', gap: 12, fontSize: 13 }}>
+          <p style={{ margin: 0, lineHeight: 1.55 }}>
+            Your accounts, your files, your mail and the terminal all live on that machine. Nothing was
+            lost — this browser never held more than a cache of it.
+          </p>
+          <p style={{ margin: 0, lineHeight: 1.55, opacity: 0.85 }}>
+            Start it from the folder the site is in:
+          </p>
+          <pre
+            style={{
+              margin: 0,
+              padding: '10px 12px',
+              background: '#101314',
+              color: '#cfe8bd',
+              borderRadius: 8,
+              fontSize: 12.5,
+              fontFamily: 'var(--font-mono)',
+              overflowX: 'auto',
+            }}
+          >
+            node server/index.js
+          </pre>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn-mixt" onClick={retry} disabled={busy}>
+              {busy ? 'Looking…' : 'Try again'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* --------------------------- online login gate --------------------------- */
 /* Shown only when the Mixt backend (server.cjs) is reachable on this origin.
    Whitelisted users log in; anyone else may continue as a guest, which is
@@ -1086,7 +1212,7 @@ function AuthGate({ onDone }: { onDone: () => void }) {
           <div style={{ fontSize: 12.5, opacity: 0.95 }}>
             {guestMode
               ? 'No account is created and nothing is saved for you — but the administrator sees this sign-in.'
-              : 'Whitelisted accounts are saved. Guests are not.'}
+              : 'Accounts, files and mail live on this machine. Guests keep nothing.'}
           </div>
           {!guestMode && (
             <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 2 }}>

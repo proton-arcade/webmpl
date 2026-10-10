@@ -779,9 +779,13 @@ export async function runSmoke() {
 
   await new Promise((r) => setTimeout(r, 700))
   await check('each account has its own filesystem, saved under its own key', async () => {
-    /* No account is signed in here, so nothing should have been written under
-       anybody's name yet — a shared key would mean everybody's files mixed. */
-    assert(savedOwners().length === 0, `something was saved before anyone signed in: ${savedOwners()}`)
+    /* Mixt is a computer on the network: an account is signed in from boot, and
+       the only name that may already be saved is theirs. A shared key would
+       mean everybody's files mixed together, which is what this is watching
+       for. */
+    const signedIn = JSON.parse(sessionStorage.getItem('mixt.session.v1') || 'null')?.username ?? null
+    const stranger = savedOwners().filter((who) => who !== signedIn)
+    assert(stranger.length === 0, `saved under a name nobody signed in as: ${stranger}`)
 
     mountFilesystem('smoke-alice')
     vfs.write('/home/mixt/alice-only.txt', 'alice', 'text/plain')

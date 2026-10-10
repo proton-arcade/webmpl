@@ -10,6 +10,9 @@
 import { execSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { existsSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { JSDOM } from 'jsdom'
 
 const OUT_DIR = '.smoke-out'
@@ -26,11 +29,45 @@ if (!entry) {
 }
 
 /* ------------------------------- jsdom setup ------------------------------- */
+/* ----------------------------- the real machine -------------------------- */
+/* Mixt is a computer on the network, so the desktop is exercised against one:
+   this boots the actual server into a throwaway directory and points the
+   browser's fetch at it. Nothing here is stubbed — a check that passes here
+   passes against `node server/index.js`. */
+const dataDir = await mkdtemp(join(tmpdir(), 'mixt-smoke-'))
+const { createServer } = await import('../server/index.js')
+const { server, world } = await createServer({ port: 0, dataDir, rootPassword: 'smoke-root' })
+await new Promise((r) => server.listen(0, '127.0.0.1', r))
+const ORIGIN = `http://127.0.0.1:${server.address().port}`
+
+const nodeFetch = globalThis.fetch.bind(globalThis)
+const routedFetch = (input, init) => {
+  const raw = typeof input === 'string' ? input : (input?.url ?? String(input))
+  return nodeFetch(/^https?:\/\//.test(raw) ? raw : ORIGIN + raw, init)
+}
+globalThis.fetch = routedFetch
+
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'https://localhost:3000/',
   pretendToBeVisual: true,
 })
 const { window } = dom
+window.fetch = routedFetch
+
+/* Sign the administrator in before the desktop boots, the way a browser that
+   already has a session does: the token in sessionStorage is the session. */
+{
+  const res = await routedFetch('/api/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: 'Mixt_MPL', password: 'smoke-root' }),
+  })
+  const session = await res.json()
+  window.sessionStorage.setItem(
+    'mixt.session.v1',
+    JSON.stringify({ token: session.token, role: session.role, username: session.username }),
+  )
+}
 
 globalThis.window = window
 globalThis.document = window.document
@@ -98,6 +135,11 @@ window.HTMLCanvasElement.prototype.toDataURL = function () {
 /* ------------------------------ run the bundle ----------------------------- */
 const mod = await import(pathToFileURL(entry).href)
 const { results, failed } = await mod.runSmoke()
+
+/* --------------------------------- teardown -------------------------------- */
+await world.clients.get('database').flush()
+server.close()
+await rm(dataDir, { recursive: true, force: true }).catch(() => {})
 
 const green = (s) => `\x1b[32m${s}\x1b[0m`
 const red = (s) => `\x1b[31m${s}\x1b[0m`

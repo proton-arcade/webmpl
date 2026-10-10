@@ -21,7 +21,9 @@ import {
   serverAddress,
   zoneRecords,
 } from '../net'
-import { launch } from '../os/bus'
+import { launch, openPath } from '../os/bus'
+import * as server from '../os/api'
+import * as sync from '../os/sync'
 import type { AppProps } from '../os/types'
 
 interface Line {
@@ -31,6 +33,39 @@ interface Line {
 }
 
 let lineId = 0
+
+/**
+ * The commands this terminal keeps to itself.
+ *
+ * The shell runs on the server, as the signed-in account, in a jail it cannot
+ * climb out of: a standard account's `rm` reaches their own files and nothing
+ * else, and only the administrator can be given a shell on the host itself.
+ * What stays here is the handful of commands that are not about files at all —
+ * the invented network (MixtNet lives in this browser), and the ones that need
+ * a desktop: opening a window, setting the wallpaper, ending the session.
+ *
+ * Everything else is answered by the server, which is also why `ls` here lists
+ * what is really on the machine and not what this tab happens to remember.
+ */
+const LOCAL_ONLY = new Set([
+  /* MixtNet: the network is a place inside this browser */
+  'dig', 'host', 'nslookup', 'getent', 'nmap', 'ping', 'curl', 'wget', 'ssh', 'scp',
+  /* the desktop: windows, settings, the session */
+  'open', 'xdg-open', 'nemo', 'xed', 'mixtsfox', 'browser', 'theme', 'wallpaper',
+  'notify-send', 'screenshot', 'xrandr', 'volume', 'battery', 'lock', 'reboot',
+  'shutdown', 'poweroff', 'exit', 'logout', 'clear', 'history', 'time', 'watch',
+  /* the archive manager, which is an application and not a file format here */
+  'zip', 'unzip', 'tar', 'gzip', 'mixtupdate',
+])
+
+/** The command a line starts with, ignoring `sudo` (which modifies the next one). */
+function firstCommand (line: string): string {
+  const tokens = String(line).trim().split(/\s+/).filter(Boolean)
+  let i = 0
+  while (i < tokens.length && (tokens[i] === 'sudo' || tokens[i] === 'su')) i++
+  return (tokens[i] || '').toLowerCase()
+}
+
 const COMMANDS = [
   'dig',
   'host',
@@ -93,7 +128,20 @@ export default function TerminalApp({ win, api }: AppProps) {
   const scroller = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const prompt = `${root ? 'root' : settings.username}@${settings.hostname}:${prettyCwd(cwd)}`
+  /* The shell keeps the working directory, so the prompt is the server's idea
+     of it: sign in from another machine and `cd -` still knows where you were.
+     `#` means the account is the administrator's, which is the server's answer
+     too rather than a flag this tab set for itself. */
+  useEffect(() => {
+    void server.termPrompt().then((p) => {
+      if (!p) return
+      setCwd(p.cwd || cwd)
+      setRoot(!!p.symbol && p.symbol === '#')
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const prompt = `${root ? settings.username : settings.username}@${settings.hostname}:${prettyCwd(cwd)}`
 
   useEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight
@@ -125,6 +173,79 @@ export default function TerminalApp({ win, api }: AppProps) {
 
   function pushMany(items: [Line['kind'], string][]) {
     setLines((ls) => [...ls, ...items.map(([kind, text]) => ({ id: lineId++, kind, text }))])
+  }
+
+  /* ------------------------------- the server ------------------------------ */
+
+  /**
+   * Run a command on the server.
+   *
+   * The answer carries the working directory (the shell's, which is the one
+   * that matters), any output, and *effects* — things the server cannot do for
+   * itself, like opening a window, because it has no windows.
+   */
+  async function runOnServer (line: string, stdin: string | null = null): Promise<boolean> {
+    setBusy(true)
+    try {
+      const result = await server.term(line, stdin)
+      if (result.cwd && result.cwd !== cwd) setCwd(result.cwd)
+      if (result.out) for (const text of result.out.split('\n')) push('out', text)
+      if (result.err) for (const text of result.err.split('\n')) push('err', text)
+      for (const effect of result.effects) {
+        // eslint-disable-next-line no-await-in-loop
+        await applyEffect(effect)
+      }
+      /* A command that changed files moved the server's revision on; take its
+         tree back so the Files window and this one agree. */
+      if (result.rev !== undefined && result.rev !== sync.getRev()) void sync.pull({ force: true })
+      return !result.err
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Carry out something the server asked the desktop to do. */
+  async function applyEffect (fx: server.TermEffect) {
+    switch (fx.type) {
+      case 'launch':
+        launch(String(fx.appId), (fx.props as Record<string, unknown>) ?? {})
+        break
+      case 'open':
+        openPath(String(fx.path))
+        break
+      case 'notify':
+        useOS.getState().notify({ title: String(fx.title ?? 'Terminal'), body: String(fx.body ?? '') })
+        break
+      case 'settings':
+        setSettings((fx.patch ?? {}) as never)
+        break
+      case 'clear':
+        setLines([])
+        break
+      case 'exit':
+        api.close()
+        break
+      case 'session':
+        window.dispatchEvent(new CustomEvent('mixt:session', { detail: fx.kind }))
+        break
+      case 'screenshot': {
+        const { saveWallpaperShot } = await import('./screenshot-utils')
+        push('ok', await saveWallpaperShot())
+        break
+      }
+      case 'prompt': {
+        /* `passwd`: the shell cannot ask, so it says so and the desktop does. */
+        const answer = await ask(String(fx.message ?? 'New password'), { hidden: true })
+        if (!answer) return
+        const who = String(fx.username ?? settings.username)
+        const result = await server.setUserPassword(who, answer)
+        if (result.ok) push('ok', `Password changed for ${who}.`)
+        else push('err', result.error ?? 'The server refused that password.')
+        break
+      }
+      default:
+        break
+    }
   }
 
   /* ------------------------------- execution ------------------------------- */
@@ -185,7 +306,26 @@ export default function TerminalApp({ win, api }: AppProps) {
       }
       return true
     } catch (e: any) {
-      push('err', `${e?.message ?? e}`)
+      const msg = `${e?.message ?? e}`
+      /* The shell is on the server. Anything this browser's own shell has never
+         heard of is answered there instead — against the real files, as this
+         account — rather than being met with "command not found". */
+      if (/command not found/.test(msg) && !LOCAL_ONLY.has(firstCommand(line))) {
+        /* A pipeline fed by `curl` is half invented network and half real disk:
+           the page is fetched here, and the rest of the pipeline runs there. */
+        if (line.includes('|') && /^\s*(curl|wget)\b/.test(line)) {
+          const [head, ...rest] = line.split('|')
+          try {
+            const fetched = await exec(head.trim(), '')
+            return await runOnServer(rest.join('|').trim(), typeof fetched === 'string' ? fetched : '')
+          } catch (inner: any) {
+            push('err', `${inner?.message ?? inner}`)
+            return false
+          }
+        }
+        return await runOnServer(line)
+      }
+      push('err', msg)
       return false
     }
   }
@@ -1251,13 +1391,19 @@ export default function TerminalApp({ win, api }: AppProps) {
     }
   }
 
-  function complete() {
+  /**
+   * Tab completion, answered by the server: it completes the commands that are
+   * really there and the paths that are really on disk, including the ones
+   * another session created a moment ago.
+   */
+  async function complete() {
     const parts = input.split(/\s+/)
     const last = parts[parts.length - 1] ?? ''
-    if (parts.length === 1) {
-      const matches = COMMANDS.filter((c) => c.startsWith(last))
+    if (parts.length === 1 && !LOCAL_ONLY.has(last)) {
+      const matches = await server.termComplete(last)
+      if (!matches.length) return
       if (matches.length === 1) setInput(matches[0] + ' ')
-      else if (matches.length > 1) pushMany([['out', matches.join('  ')], ['out', '']])
+      else pushMany([['out', matches.join('  ')], ['out', '']])
       return
     }
     const dir = last.includes('/') ? normalizePath(last.replace(/\/[^/]*$/, '') || '.', cwd, HOME) : cwd

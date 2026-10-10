@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../os/store'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { openUrl } from '../os/bus'
-import { serverMail, sendMail, type ServerMail } from '../os/api'
+import { mailAddress, removeMail, sendMail, serverMail, updateMail, type ServerMail } from '../os/api'
 import { localAddress, USER_DOMAIN, GUEST_DOMAIN } from '../os/mailaddr'
 import { readMailCache, writeMailCache } from './mailstore'
 import type { AppProps } from '../os/types'
@@ -19,6 +19,8 @@ interface Message {
   read: boolean
   starred: boolean
   labels: string[]
+  /** true when the server holds this message, and so can be asked to change it */
+  server?: boolean
 }
 
 
@@ -130,24 +132,29 @@ function load(user: string, me: string, name: string): Message[] {
   return cached.length ? (cached as unknown as Message[]) : seed(me, name)
 }
 
-/* Merge what the server holds into the local list. The server is the authority
- * for anything another user sent; the local copy is the offline cache. Ids
- * decide, so a message already stored locally is never shown twice. */
 const FOLDERS: Message['folder'][] = ['Inbox', 'Sent', 'Drafts', 'Trash', 'Junk']
-function mergeMail(all: Message[], remote: ServerMail[]): Message[] {
-  const have = new Set(all.map((m) => m.id))
-  const fresh = remote
-    .filter((m) => !have.has(m.id))
-    .map((m) => ({ ...m, folder: (FOLDERS.includes(m.folder as Message['folder']) ? m.folder : 'Inbox') as Message['folder'] }))
-  return fresh.length ? [...all, ...fresh] : all
+
+/* A message as the server holds it. The folder is checked against the ones the
+   app shows, because a folder this build has never heard of would otherwise be
+   a heading with no way to open it. */
+function fromServer(m: ServerMail): Message {
+  return {
+    ...m,
+    folder: (FOLDERS.includes(m.folder as Message['folder']) ? m.folder : 'Inbox') as Message['folder'],
+    server: true,
+  }
 }
 
 export default function MailApp({ api }: AppProps) {
   const settings = useOS((s) => s.settings)
-  /* this account's address on this machine — @proper.com for a whitelisted
-     account, NAME@Guest.MPL for a guest, both local to this computer */
-  const me = localAddress(settings.username)
-  const [messages, setMessages] = useState<Message[]>(() => load(settings.username, me, settings.fullName || settings.username))
+  /* This account's address on this machine — @proper.com for a whitelisted
+     account, NAME@Guest.MPL for a guest. Guessed from the name to begin with,
+     because the desktop knows the rule; the server's own answer replaces it the
+     moment it arrives, since whether a mailbox exists at all is its to say. */
+  const [me, setMe] = useState(() => localAddress(settings.username))
+  const [messages, setMessages] = useState<Message[]>(() =>
+    load(settings.username, localAddress(settings.username), settings.fullName || settings.username),
+  )
   const [folder, setFolder] = useState<Message['folder']>('Inbox')
   const [selected, setSelected] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -156,23 +163,63 @@ export default function MailApp({ api }: AppProps) {
   const [onlyUnread, setOnlyUnread] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
+  /* null while it is still being asked; the sidebar says what it finds */
+  const [mailbox, setMailbox] = useState<string | null | undefined>(undefined)
 
   useEffect(() => {
     writeMailCache(settings.username, messages)
   }, [messages, settings.username])
 
-  /* pick up anything other users have sent since this window was opened */
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      const remote = await serverMail()
-      if (!alive || !remote) return
-      setMessages((all) => mergeMail(all, remote))
-    })()
-    return () => {
-      alive = false
+  /* Which messages have already been seen, so that new ones can be announced
+     without greeting somebody with a notification about their own inbox every
+     time the app looks at the server. */
+  const seen = useRef<Set<string> | null>(null)
+
+  /**
+   * Take the mailbox the server holds.
+   *
+   * The machine is the one that keeps the mail, so what it holds replaces the
+   * copy in this window rather than being merged into it — a message read on
+   * another machine stays read here. Drafts are the exception: they belong to
+   * this window until they are sent, so they are carried across.
+   */
+  const check = useCallback(async (announce = false): Promise<boolean> => {
+    const address = await mailAddress()
+    setMailbox(address)
+    if (!address) return false
+    setMe(address)
+    const remote = await serverMail()
+    if (!remote) return false
+    const incoming = seen.current ? remote.filter((m) => !seen.current!.has(m.id)) : []
+    seen.current = new Set(remote.map((m) => m.id))
+    setMessages((all) => {
+      const next = remote.map(fromServer)
+      const held = new Set(next.map((m) => m.id))
+      const drafts = all.filter((m) => m.folder === 'Drafts' && !held.has(m.id))
+      return [...next, ...drafts]
+    })
+    if (announce) {
+      useOS.getState().notify({
+        title: 'Mail',
+        body: incoming.length === 1 ? '1 new message.' : `${incoming.length} new messages.`,
+        appId: 'mail',
+      })
     }
+    return true
   }, [])
+
+  /* Read it when the app opens, then keep looking: mail arrives whether or not
+     this window is the one that went looking for it. */
+  useEffect(() => {
+    void check()
+    const timer = setInterval(() => void check(true), 20_000)
+    const onFocus = () => void check(true)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [check])
 
   const counts = useMemo(() => {
     const out: Record<string, number> = {}
@@ -198,23 +245,38 @@ export default function MailApp({ api }: AppProps) {
 
   function patch(id: string, changes: Partial<Message>) {
     setMessages((all) => all.map((m) => (m.id === id ? { ...m, ...changes } : m)))
+    /* Read here, starred there: the change is sent to the machine that keeps
+       the mailbox, so it is the same in every window looking at it. Drafts are
+       still only in this one, and are left alone. */
+    const m = messages.find((x) => x.id === id)
+    if (!m?.server) return
+    void updateMail(id, changes).then((ok) => {
+      if (!ok) useOS.getState().notify({ title: 'Mail', body: 'The server did not keep that change.', appId: 'mail' })
+    })
   }
 
-  /* Check for mail sent by the other accounts on this computer. */
-  async function receive() {
-    const remote = await serverMail()
-    if (!remote) {
-      useOS.getState().notify({ title: 'Mail', body: 'There is no mail server on this computer.', appId: 'mail' })
-      return
+  /* Gone for good, rather than moved to Trash. */
+  function discard(id: string) {
+    const m = messages.find((x) => x.id === id)
+    if (selected === id) setSelected(null)
+    setMessages((all) => all.filter((x) => x.id !== id))
+    if (m?.server) {
+      void removeMail(id).then((ok) => {
+        if (!ok) useOS.getState().notify({ title: 'Mail', body: 'The server did not delete that message.', appId: 'mail' })
+      })
     }
-    const have = new Set(messages.map((m) => m.id))
-    const fresh = remote.filter((m) => !have.has(m.id))
-    if (fresh.length) setMessages((all) => mergeMail(all, remote))
-    useOS.getState().notify({
-      title: 'Mail',
-      body: fresh.length === 1 ? '1 new message.' : `${fresh.length} new messages.`,
-      appId: 'mail',
-    })
+  }
+
+  /* Look for mail sent by the other accounts on this computer. */
+  async function receive() {
+    const ok = await check(true)
+    if (!ok) {
+      useOS.getState().notify({
+        title: 'Mail',
+        body: 'This account has no mailbox on this computer.',
+        appId: 'mail',
+      })
+    }
   }
 
   /* Sending goes through the server, which drops the message into the
@@ -234,10 +296,19 @@ export default function MailApp({ api }: AppProps) {
       setSendError(res.error)
       return
     }
+    setComposing(null)
+    setFolder('Sent')
+    setSending(false)
+    if (res.ok) {
+      /* The server has already filed a copy in Sent, so the mailbox is read
+         back rather than a second copy being made up here. */
+      await check()
+      if (res.id) setSelected(res.id)
+      useOS.getState().notify({ title: 'Mail', body: `Delivered to ${to}.`, appId: 'mail' })
+      return
+    }
     const msg: Message = {
-      /* the server already stored a Sent copy under this id, so re-reading the
-         mailbox later cannot duplicate it */
-      id: res.ok && res.id ? `${res.id}c` : `m${Date.now()}`,
+      id: `m${Date.now()}`,
       from: me,
       fromName: settings.fullName || settings.username,
       to,
@@ -250,13 +321,10 @@ export default function MailApp({ api }: AppProps) {
       labels: [],
     }
     setMessages((all) => [...all, msg])
-    setComposing(null)
-    setFolder('Sent')
     setSelected(msg.id)
-    setSending(false)
     useOS.getState().notify({
       title: 'Mail',
-      body: res.ok ? `Delivered to ${msg.to}.` : `No mail server here — kept in Sent for ${msg.to}.`,
+      body: `No mailbox on this computer — kept in Sent for ${to}.`,
       appId: 'mail',
     })
   }
@@ -287,6 +355,11 @@ export default function MailApp({ api }: AppProps) {
         >
           <Glyph name="Trash2" size={15} /> {current?.folder === 'Trash' ? 'Restore' : 'Delete'}
         </button>
+        {current?.folder === 'Trash' && (
+          <button className="btn-ghost" onClick={() => discard(current.id)} title="Delete this message for good">
+            <Glyph name="X" size={15} /> Delete forever
+          </button>
+        )}
         <div style={{ flex: 1 }} />
         <input className="entry" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search mail…" style={{ width: 190 }} />
         <button className="btn-ghost" data-active={onlyUnread} onClick={() => setOnlyUnread(!onlyUnread)} title="Show unread only">
@@ -333,8 +406,9 @@ export default function MailApp({ api }: AppProps) {
             <Glyph name="RefreshCw" size={14} /> Check for new mail
           </div>
           <div style={{ padding: '10px 8px 0', fontSize: 11.5, opacity: 0.65, lineHeight: 1.5 }}>
-            Your mailbox is kept per account in ~/.config/mixtmail, and mail
-            between accounts on this computer is delivered by the server.
+            {mailbox === null
+              ? 'This account has no mailbox on this computer. An administrator can switch it on in Settings.'
+              : 'The mailbox is kept by this computer, one per account. A copy is cached in ~/.config/mixtmail so it opens at once; nothing is ever relayed off this machine.'}
           </div>
         </div>
 

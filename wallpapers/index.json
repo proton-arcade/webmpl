@@ -1,0 +1,9 @@
+/* Read by scripts/gen-defaultfs.mjs and by the server when it seeds a new
+   account: the order the backgrounds are offered in, in Settings and in
+   `wallpaper <n>`. Any file in this folder that is not listed here is still
+   offered — it is appended in alphabetical order. */
+[
+  "mixt-wave.jpg",
+  "mixt-facets.jpg",
+  "mixt-leaf.jpg"
+]

@@ -364,3 +364,284 @@ export async function stats(): Promise<ServerStats | null> {
     return null
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * The server filesystem, the terminal and the machine.
+ *
+ * Mixt runs against a server on the local network: it holds the accounts, the
+ * files, the mail and the terminal. The desktop keeps a mirror of the tree in
+ * memory so every application stays instant, and streams its changes back —
+ * see os/sync.ts. Nothing here reaches past this machine: the server is
+ * air-gapped, and every address is a local one.
+ * ------------------------------------------------------------------------- */
+
+export interface FsOp {
+  op: 'write' | 'mkdir' | 'touch' | 'remove' | 'move' | 'copy' | 'trash' | 'reset'
+  path: string
+  to?: string
+  content?: string
+  mime?: string
+}
+
+export interface OpsResult {
+  ok: boolean
+  rev?: number
+  conflict?: boolean
+  applied?: unknown[]
+}
+
+/** Send what changed. The revision is the one the tree was edited at. */
+export async function fsOps(ops: FsOp[], rev: number): Promise<OpsResult> {
+  try {
+    const r = await fetch('/api/fs/ops', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ ops, rev }),
+    })
+    if (!isJson(r)) return { ok: false }
+    const out = await r.json()
+    if (r.status === 409) return { ok: false, conflict: true, rev: out.rev }
+    return r.ok ? { ok: true, rev: out.rev, applied: out.applied } : { ok: false }
+  } catch {
+    return { ok: false }
+  }
+}
+
+/** The whole tree, as the server holds it. */
+export async function fsTree(): Promise<{ rev: number; root: unknown; username: string } | null> {
+  try {
+    const r = await fetch('/api/fs/tree', { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    return await r.json()
+  } catch {
+    return null
+  }
+}
+
+/** Throw the filesystem away and let the server seed a new one. */
+export async function fsReset(): Promise<boolean> {
+  try {
+    const r = await fetch('/api/fs/ops', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ ops: [{ op: 'reset', path: '/' }], rev: null }),
+    })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
+/** One file's bytes, by path. Used for the hosted share and for downloads. */
+export function rawUrl(path: string): string {
+  return `/api/fs/raw${path.startsWith('/') ? path : '/' + path}?token=${encodeURIComponent(getSession()?.token ?? '')}`
+}
+
+/* ------------------------------- the terminal ------------------------------ */
+
+export interface TermEffect {
+  type: string
+  [key: string]: unknown
+}
+
+export interface TermResult {
+  out: string
+  err: string
+  effects: TermEffect[]
+  cwd: string
+  clear: boolean
+  exit: boolean
+  rev: number
+}
+
+/**
+ * Run one command line.
+ *
+ * The shell is on the server and runs as the signed-in account, so it can only
+ * reach that account's own files. What comes back may carry effects — open a
+ * window, change the wallpaper — because the server has no windows of its own.
+ */
+export async function term(cmd: string, stdin: string | null = null): Promise<TermResult> {
+  try {
+    const r = await fetch('/api/term', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ cmd, stdin }),
+    })
+    if (!r.ok || !isJson(r)) {
+      return { out: '', err: 'The server did not answer that.', effects: [], cwd: '', clear: false, exit: false, rev: 0 }
+    }
+    const d = await r.json()
+    return {
+      out: d.out || '',
+      err: d.err || '',
+      effects: d.effects || [],
+      cwd: d.cwd || '/home/mixt',
+      clear: !!d.clear,
+      exit: !!d.exit,
+      rev: d.rev ?? 0,
+    }
+  } catch {
+    return { out: '', err: 'Cannot reach the Mixt server.', effects: [], cwd: '/home/mixt', clear: false, exit: false, rev: 0 }
+  }
+}
+
+/** Tab completion, answered by the server, so it completes real paths. */
+export async function termComplete(prefix: string): Promise<string[]> {
+  try {
+    const r = await fetch(`/api/term/complete?prefix=${encodeURIComponent(prefix)}`, { headers: headers() })
+    if (!r.ok || !isJson(r)) return []
+    const d = await r.json()
+    return Array.isArray(d.matches) ? d.matches : []
+  } catch {
+    return []
+  }
+}
+
+export interface TermPrompt {
+  user: string
+  host: string
+  cwd: string
+  symbol: string
+  guest: boolean
+}
+
+export async function termPrompt(): Promise<TermPrompt | null> {
+  try {
+    const r = await fetch('/api/term/prompt', { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    return (await r.json()) as TermPrompt
+  } catch {
+    return null
+  }
+}
+
+/* --------------------------------- the machine ---------------------------- */
+
+export interface MachineInfo {
+  machine: { name: string; hostname: string; domain: string; url: string; version: string }
+  os: { platform: string; type: string; release: string; arch: string; uptime: number }
+  cpu: { model: string; cores: number; speed: number; load: number[] }
+  memory: { total: number; free: number; used: number; human: string }
+  disk: { total: number; free: number; human: string } | null
+  network: { interfaces: string[]; hostname: string; airgapped: boolean }
+  process: { node: string; pid: number; uptime: number; rss: number }
+  storage: { dataDir: string; blobs: { bytes: number; files: number }; nodes: number; database: unknown }
+}
+
+export async function machineInfo(): Promise<MachineInfo | null> {
+  try {
+    const r = await fetch('/api/system/info')
+    if (!r.ok || !isJson(r)) return null
+    return (await r.json()) as MachineInfo
+  } catch {
+    return null
+  }
+}
+
+/** Hosting: publish a folder as a website on this machine. */
+export async function hostedSites(): Promise<{ name: string; path: string; owner: string; url: string }[]> {
+  try {
+    const r = await fetch('/api/hosting', { headers: headers() })
+    if (!r.ok || !isJson(r)) return []
+    const d = await r.json()
+    return Array.isArray(d) ? d : []
+  } catch {
+    return []
+  }
+}
+
+export async function publishSite(name: string, path: string): Promise<{ ok: boolean; url?: string; error?: string }> {
+  try {
+    const r = await fetch('/api/hosting', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ name, path }),
+    })
+    if (!isJson(r)) return { ok: false, error: 'The Mixt server is not answering.' }
+    const d = await r.json()
+    return d.ok ? { ok: true, url: d.url } : { ok: false, error: d.error }
+  } catch {
+    return { ok: false, error: 'Cannot reach the Mixt server.' }
+  }
+}
+
+export async function unpublishSite(name: string): Promise<boolean> {
+  try {
+    const r = await fetch(`/api/hosting/${encodeURIComponent(name)}`, { method: 'DELETE', headers: headers() })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
+/** An application's code, so the desktop can run what was published. */
+export async function appCode(id: string): Promise<string | null> {
+  try {
+    const r = await fetch(`/api/apps/${encodeURIComponent(id)}/code`, { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    const d = await r.json()
+    return typeof d.code === 'string' ? d.code : null
+  } catch {
+    return null
+  }
+}
+
+/** This session's mail address, as the server has it. */
+export async function mailAddress(): Promise<string | null> {
+  try {
+    const r = await fetch('/api/mail/address', { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    const d = await r.json()
+    return d.address ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function removeMail(id: string): Promise<boolean> {
+  try {
+    const r = await fetch(`/api/mail/${encodeURIComponent(id)}`, { method: 'DELETE', headers: headers() })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
+export async function updateMail(id: string, patch: Record<string, unknown>): Promise<boolean> {
+  try {
+    const r = await fetch(`/api/mail/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: headers(),
+      body: JSON.stringify(patch),
+    })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
+/** End the session on the server as well as in this browser. */
+export async function logout(): Promise<void> {
+  try {
+    await fetch('/api/logout', { method: 'POST', headers: headers() })
+  } catch {
+    /* the session ends here either way */
+  }
+  setSession(null)
+  window.dispatchEvent(new CustomEvent('mixt:authchanged'))
+}
+
+/** What this account has installed, according to the server. `null` when the
+    server cannot be asked, so a caller can tell "nothing installed" from "the
+    server is not there" and keep its own copy in the second case. */
+export async function installed(): Promise<string[] | null> {
+  try {
+    const r = await fetch('/api/installed', { headers: headers() })
+    if (!r.ok || !isJson(r)) return null
+    const d = await r.json()
+    return Array.isArray(d) ? (d as string[]) : null
+  } catch {
+    return null
+  }
+}

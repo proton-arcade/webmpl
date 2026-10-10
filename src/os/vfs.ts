@@ -1,8 +1,17 @@
-/* Mixt Web OS — virtual filesystem (ext4-ish, lives in localStorage)
-   Everything inside the OS reads and writes through this module. */
+/* Mixt Web OS — virtual filesystem, mirrored to the server.
+   Everything inside the OS reads and writes through this module.
+   The tree in memory is a *mirror* of the one on the server: reads are a
+   property lookup, which is what keeps twenty applications instant, and every
+   change is streamed back as an operation by os/sync.ts. A copy is kept in
+   this browser as a cache so the desktop appears at once, and the server's
+   tree replaces it the moment it arrives. A guest has neither: nothing they do
+   leaves the session. */
 import { create } from 'zustand'
 import { safeLocal } from './storage'
 import { DEFAULT_FILESYSTEM, DefaultNode } from './defaultfs'
+import { WALLPAPERS } from './wallpapers'
+import * as sync from './sync'
+import * as api from './api'
 
 export interface VFileNode {
   type: 'file'
@@ -114,7 +123,6 @@ export function countNodes(n: VNode): number {
 }
 
 /* --------------------------------- seeds --------------------------------- */
-const WALLPAPERS = ['mixt-wave.jpg', 'mixt-facets.jpg', 'mixt-leaf.jpg']
 
 /* The default user's file share on the hosted site, and the manifest that
  * lists the path of every directory and file in it. Kept as strings here so the
@@ -353,11 +361,22 @@ function loadRoot(who = owner): VDirNode {
 }
 
 let persistTimer: any = null
-function schedulePersist(get: () => VFSState) {
+
+/**
+ * A change has been made to the tree in memory.
+ *
+ * Two things happen, and they are different jobs. The tree is written into this
+ * browser so a reload is instant and a brief outage costs nothing; and the
+ * change is queued for the server, which is what makes it real, shared with
+ * every other session signed in as this account, and permanent. A guest gets
+ * neither.
+ */
+function schedulePersist(get: () => VFSState, op?: sync.FsOp) {
   clearTimeout(persistTimer)
   const who = owner
   /* a guest's edits are never written out, so the timer does not need to run */
   if (!persistsFor(who)) return
+  if (op) sync.enqueue(op)
   persistTimer = setTimeout(() => {
     if (persistsFor(who)) safeLocal.setItem(vfsKey(who), JSON.stringify(get().root))
   }, 350)
@@ -441,6 +460,22 @@ export function persistsFor(who: string | null | undefined): boolean {
 /** Write the mounted filesystem now, rather than waiting for the debounce. */
 export function persistNow(root: VDirNode) {
   if (persistsFor(owner)) safeLocal.setItem(vfsKey(owner), JSON.stringify(root))
+  /* Signing out is the moment the queue has to be empty: what the person who
+     was here did should be on the server before the next person sits down. */
+  void sync.flushNow()
+}
+
+/**
+ * Replace the tree in memory with one the server sent.
+ *
+ * Used when the server's copy wins — on sign-in, and whenever somebody else
+ * changed the tree and the stream told us about it. The local cache is updated
+ * too, so a reload does not bring the old one back.
+ */
+export function replaceRoot(root: VDirNode) {
+  if (!root || root.type !== 'dir') return
+  useVFS.setState((s) => ({ root, revision: s.revision + 1 }))
+  if (persistsFor(owner)) safeLocal.setItem(vfsKey(owner), JSON.stringify(root))
 }
 
 /** Directories read from storage always carry a children map, but a tree can
@@ -501,7 +536,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
     children[name] = dir({})
     p.modified = now()
     set((s) => ({ revision: s.revision + 1 }))
-    schedulePersist(get)
+    schedulePersist(get, { op: 'mkdir', path })
     return true
   },
 
@@ -524,7 +559,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
     }
     p.modified = now()
     set((s) => ({ revision: s.revision + 1 }))
-    schedulePersist(get)
+    schedulePersist(get, { op: 'write', path, content, mime })
     return true
   },
 
@@ -537,7 +572,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
     if (!children[name]) {
       children[name] = file('')
       set((s) => ({ revision: s.revision + 1 }))
-      schedulePersist(get)
+      schedulePersist(get, { op: 'touch', path })
     }
     return true
   },
@@ -552,7 +587,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
     delete children[name]
     p.modified = now()
     set((s) => ({ revision: s.revision + 1 }))
-    schedulePersist(get)
+    schedulePersist(get, { op: 'remove', path })
     return true
   },
 
@@ -571,7 +606,9 @@ export const useVFS = create<VFSState>()((set, get) => ({
     ensureChildren(dstParent)[baseName(destPath)] = node
     node.modified = now()
     set((s) => ({ revision: s.revision + 1 }))
-    schedulePersist(get)
+    /* The server needs the destination the client settled on, not the one it
+       was given: `mv a b` where b is a directory means b/a. */
+    schedulePersist(get, { op: 'move', path: from, to: destPath })
     return true
   },
 
@@ -585,7 +622,7 @@ export const useVFS = create<VFSState>()((set, get) => ({
     if (!dstParent || dstParent.type !== 'dir') return false
     ensureChildren(dstParent)[baseName(destPath)] = JSON.parse(JSON.stringify(node))
     set((s) => ({ revision: s.revision + 1 }))
-    schedulePersist(get)
+    schedulePersist(get, { op: 'copy', path: from, to: destPath })
     return true
   },
 
@@ -595,6 +632,10 @@ export const useVFS = create<VFSState>()((set, get) => ({
     const root = seedTree()
     set((s) => ({ root, revision: s.revision + 1 }))
     if (persistsFor(owner)) safeLocal.setItem(vfsKey(owner), JSON.stringify(root))
+    /* The server throws its copy away and seeds a new one; the desktop takes
+       whatever the server says it has afterwards. */
+    sync.enqueue({ op: 'reset', path: '/' })
+    void sync.flushNow()
   },
 
   persist: () => schedulePersist(get),
@@ -649,6 +690,14 @@ export function ensureWebShare() {
 export function mountFilesystem(who: string) {
   if (who !== owner) persistNow(useVFS.getState().root)
   owner = who || ''
+  /* Start mirroring for this account — but only if it is the one the session
+     belongs to. Mounting anybody else's tree is a way of looking, not of
+     being: an administrator browsing /users reads those files without
+     becoming their author, and nothing they do there is sent to a server
+     that would file it under the wrong name. A guest's mirror is never
+     switched on at all, because a guest has nothing on the server. */
+  const live = api.getSession()?.username
+  sync.configure(persistsFor(owner) && live === owner ? owner : '', 0)
   const root = loadRoot(owner)
   useVFS.setState((s) => ({ root, revision: s.revision + 1 }))
   /* Saved from the moment the account first signs in, not only after something

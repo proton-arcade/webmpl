@@ -17,6 +17,9 @@ yarn-error.log*
 .vscode/*
 !.vscode/extensions.json
 
+# the machine's own state: accounts, files, mail, the database
+data/
+
 # scratch
 .tmp/
 screenshots/

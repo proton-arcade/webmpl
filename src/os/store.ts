@@ -5,7 +5,7 @@ import type { Notification, Settings, SnapZone, User, WinGeometry, WinState } fr
 import { applyThemeVars } from './theme'
 import { safeLocal } from './storage'
 import { persistsFor } from './vfs'
-import { getSession } from './api'
+import { getSession, putSettings, installed as serverInstalled } from './api'
 import {
   checkPassword,
   hashPassword,
@@ -37,6 +37,17 @@ export function loadInstalled(who: string) {
     /* unreadable saved state — nothing installed is a safe answer */
   }
   useOS.setState({ installed: map })
+  /* What the account has installed lives on the server now, so it follows them
+     to whichever machine on the network they sign in from. The copy in this
+     browser is only what shows until the answer arrives — and it is replaced
+     rather than merged, because an app uninstalled on another machine should
+     not still be here. */
+  void serverInstalled().then((ids) => {
+    if (!ids) return
+    const next: Record<string, boolean> = {}
+    for (const id of ids) next[id] = true
+    useOS.setState({ installed: next })
+  })
   return map
 }
 
@@ -50,6 +61,18 @@ function persistInstalled(map: Record<string, boolean>) {
   } catch {
     /* a blocked or full store must not break installing */
   }
+}
+
+/** Tell the server an app was installed or removed for this account. */
+export function syncInstalled(appId: string, value: boolean) {
+  if (getSession()?.role === 'guest') return
+  void fetch(`/api/apps/${encodeURIComponent(appId)}/${value ? 'install' : 'uninstall'}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(getSession() ? { authorization: `Bearer ${getSession()!.token}` } : {}),
+    },
+  }).catch(() => { /* the local copy still works; it will sync next time */ })
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -145,6 +168,28 @@ export function persistSettings(s: Settings) {
   } catch {
     /* ignore */
   }
+  /* …and on the server, under this account, so the panel, the wallpaper and
+     the theme are the same on every machine they sign in from. */
+  void putSettings(s)
+}
+
+/**
+ * Take the settings the server has for this account.
+ *
+ * Called when somebody signs in. Without it an account that had set a dark
+ * theme on the laptop got the browser's defaults on the phone, which is the
+ * sort of thing that makes a computer feel like it does not know you.
+ */
+export function adoptServerSettings(raw: unknown) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return
+  const settings = sanitizeSettings({ ...useOS.getState().settings, ...(raw as object) })
+  try {
+    safeLocal.setItem(LS_SETTINGS, JSON.stringify(settings))
+  } catch {
+    /* ignore */
+  }
+  applyThemeVars(settings)
+  useOS.setState({ settings })
 }
 
 let idCounter = 0
@@ -480,6 +525,7 @@ export const useOS = create<OSState>()((set, get) => ({
     set((s) => {
       const installed = { ...s.installed, [appId]: value }
       persistInstalled(installed)
+      syncInstalled(appId, value)
       return { installed }
     }),
 

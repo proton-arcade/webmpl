@@ -87,7 +87,12 @@ export default defineConfig({
      * backend is present, shows the login gate, and then gets a 404 for the
      * login itself — every account "fails", including the administrator. */
     proxy: {
+      /* The machine: accounts, files, mail, terminal. `npm start` runs it on
+         8080; the dev server only borrows it, so hot reload and the real
+         filesystem are the same thing. */
       '/api': { target: process.env.MIXT_API ?? 'http://127.0.0.1:8080', changeOrigin: true },
+      '/webdav': { target: process.env.MIXT_API ?? 'http://127.0.0.1:8080', changeOrigin: true },
+      '/site': { target: process.env.MIXT_API ?? 'http://127.0.0.1:8080', changeOrigin: true },
     },
   },
   preview: {
