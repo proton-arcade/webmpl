@@ -6,23 +6,32 @@
  * a local network carries is mail that stays on it.
  */
 import { BaseController } from '../lib/container.js';
-import { addressOf } from '../services/mailaddr.js';
+import { forbidden } from '../lib/errors.js';
 
 export class MailController extends BaseController {
     static SERVICE_NAME = 'mail';
 
     async _init () { this.mail = this.services.get('mail'); }
 
-    /** This session's mailbox. Empty (not an error) when it has none. */
+    /**
+     * This session's mailbox.
+     *
+     * A session with no mailbox — a guest before the administrator switches
+     * guest mail on, or an account whose mailbox is switched off — is told so
+     * rather than being handed an empty one: "you have no mail" and "you have
+     * no mailbox" are different things, and only one of them is reassuring.
+     */
     list (ctx) {
         const actor = ctx.require();
-        return this.mail.list(actor, { folder: ctx.query.folder || null }) ?? [];
+        const messages = this.mail.list(actor, { folder: ctx.query.folder || null });
+        if (!messages) throw forbidden('no_mailbox', 'This session has no mailbox on this computer.');
+        return messages;
     }
 
     address (ctx) {
         const actor = ctx.require();
         const key = this.mail.mailboxFor(actor);
-        return { ok: true, address: key ? addressOf(key) : null, mailbox: key };
+        return { ok: true, address: this.mail.addressFor(actor), mailbox: key };
     }
 
     unread (ctx) {

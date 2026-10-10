@@ -3,11 +3,11 @@
  *
  *   npm run mail
  *
- * Every other harness drives the frontend; this one drives server.cjs over
+ * Every other harness drives the desktop; this one drives the machine over
  * HTTP, because "one user's mail arrives in another user's inbox" is a claim
- * about the server, not about the pixels. It starts its own backend on a free
- * port with its own data file (MIXT_DB), so the developer's data.json is never
- * touched and the run is repeatable.
+ * about the server, not about the pixels. It starts its own server on a free
+ * port with its own data directory (MIXT_DATA), so the machine you are actually
+ * using is never touched and the run is repeatable.
  *
  * What it proves:
  *   - a message sent by `demo` appears in `Mixt_MPL`'s Inbox, unread, from
@@ -51,7 +51,6 @@ function freePort() {
 const port = await freePort()
 const BASE = `http://127.0.0.1:${port}`
 const dir = mkdtempSync(join(tmpdir(), 'mixt-mail-'))
-const db = join(dir, 'data.json')
 
 /* root password comes from ROOTPASS.md, exactly as the server reads it */
 const rootPass = (() => {
@@ -60,9 +59,9 @@ const rootPass = (() => {
   return m ? m[1] : 'mixt-root'
 })()
 
-const child = spawn(process.execPath, ['server.cjs'], {
+const child = spawn(process.execPath, ['server/index.js'], {
   cwd: ROOT,
-  env: { ...process.env, PORT: String(port), MIXT_DB: db },
+  env: { ...process.env, MIXT_PORT: String(port), MIXT_DATA: dir },
   stdio: ['ignore', 'pipe', 'pipe'],
 })
 let serverLog = ''
@@ -103,8 +102,14 @@ if (!up) {
 
 try {
   console.log('• two accounts, one machine…')
-  const demo = await signIn('demo', 'demo')
   const root = await signIn('Mixt_MPL', rootPass)
+  /* Only the administrator exists on a fresh machine, so the standard account
+     this run needs is added the way a real one is: by the administrator. */
+  const added = await api('/api/users', { method: 'POST', token: root, body: { username: 'demo', password: 'demo' } })
+  if (added.status !== 200 && added.status !== 409) {
+    bad(`the administrator could not add demo: ${added.status} ${JSON.stringify(added.data)}`)
+  }
+  const demo = await signIn('demo', 'demo')
   ok('demo and Mixt_MPL are both signed in')
 
   console.log('• demo writes to the administrator…')
@@ -189,7 +194,7 @@ try {
   else ok('publishing without the code is refused')
 
   const withCode = await api('/api/apps', { method: 'POST', token: demo, body: { name: 'Tea Timer', code: 'echo steep' } })
-  if (withCode.status !== 200 || withCode.data.status !== 'pending')
+  if (withCode.status !== 200 || withCode.data.app?.status !== 'pending')
     bad(`a whitelisted user publishing code gave ${withCode.status} ${JSON.stringify(withCode.data)}`)
   else ok('a whitelisted account can publish, and it waits for approval')
 
@@ -198,7 +203,7 @@ try {
   else ok('a guest cannot publish')
 
   const adminPub = await api('/api/apps', { method: 'POST', token: root, body: { name: 'Console app', code: 'echo hi', approved: true } })
-  if (adminPub.status !== 200 || adminPub.data.status !== 'approved')
+  if (adminPub.status !== 200 || adminPub.data.app?.status !== 'approved')
     bad(`what the administrator publishes came back ${JSON.stringify(adminPub.data)}, expected approved`)
   else ok('what the administrator publishes goes straight out approved')
 

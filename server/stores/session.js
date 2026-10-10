@@ -27,12 +27,18 @@ export class SessionStore extends BaseStore {
         this.db.dirty();
     }
 
-    create ({ user = null, guest = false, name = null, ip = null, userAgent = null, hostShell = false }) {
+    /**
+     * A guest says two things: the name they sign in under, and what to call
+     * them. They are kept apart, because the first is what their mailbox is
+     * keyed by and the second is only ever shown — a guest called "A Visitor"
+     * is reached at the address they typed, not at "a visitor@Guest.MPL".
+     */
+    create ({ user = null, guest = false, username = null, name = null, ip = null, userAgent = null, hostShell = false }) {
         const record = this.t.insert({
             token: newToken(),
             userId: user?.uid || null,
-            username: user ? user.username : (name || `guest-${slug(4)}`),
-            displayName: user ? (user.displayName || user.username) : (name || 'Guest'),
+            username: user ? user.username : (username || `guest-${slug(4)}`),
+            displayName: user ? (user.displayName || user.username) : (name || username || 'Guest'),
             role: user ? user.role : 'guest',
             guest: !!guest,
             hostShell: !!hostShell,

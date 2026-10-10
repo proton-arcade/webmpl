@@ -72,6 +72,11 @@ const server = createServer(async (req, res) => {
     if (p === '/api/users' && req.method === 'POST') return send(200, { ok: true })
     if (p === '/api/stats') return send(200, { ok: true, users: 2, admins: 1, sessions: 3, appsPending: 1, appsApproved: 0, mailboxes: 0, savedSettings: 1 })
     if (p === '/api/settings') return send(200, {})
+    if (p === '/api/mail/address') {
+      const u = userOf(req)
+      if (!u || u === 'guest') return send(200, { ok: true, address: null, mailbox: null })
+      return send(200, { ok: true, address: `${u}@proper.com`, mailbox: u })
+    }
     if (p === '/api/mail') {
       const u = userOf(req)
       if (!u || u === 'guest') return send(403, { ok: false, error: 'guests are not saved' })

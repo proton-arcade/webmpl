@@ -9,7 +9,7 @@
  */
 import { BaseService } from '../lib/container.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
-import { addressOf, mailboxKeyFor, resolveAddress } from './mailaddr.js';
+import { addressForActor, addressOf, mailboxKeyFor, resolveAddress } from './mailaddr.js';
 
 export class MailService extends BaseService {
     static SERVICE_NAME = 'mail';
@@ -39,14 +39,14 @@ export class MailService extends BaseService {
 
     addressFor (actor) {
         const key = this.mailboxFor(actor);
-        return key ? addressOf(key) : null;
+        return key ? addressForActor(actor, key) : null;
     }
 
     /** Attach the mailbox to the actor so everything downstream agrees. */
     bind (actor) {
         if (!actor) return actor;
         actor.mailboxKey = this.mailboxFor(actor);
-        actor.mailAddress = actor.mailboxKey ? addressOf(actor.mailboxKey) : null;
+        actor.mailAddress = actor.mailboxKey ? addressForActor(actor, actor.mailboxKey) : null;
         return actor;
     }
 
@@ -78,18 +78,19 @@ export class MailService extends BaseService {
         const resolved = resolveAddress(to, { users: this.users, guestMailbox: this.guestMailbox });
         if (!resolved.key) {
             /* 403 is "here, but their mailbox is switched off"; 404 is "there is
-               nobody by that name". Kept apart on purpose — see mailaddr.js. */
-            throw resolved.status === 403
-                ? forbidden('no_mailbox', resolved.error)
-                : notFound('no_recipient', resolved.error);
+               nobody by that name"; 400 is "you did not say who". Kept apart on
+               purpose — see mailaddr.js. */
+            if (resolved.status === 403) throw forbidden('no_mailbox', resolved.error);
+            if (resolved.status === 400) throw badRequest('no_recipient', resolved.error);
+            throw notFound('no_recipient', resolved.error);
         }
         if (resolved.key === fromKey && !toName) {
             throw badRequest('to_yourself', 'That is your own mailbox.');
         }
         const message = {
-            from: addressOf(fromKey),
+            from: addressForActor(actor, fromKey),
             fromName: actor.displayName || actor.username,
-            to: addressOf(resolved.key),
+            to: resolved.address || addressOf(resolved.key),
             subject: String(subject || '').slice(0, 300) || '(no subject)',
             body: String(body || ''),
         };

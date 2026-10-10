@@ -151,10 +151,13 @@ export class AuthService extends BaseService {
         if (!this.config.allowGuests) {
             throw forbidden('no_guests', 'This computer is not accepting guest sessions.');
         }
+        /* A password may be given, and is not kept: a guest has no account to
+           keep it against, and the whole promise of a guest session is that
+           nothing of theirs survives it. */
         const session = this.sessions.create({
             user: null, guest: true,
-            name: name || username || null,
             username: username || null,
+            name: name || null,
             ip, userAgent,
         });
         const actor = this.actorFor(session);

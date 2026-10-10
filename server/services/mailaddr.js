@@ -27,18 +27,33 @@ export function mailboxKeyFor (actor, { guestMailbox = false } = {}) {
     if (!actor) return null;
     if (actor.guest) {
         if (!guestMailbox) return null;
-        const name = String(actor.username || '').trim() || 'guest';
-        return `guest:${name.toLowerCase()}`;
+        /* An address is one token, so a guest who signed in as "A Visitor" is
+           reached at a.visitor rather than at an address with a space in it. */
+        const name = String(actor.username || '').trim().toLowerCase().replace(/\s+/g, '.') || 'guest';
+        return `guest:${name}`;
     }
     if (actor.user && actor.user.mailbox === false) return null;
     return String(actor.username || '').toLowerCase() || null;
 }
 
-/** The address a mailbox is reached at. */
+/**
+ * The address a mailbox is reached at.
+ *
+ * The key is folded to lower case so that `Ada` and `ada` are one mailbox, but
+ * an address is something a person types and reads, so it keeps the capital
+ * letters the account was created with.
+ */
 export function addressOf (key) {
     if (!key) return null;
     if (String(key).startsWith('guest:')) return `${key.slice(6)}@${GUEST_DOMAIN}`;
     return `${key}@${USER_DOMAIN}`;
+}
+
+/** The address of a mailbox, in the spelling its owner uses. */
+export function addressForActor (actor, key) {
+    if (!key) return null;
+    if (String(key).startsWith('guest:')) return `${key.slice(6)}@${GUEST_DOMAIN}`;
+    return `${actor.username || key}@${USER_DOMAIN}`;
 }
 
 /**
@@ -62,7 +77,7 @@ export function resolveAddress (to, { users = null, guestMailbox = false } = {})
         if (!guestMailbox) {
             return { status: 404, error: `no mailbox for ${local} on this computer` };
         }
-        return { key: `guest:${local}` };
+        return { key: `guest:${local.replace(/\s+/g, '.')}`, address: `${local.replace(/\s+/g, '.')}@${GUEST_DOMAIN}` };
     }
     if (domain && domain !== USER_DOMAIN.toLowerCase()) {
         return { status: 404, error: `no mailbox for ${local} on this computer` };
@@ -71,5 +86,5 @@ export function resolveAddress (to, { users = null, guestMailbox = false } = {})
     const user = users.byUsername(local);
     if (!user) return { status: 404, error: `no mailbox for ${local} on this computer` };
     if (user.mailbox === false) return { status: 403, error: `${user.username} has no mailbox` };
-    return { key: String(user.username).toLowerCase() };
+    return { key: String(user.username).toLowerCase(), address: `${user.username}@${USER_DOMAIN}` };
 }

@@ -299,14 +299,6 @@ export default function MailApp({ api }: AppProps) {
     setComposing(null)
     setFolder('Sent')
     setSending(false)
-    if (res.ok) {
-      /* The server has already filed a copy in Sent, so the mailbox is read
-         back rather than a second copy being made up here. */
-      await check()
-      if (res.id) setSelected(res.id)
-      useOS.getState().notify({ title: 'Mail', body: `Delivered to ${to}.`, appId: 'mail' })
-      return
-    }
     const msg: Message = {
       id: `m${Date.now()}`,
       from: me,
@@ -319,6 +311,18 @@ export default function MailApp({ api }: AppProps) {
       read: true,
       starred: false,
       labels: [],
+    }
+    if (res.ok) {
+      /* The server has already filed a copy in Sent, so the mailbox is read
+         back rather than a second copy being made up here. If it cannot be read
+         back — a machine that delivered it and then stopped answering — the
+         copy is kept under the id the server gave it, so reading the mailbox
+         later replaces this one instead of sitting beside it. */
+      const adopted = await check()
+      if (res.id) setSelected(res.id)
+      if (!adopted) setMessages((all) => (all.some((m) => m.id === res.id) ? all : [...all, { ...msg, id: res.id ?? msg.id, server: true }]))
+      useOS.getState().notify({ title: 'Mail', body: `Delivered to ${to}.`, appId: 'mail' })
+      return
     }
     setMessages((all) => [...all, msg])
     setSelected(msg.id)
