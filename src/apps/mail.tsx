@@ -3,6 +3,7 @@ import { useOS } from '../os/store'
 import { AppIcon, Glyph } from '../shell/AppIcon'
 import { openUrl } from '../os/bus'
 import { serverMail, sendMail, type ServerMail } from '../os/api'
+import { localAddress, USER_DOMAIN, GUEST_DOMAIN } from '../os/mailaddr'
 import { readMailCache, writeMailCache } from './mailstore'
 import type { AppProps } from '../os/types'
 
@@ -143,8 +144,9 @@ function mergeMail(all: Message[], remote: ServerMail[]): Message[] {
 
 export default function MailApp({ api }: AppProps) {
   const settings = useOS((s) => s.settings)
-  /* this account's address on this machine */
-  const me = `${settings.username}@proper.com`
+  /* this account's address on this machine — @proper.com for a whitelisted
+     account, NAME@Guest.MPL for a guest, both local to this computer */
+  const me = localAddress(settings.username)
   const [messages, setMessages] = useState<Message[]>(() => load(settings.username, me, settings.fullName || settings.username))
   const [folder, setFolder] = useState<Message['folder']>('Inbox')
   const [selected, setSelected] = useState<string | null>(null)
@@ -381,7 +383,9 @@ export default function MailApp({ api }: AppProps) {
               <input className="entry" placeholder="Subject" value={composing.subject} onChange={(e) => setComposing({ ...composing, subject: e.target.value })} style={{ width: '100%', marginBottom: 8 }} />
               <textarea className="entry" value={composing.body} onChange={(e) => setComposing({ ...composing, body: e.target.value })} style={{ width: '100%', height: 260 }} />
               <div style={{ fontSize: 11.5, opacity: 0.65, margin: '8px 0 0' }}>
-                From {me} — an address ending in <b>@proper.com</b> reaches another account on this computer.
+                From {me}. Mail never leaves this computer: an address ending in{' '}
+                <b>@{USER_DOMAIN}</b> reaches a whitelisted account, and <b>@{GUEST_DOMAIN}</b>{' '}
+                reaches a guest who signed in under that name.
               </div>
               {sendError && (
                 <div style={{ color: '#c0392b', fontSize: 12.5, marginTop: 8 }}>

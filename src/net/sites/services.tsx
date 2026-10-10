@@ -3,6 +3,7 @@ import { A, Btn, Card, H, Img, Meta, NotFound, Pill, Progress, SiteShell } from 
 import { FILES } from '../downloads'
 import type { PageCtx, SiteDef } from '../types'
 import { useOS } from '../../os/store'
+import { localAddress } from '../../os/mailaddr'
 
 /* ==========================================================================
    mixtcart.com — the shop
@@ -319,7 +320,7 @@ function MailApp({ ctx }: { ctx: PageCtx }) {
   /* the webmail site is signed in as whoever owns the desktop, so it shows
      their address rather than a generic "you" */
   const settings = useOS((s) => s.settings)
-  const me = `${settings.username}@proper.com`
+  const me = localAddress(settings.username)
   const [folder, setFolder] = React.useState<'inbox' | 'sent' | 'trash'>('inbox')
   const [mails, setMails] = React.useState<Mail[]>(() => SEED_MAIL.map((m) => (m.from === 'you@proper.com' ? { ...m, from: me } : m)))
   const [selected, setSelected] = React.useState<string | null>('m1')

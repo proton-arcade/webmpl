@@ -18,8 +18,10 @@
     "mail": "node scripts/mail.mjs",
     "devgate": "node scripts/devgate.mjs http://127.0.0.1:3000",
     "gen:appindex": "node scripts/gen-appindex.mjs",
+    "gen:defaultfs": "node scripts/gen-defaultfs.mjs",
     "files": "node scripts/files.mjs",
-    "human": "node scripts/human.mjs"
+    "human": "node scripts/human.mjs",
+    "converter": "node scripts/converter.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

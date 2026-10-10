@@ -48,9 +48,9 @@ function seed() {
     ],
     sessions: {}, // token -> {username, role}
     apps: [],     // published apps: {id,name,author,status:'pending'|'approved',manifest}
-    mail: {},     // username -> [mails]  (and 'guest' when the guest mailbox is on)
+    mail: {},     // mailbox key -> [mails]; keys are usernames, or guest:<name> for a guest
     settings: {}, // username -> saved settings (never for guests)
-    guestMailbox: false, // the administrator can give guests one shared mailbox
+    guestMailbox: false, // the administrator can give guests a mailbox each
   }
 }
 function load() {
@@ -73,17 +73,72 @@ function sessionOf(req, db) {
 }
 const tokenOf = (req) => (req.headers.authorization || '').replace(/^Bearer /, '')
 
-/* Which mailbox a session may use, or null for none.
+/* Mail is carried only between accounts on this machine. There is no relay to
+ * the outside world and nothing here resolves in DNS: `.mpl` is not a real
+ * top-level domain, and the server never opens a socket to deliver anything.
+ * Two domains, both invented and both local:
  *
- * A whitelisted account has one unless the administrator switched it off; a
- * guest has one only if the administrator switched the shared guest mailbox on.
- * Accounts created before the flag existed count as switched on. */
+ *   whitelisted accounts   name@proper.com
+ *   guests                 NAME@Guest.MPL
+ *
+ * A guest's address is their own, so two people sharing a machine do not read
+ * each other's mail the way one shared guest mailbox made them. */
+const GUEST_DOMAIN = 'Guest.MPL'
+const USER_DOMAIN = 'proper.com'
+
+/** the mailbox key a session writes to and reads from, or null for none */
 function mailboxFor(db, sess) {
   if (!sess) return null
-  if (sess.role === 'guest') return db.guestMailbox ? 'guest' : null
+  /* Guests get one each, keyed so it cannot collide with a real account. The
+     administrator's guest-mailbox switch still governs whether guests get one
+     at all. Accounts created before the flag existed count as switched on. */
+  if (sess.role === 'guest') {
+    if (!db.guestMailbox) return null
+    const name = String(sess.username || '').trim() || 'guest'
+    return `guest:${name.toLowerCase()}`
+  }
   const u = db.users.find((x) => x.username === sess.username)
   if (!u || u.mailbox === false) return null
   return u.username
+}
+
+/** the address a mailbox key is reached at */
+function addressOf(key) {
+  if (key.startsWith('guest:')) return `${key.slice(6)}@${GUEST_DOMAIN}`
+  return `${key}@${USER_DOMAIN}`
+}
+
+/**
+ * Resolve an address somebody typed to a mailbox key.
+ *
+ * Returns { key } on success, or { status, error } when it cannot be delivered
+ * to. The two are kept apart because they mean different things to the person
+ * who typed the address: 404 is "there is nobody by that name here", 403 is
+ * "that person is here but their mailbox is switched off". Collapsing them into
+ * one answer would tell somebody their colleague does not exist.
+ */
+function resolveAddress(db, to) {
+  const raw = String(to || '').trim()
+  const at = raw.lastIndexOf('@')
+  const local = (at < 0 ? raw : raw.slice(0, at)).toLowerCase()
+  const domain = at < 0 ? '' : raw.slice(at + 1).toLowerCase()
+  if (!raw || !local) return { status: 400, error: 'no recipient' }
+
+  if (domain === GUEST_DOMAIN.toLowerCase()) {
+    /* A guest address only exists while the administrator has guest mail on.
+       Guests are not accounts, so there is no name to look up: with the switch
+       off, nobody by that name is reachable. */
+    if (!db.guestMailbox) return { status: 404, error: `no mailbox for ${local} on this computer` }
+    return { key: `guest:${local}` }
+  }
+
+  /* a bare local part, or an address on the account domain */
+  if (domain && domain !== USER_DOMAIN.toLowerCase())
+    return { status: 404, error: `no mailbox for ${local} on this computer` }
+  const u = db.users.find((x) => x.username.toLowerCase() === local)
+  if (!u) return { status: 404, error: `no mailbox for ${local} on this computer` }
+  if (u.mailbox === false) return { status: 403, error: `${u.username} has no mailbox` }
+  return { key: u.username }
 }
 
 /* --------------------------------- router --------------------------------- */
@@ -143,6 +198,9 @@ async function route(req, res, p) {
       const name = String(data.name || '').trim()
       const username = String(data.username || '').trim() || 'guest'
       db.sessions[token] = { username, role: 'guest', name }
+      /* A guest's own mailbox, when the administrator has guest mail switched
+         on: NAME@Guest.MPL, reached only from inside this machine. */
+      if (db.guestMailbox) db.mail[`guest:${username.toLowerCase()}`] ||= []
       ;(db.guestLog ||= []).push({
         username,
         name,
@@ -264,15 +322,19 @@ async function route(req, res, p) {
     }
 
     /* Switch a mailbox on or off — for a whitelisted account, or for guest
-     * accounts as one shared mailbox. Switching off hides it; the mail itself is
-     * kept, so switching back on brings it back. */
+     * accounts as a group, each of which then gets one of their own. Switching
+     * off hides it; the mail itself is kept, so switching back on brings it
+     * back. */
     if (/^\/api\/users\/[^/]+\/mailbox$/.test(p) && req.method === 'POST') {
       if (!sess || sess.role !== 'admin') return json(res, 403, { ok: false, error: 'admin only' })
       const name = decodeURIComponent(p.split('/')[3])
       const on = data.on !== false
       if (name === 'guest') {
+        /* Guests now get a mailbox each, created when they sign in, so
+           switching this on no longer creates one shared box. Switching it off
+           keeps the mailboxes and their mail, so switching back on brings the
+           mail back — the same way it works for a whitelisted account. */
         db.guestMailbox = on
-        if (on) db.mail.guest ||= []
         save(db)
         return json(res, 200, { ok: true, on })
       }
@@ -316,34 +378,29 @@ async function route(req, res, p) {
       return json(res, 200, { ok: true })
     }
 
-    /* Deliver a message to another account on this computer.
+    /* Deliver a message to another mailbox on this computer.
      *
-     * The address is resolved against the whitelisted users: `demo@proper.com`
-     * and bare `demo` both mean the account `demo`. There is no relay to the
-     * outside world — this machine only carries mail between its own users.
-     * The sender keeps a copy in Sent, exactly as a mail client would. */
+     * The address is resolved against the mailboxes that exist here:
+     * `demo@proper.com` and bare `demo` both mean the account `demo`, and
+     * `sam@Guest.MPL` means the guest signed in as sam. There is no relay to
+     * the outside world and no DNS lookup — this machine only carries mail
+     * between its own mailboxes. The sender keeps a copy in Sent, exactly as a
+     * mail client would. */
     if (p === '/api/mail/send' && req.method === 'POST') {
       const box = mailboxFor(db, sess)
       if (!box) return json(res, 403, { ok: false, error: 'this session has no mailbox' })
       const to = String(data.to || '').trim()
       if (!to) return json(res, 400, { ok: false, error: 'no recipient' })
-      const local = to.split('@')[0].toLowerCase()
-      /* "guest" reaches the shared guest mailbox when it is switched on */
-      let targetName = null
-      if (local === 'guest' && db.guestMailbox) targetName = 'guest'
-      else {
-        const u = db.users.find((x) => x.username.toLowerCase() === local)
-        if (!u) return json(res, 404, { ok: false, error: `no mailbox for ${local} on this computer` })
-        if (u.mailbox === false) return json(res, 403, { ok: false, error: `${u.username} has no mailbox` })
-        targetName = u.username
-      }
+      const resolved = resolveAddress(db, to)
+      if (!resolved.key) return json(res, resolved.status, { ok: false, error: resolved.error })
+      const targetKey = resolved.key
       const now = Date.now()
       const id = 'srv' + now.toString(36) + crypto.randomBytes(3).toString('hex')
-      const from = `${box}@proper.com`
-      const address = `${targetName}@proper.com`
+      const from = addressOf(box)
+      const address = addressOf(targetKey)
       const base = {
         from,
-        fromName: box,
+        fromName: box.startsWith('guest:') ? box.slice(6) : box,
         to: address,
         subject: String(data.subject || '(no subject)'),
         date: now,
@@ -351,10 +408,10 @@ async function route(req, res, p) {
         starred: false,
         labels: [],
       }
-      ;(db.mail[targetName] ||= []).push({ ...base, id, folder: 'Inbox', read: false })
+      ;(db.mail[targetKey] ||= []).push({ ...base, id, folder: 'Inbox', read: false })
       ;(db.mail[box] ||= []).push({ ...base, id: id + 'c', folder: 'Sent', read: true })
       save(db)
-      return json(res, 200, { ok: true, id, to: targetName })
+      return json(res, 200, { ok: true, id, to: address })
     }
 
     return json(res, 404, { ok: false })

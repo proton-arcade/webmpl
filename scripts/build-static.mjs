@@ -28,6 +28,11 @@ const ASSETS = ['wallpapers', 'logo.svg']
 console.log('• reading the applications in src/apps…')
 execSync('node scripts/gen-appindex.mjs', { stdio: 'inherit' })
 
+/* and the default filesystem is read out of the defaultfs/ folder at the root
+   of the repository, for the same reason: it is edited as ordinary files and
+   must not be able to drift from what the desktop actually boots */
+execSync('node scripts/gen-defaultfs.mjs', { stdio: 'inherit' })
+
 console.log('• building mixt.bundle.js (classic script) and mixt.bundle.css…')
 rmSync(BUILD_DIR, { recursive: true, force: true })
 execSync('npx vite build --config vite.static.config.ts --logLevel warn', { stdio: 'inherit' })

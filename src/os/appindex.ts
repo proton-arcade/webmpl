@@ -484,6 +484,7 @@ export const APP_INDEX: AppIndexEntry[] = [
       "src/apps/mailstore.ts",
       "src/os/api.ts",
       "src/os/bus.ts",
+      "src/os/mailaddr.ts",
       "src/os/store.ts",
       "src/os/types.ts",
       "src/shell/AppIcon.tsx"
@@ -562,6 +563,7 @@ export const APP_INDEX: AppIndexEntry[] = [
     "dependencies": [
       "react",
       "src/os/api.ts",
+      "src/os/mailaddr.ts",
       "src/os/types.ts"
     ]
   }

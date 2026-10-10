@@ -4,6 +4,8 @@ import { create } from 'zustand'
 import type { Notification, Settings, SnapZone, User, WinGeometry, WinState } from './types'
 import { applyThemeVars } from './theme'
 import { safeLocal } from './storage'
+import { persistsFor } from './vfs'
+import { getSession } from './api'
 import {
   checkPassword,
   hashPassword,
@@ -39,6 +41,10 @@ export function loadInstalled(who: string) {
 }
 
 function persistInstalled(map: Record<string, boolean>) {
+  /* A guest has no saved progress, so what they installed lasts only as long as
+     the session does. Writing it under `anonymous` would leave it waiting on the
+     shared machine for whoever sits down next. */
+  if (!persistsFor(installedOwner)) return
   try {
     safeLocal.setItem(installedKey(installedOwner), JSON.stringify(map))
   } catch {
@@ -129,6 +135,11 @@ function loadSettings(): Settings {
 }
 
 export function persistSettings(s: Settings) {
+  /* Settings are saved under one shared key, so a guest writing theirs would
+     overwrite what the account before them left behind — and a guest has no
+     saved progress by design. They still get working settings for the length
+     of the session; they just are not the ones written to disk. */
+  if (getSession()?.role === 'guest') return
   try {
     safeLocal.setItem(LS_SETTINGS, JSON.stringify(s))
   } catch {

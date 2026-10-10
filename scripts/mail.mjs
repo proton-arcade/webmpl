@@ -220,28 +220,63 @@ try {
     else ok('switching it back on brings the mail with it')
   }
 
-  console.log('• the guest mailbox…')
+  console.log('• guest mail…')
   const g2 = await api('/api/guest', { method: 'POST', body: { username: 'visitor', name: 'A Visitor', password: 'letmein' } })
   const visitor = g2.data.token
   if (!visitor) bad('a guest could not sign in with a name and password')
   const gOff = await api('/api/mail', { token: visitor })
   if (gOff.status !== 403) bad(`a guest had a mailbox before one was switched on (${gOff.status})`)
   else ok('guests have no mailbox until the administrator gives them one')
+
+  /* a second guest, signed in before the switch went on, has to get one too */
+  const g3 = await api('/api/guest', { method: 'POST', body: { username: 'caller', name: 'A Caller', password: 'letmein' } })
+  const caller = g3.data.token
+
   await api('/api/users/guest/mailbox', { method: 'POST', token: root, body: { on: true } })
   const gOn = await api('/api/mail', { token: visitor })
-  if (gOn.status !== 200) bad(`switching the guest mailbox on did not give them one (${gOn.status})`)
+  if (gOn.status !== 200) bad(`switching guest mail on did not give them one (${gOn.status})`)
   else {
-    ok('the administrator can switch on a shared guest mailbox')
+    ok('the administrator can switch guest mail on')
     const gSend = await api('/api/mail/send', { method: 'POST', token: visitor, body: { to: 'demo', subject: 'Hello from a guest', body: 'Thanks for the tea.' } })
     if (gSend.status !== 200) bad(`a guest with a mailbox still could not send (${gSend.status})`)
     else {
       const demoBox = await api('/api/mail', { token: demo })
       const arrived = (demoBox.data || []).find((m) => m.subject === 'Hello from a guest')
       if (!arrived) bad("the guest's message never reached demo")
-      else if (arrived.from !== 'guest@proper.com') bad(`it claims to be from ${arrived.from}`)
-      else ok('and a guest can write to a whitelisted account')
+      else if (arrived.from !== 'visitor@Guest.MPL') bad(`it claims to be from ${arrived.from}`)
+      else ok('and it says which guest it came from, on the guest domain')
     }
   }
+
+  /* Each guest has a mailbox of their own rather than one shared box, so two
+     people on the same machine do not read each other's mail. */
+  const callerBox = await api('/api/mail', { token: caller })
+  if (callerBox.status !== 200) bad(`the second guest got no mailbox (${callerBox.status})`)
+  else if ((callerBox.data || []).length !== 0)
+    bad(`the second guest can see ${(callerBox.data || []).length} message(s) that are not theirs`)
+  else ok('a second guest gets their own empty mailbox, not the first guest\'s')
+
+  const toCaller = await api('/api/mail/send', { method: 'POST', token: demo, body: { to: 'caller@Guest.MPL', subject: 'For the caller', body: 'Only for you.' } })
+  if (toCaller.status !== 200) bad(`an account could not write to a guest address (${toCaller.status}: ${toCaller.data && toCaller.data.error})`)
+  else {
+    const [callerAfter, visitorAfter] = await Promise.all([
+      api('/api/mail', { token: caller }),
+      api('/api/mail', { token: visitor }),
+    ])
+    const got = (callerAfter.data || []).find((m) => m.subject === 'For the caller')
+    const leaked = (visitorAfter.data || []).find((m) => m.subject === 'For the caller')
+    if (!got) bad("mail addressed to one guest never arrived")
+    else if (leaked) bad("mail for one guest turned up in another guest's mailbox")
+    else ok('mail addressed to one guest reaches that guest alone')
+  }
+
+  /* The guest domain is the only way in: an address on it with guest mail
+     switched off again is simply not reachable, and nothing is queued for it. */
+  await api('/api/users/guest/mailbox', { method: 'POST', token: root, body: { on: false } })
+  const closedOff = await api('/api/mail/send', { method: 'POST', token: demo, body: { to: 'caller@Guest.MPL', subject: 'No one home', body: 'x' } })
+  if (closedOff.status !== 404) bad(`a guest address was still reachable with guest mail off (${closedOff.status})`)
+  else ok('switching guest mail off makes the guest addresses unreachable')
+  await api('/api/users/guest/mailbox', { method: 'POST', token: root, body: { on: true } })
 
   console.log('• guest sign-ins are tracked…')
   const log = await api('/api/guests', { token: root })

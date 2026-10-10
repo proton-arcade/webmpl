@@ -1,0 +1,5 @@
+[x] Boot Mixt Web OS
+[ ] Try the terminal
+[ ] Rearrange the panel applets
+[ ] Install Photo Studio from the Software Manager
+[ ] Write a website and visit it in the browser

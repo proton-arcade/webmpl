@@ -185,11 +185,51 @@ so a web page can open the drawing program, add to a shop cart, or leave a file 
 
 `src/os/vfs.ts` implements a real filesystem in React state, persisted to `localStorage`:
 inode-ish nodes (`dir`/`file` with size, mime, url, modified time), `normalizePath`, `join`,
-`mkdir(-p)`, `list`, `read`, `write`, `rm`, `trash`, and helpers such as `humanSize`. It is
-seeded on boot with the usual directories: `~`, `Desktop`, `Documents`, `Downloads`, `Music`, `Pictures`,
-`Public`, `Templates`, `Videos`, `/etc`, `/usr`, and a Trash that deleted files land in.
+`mkdir(-p)`, `list`, `read`, `write`, `rm`, `trash`, and helpers such as `humanSize`.
 The same store backs the file manager, terminal, text editor, image viewer, paint, mail,
 archive manager and the browser's downloads.
+
+### The default filesystem is a folder, not code
+
+What a new account and a guest both find when they first boot lives in **`defaultfs/`**, at the
+root of the repository beside `index.html` and this README — as ordinary files. `etc/hosts`,
+`home/mixt/Documents/todo.txt`, `var/log/boot.log` and the rest are real files you can open,
+edit and diff.
+
+`npm run gen:defaultfs` (which `npm run build` runs for you) reads that folder and writes
+`src/os/defaultfs.ts`. Because the generated module is compiled into the bundle, the desktop
+never has to fetch those files: it can produce a whole filesystem with no server and no network
+at all. Adding a file to the default desktop means adding a file to `defaultfs/`.
+
+Only the parts that are computed rather than stored are added in code: the wallpapers, listed
+once and shown in both places they appear; `/usr/share/applications`, which the application
+index fills in; the hosted share under `/srv/www`; and `/bin`, which holds placeholders.
+
+### Each account has its own files, and a guest has none
+
+Every account's filesystem is saved under its own key, `mixt.vfs.v2:<username>`, so two people
+sharing a browser do not inherit each other's files. An administrator gets a read-only `/users`
+folder at the root holding everybody else's current filesystem.
+
+A guest has no saved progress. `persistsFor()` in `src/os/vfs.ts` is the one place that decides
+whether a mounted tree is written out, and a guest never is — nor are their installed apps or
+their settings. Everything a guest does lasts as long as the session and is gone when they sign
+out, so a shared machine does not accumulate one filesystem per person who sat down at it.
+
+### Mail stays on this machine
+
+Two domains, both invented and both local — neither resolves in real DNS, and the server never
+opens a socket to deliver anything:
+
+| | address |
+| --- | --- |
+| a whitelisted account | `name@proper.com` |
+| a guest | `NAME@Guest.MPL` |
+
+With guest mail switched on in the Administration console, **each guest gets a mailbox of their
+own** rather than one shared box, so two people on the same machine cannot read each other's
+mail. `src/os/mailaddr.ts` is the single place those rules live, so the mail client, the
+webmail site and the Administration console cannot disagree about an address.
 
 `src/os/store.ts` (zustand) holds windows, workspaces, settings, the installed-app list,
 notifications and the session/lock state; `src/os/bootstrap.tsx` runs the boot sequence.
@@ -200,6 +240,8 @@ notifications and the session/lock state; `src/os/bootstrap.tsx` runs the boot s
 index.html            the published site (classic script + stylesheet, relative paths)
 dev.html              the dev-server entry (loads src/main.tsx, hot reload)
 mixt.bundle.js/.css   built by `npm run build`, committed — index.html loads these
+defaultfs/            the default filesystem, as ordinary files (see below)
+converter/            a second website: turns a page from out there into one for this project
 wallpapers/ logo.svg  assets, referenced relatively
 src/
   main.tsx            entry — imports the boot module, calls startDesktop()
@@ -207,6 +249,8 @@ src/
   os/                 types, zustand store, vfs, theme, bus, boot bootstrap
     start.tsx         the real boot sequence: housekeeping → error boundary → Desktop
     storage.ts        safe web-storage access (never throws, falls back to memory)
+    defaultfs.ts      generated from defaultfs/ — do not edit by hand
+    mailaddr.ts       the two local mail domains, in one place
     errorboundary.tsx boot failure screen + plain-DOM last resort report
   shell/              Desktop, Panel, MainMenu, WindowFrame, AppIcon, ContextMenu, Notifications
   apps/               registry.tsx + one module per application (19)
@@ -217,8 +261,40 @@ src/
 scripts/smoke.mjs     runner (esbuild via Vite SSR build → jsdom → assertions)
 scripts/diagnose.mjs  boot matrix runner (one process per hostile condition)
 scripts/static.mjs    hosting check: plain static server, subdirectory and file://
+scripts/converter.mjs checks the converter website
+scripts/gen-defaultfs.mjs  defaultfs/ → src/os/defaultfs.ts
+scripts/gen-appindex.mjs   src/apps → src/os/appindex.ts
 scripts/build-static.mjs  publishes mixt.bundle.js/.css and dist/
 vite.static.config.ts build config for the published bundle (IIFE, everything relative)
+```
+
+## The converter — a second website in the repository
+
+`converter/` is its own small website, beside the desktop rather than inside it. It takes a page
+written for the open internet and produces a page that stands on its own, so it can be dropped
+into `/srv/www` and browsed on this machine like any other site.
+
+Open `converter/index.html`, paste the page's HTML, and it rewrites it:
+
+* **absolute addresses become local ones** — `https://cdn.example/style.css` becomes
+  `vendor/cdn.example-style.css`, so nothing on the page points at another machine;
+* **protocol-relative addresses** (`//cdn.example/x`) are absolute in disguise and get the same
+  treatment;
+* **integrity hashes are dropped**, because the hash described the remote file and keeping it
+  would make the browser refuse every local copy;
+* **things that need a foreign machine are commented out, not deleted** — iframes, forms that
+  post away, prefetch and preconnect hints, beacons, service worker registration — each with a
+  note saying what it was and why it went;
+* **a manifest** lists every change, so the result can be checked instead of taken on trust;
+* **a `website.ini`** in the `[Website]` key-per-line form the rest of the project uses.
+
+Nothing is fetched. The converter has no network access and makes no requests — a converter that
+had to download the very assets it is neutralising would defeat the point — so each `vendor/`
+path is a file you place there yourself, or the page does without it. It has no dependencies and
+no build step: it runs over http or straight off the disk.
+
+```bash
+npm run converter      # 25 checks on the conversion rules
 ```
 
 ## Booting is defensive on purpose

@@ -7,6 +7,7 @@
  */
 import React, { useCallback, useEffect, useState } from 'react'
 import * as backend from '../os/api'
+import { GUEST_DOMAIN } from '../os/mailaddr'
 import type { AppProps } from '../os/types'
 
 type Tab = 'apps' | 'users' | 'server'
@@ -323,15 +324,16 @@ export default function AdminApp({ api }: AppProps) {
                 <button
                   className={stats?.guestMailbox ? 'btn-mixt' : 'btn-ghost'}
                   disabled={!!busy}
-                  onClick={() => act(`${stats?.guestMailbox ? 'Close' : 'Open'} the guest mailbox`, () => backend.setMailbox('guest', !stats?.guestMailbox))}
+                  onClick={() => act(`${stats?.guestMailbox ? 'Close' : 'Open'} guest mail`, () => backend.setMailbox('guest', !stats?.guestMailbox))}
                   style={{ padding: '4px 12px', fontSize: 12.5 }}
                 >
-                  Guest mailbox: {stats?.guestMailbox ? 'on' : 'off'}
+                  Guest mail: {stats?.guestMailbox ? 'on' : 'off'}
                 </button>
                 <span style={{ fontSize: 12.5, opacity: 0.78, lineHeight: 1.5 }}>
                   Guests are not accounts and nothing of theirs is saved, but they sign in with a username, a name and a
-                  password, and those sign-ins are logged below. One shared mailbox (<code>guest@proper.com</code>) can be
-                  switched on for all of them.
+                  password, and those sign-ins are logged below. With guest mail switched on, each guest gets a mailbox
+                  of their own at <code>NAME@{GUEST_DOMAIN}</code> — not one shared box — and it goes away when they
+                  sign out. Mail never leaves this computer.
                 </span>
               </div>
               {guests && guests.length > 0 && (

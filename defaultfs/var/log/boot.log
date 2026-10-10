@@ -1,0 +1,8 @@
+[    0.000000] Mixt Web OS 1.0 (mixt) booting on JavaScript kernel
+[    0.012884] cpu: 2 virtual cores detected
+[    0.104331] memory: 3.9 GiB available
+[    0.402117] vfs: mounted local filesystem at /
+[    0.611003] wm: Mixt Shell window manager ready
+[    0.883440] panel: applets loaded (menu, windows, tray, clock)
+[    1.002991] browser: mixtnet resolver online
+[    1.201554] init: Reached target Graphical Interface
