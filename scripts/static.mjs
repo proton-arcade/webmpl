@@ -168,9 +168,53 @@ async function checkHosting(label, prefix) {
     res.ok ? ok(`GET ${ref}`, `${res.status} ${(await res.arrayBuffer()).byteLength} bytes`) : bad(`GET ${ref}`, String(res.status))
   }
 
-  const styleUrls = [...(await (await fetch(`${base}/mixt.bundle.css`)).text()).matchAll(/url\(\s*["']?([^"')]+)/g)].map((m) => m[1])
+  const css = await (await fetch(`${base}/mixt.bundle.css`)).text()
+
+  /* Buttons have to be visible without hovering them, in either colour scheme.
+     The border used to be transparent until :hover, so a light theme was full
+     of controls you could not see until you happened to point at one. */
+  /* a minifier drops quotes it does not need, so match a selector with or
+     without them rather than assuming the source spelling survives */
+  const ruleFor = (...selectors) => {
+    for (const selector of selectors) {
+      const i = css.indexOf(selector)
+      if (i < 0) continue
+      const end = css.indexOf('}', i)
+      if (end > i) return css.slice(i, end)
+    }
+    return null
+  }
+  const ghost = ruleFor('.btn-ghost{', '.btn-ghost {')
+  const darkGhost = ruleFor(
+    "html[data-scheme='dark'] .btn-ghost{",
+    'html[data-scheme=dark] .btn-ghost{',
+    "html[data-scheme='dark'] .btn-ghost {",
+    'html[data-scheme=dark] .btn-ghost {',
+  )
+  const visibleBorder = (rule) => {
+    if (!rule) return false
+    const m = /border(?:-color)?:\s*([^;}]+)/.exec(rule)
+    return !!m && !/transparent|none/.test(m[1])
+  }
+  visibleBorder(ghost)
+    ? ok('every ghost button has a visible outline in a light theme')
+    : bad('a ghost button has no visible outline in a light theme', (ghost ?? 'no .btn-ghost rule').slice(0, 120))
+  visibleBorder(darkGhost)
+    ? ok('and the dark scheme inverts it rather than dropping it')
+    : bad('the dark scheme does not carry its own outline', (darkGhost ?? 'no dark .btn-ghost rule').slice(0, 120))
+
+  const styleUrls = [...css.matchAll(/url\(\s*["']?([^"')]+)/g)].map((m) => m[1])
   const styleExternal = styleUrls.filter((u) => /^(https?:)?\/\//.test(u))
   styleExternal.length === 0 ? ok('the stylesheet references nothing external') : bad('external url() in the stylesheet', styleExternal.join(' '))
+
+  /* A menu taller than the viewport used to run off the bottom with its last
+     items unreachable: the popup clamped where it started, never how tall it
+     could grow. */
+  const popup = ruleFor('.menu-popup{', '.menu-popup {')
+  const clamped = !!popup && /max-height/.test(popup) && /overflow-y:\s*(auto|scroll)/.test(popup)
+  clamped
+    ? ok('a menu taller than the screen scrolls instead of running off the bottom')
+    : bad('a long menu is not clamped to the screen', (popup ?? 'no .menu-popup rule').slice(0, 120))
 
   const missing = await fetch(`${base}/nope.js`)
   missing.status === 404 ? ok('a missing file returns 404') : bad(`a missing file returned ${missing.status}`)
