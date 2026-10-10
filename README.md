@@ -60,11 +60,22 @@ loads the published bundle, exactly as a visitor would get it.
 | `npm run dev` | dev server on port 3000, hot reload through `dev.html`; the published `index.html`, bundle, logo and wallpapers are served as raw bytes with correct MIME types, so `http://localhost:3000/` is the real site |
 | `npm run build` | build `mixt.bundle.js` + `mixt.bundle.css` into the root, and assemble `dist/` |
 | `npm run preview` | serve the assembled `dist/` copy |
-| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 102 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence, and the boot-safety checks below) |
+| `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 115 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence, and the boot-safety checks below) |
 | `npm run diagnose` | boot the real entry point (`src/os/start.tsx`) inside jsdom under eleven hostile browser conditions — blocked storage, a full disk, a damaged or truncated saved filesystem, stale settings, a tiny window, no canvas — and report which ones leave a white page |
 | `npm run static` | host the folder the way a normal static server does — as the web root, from a subdirectory, and from `file://` — fetch the page over HTTP, execute the script the server returns, and fail if the desktop does not mount |
 | `npm run session` | boot the shipped bundle against a small fake API and walk the server-only flows: the administrator signs in and owns the desktop, System Settings reports Administrator, the Administration console lists what is waiting for approval, a standard user never sees it, logging out returns a sign-in screen you can actually type into, and empty boxes go in as a guest |
 | `npm run served [url …]` | ask a running server what a browser would actually get: every asset in `index.html` must return 200 **and** a content-type the browser accepts (a stylesheet served as `text/javascript` is dropped outright, which leaves a running OS with no CSS — a white page), and the served `mixt.bundle.js` itself must mount the desktop. Defaults to `http://127.0.0.1:3000` |
+| `npm run files` | the file manager and the per-account filesystem, against the shipped bundle: the path bar's Back and drive buttons, opening a folder, dragging a file onto a folder and onto empty space across two windows, `/usr/share/applications`, every account's own storage key, the administrator's `/users`, and backing an account up |
+| `npm run human` | sit down and use it: write a file, back the account up, delete the file, restore it and check it came back; open a sound file; install VLC and choose it; sign in as the administrator and read another account's file through `/users`; sign out and in as somebody else |
+| `npm run mail` | start an isolated server and walk the mail flows end to end — addresses resolving on both local domains, a mailbox switched off and back on, per-guest mailboxes, guest sign-in tracking, password changes |
+| `npm run sdk` | the `mixt.js` runtime, called the way an application would, against the shipped bundle — including that a guest is told they are a guest, that what a guest writes is never saved, and that nothing in the API can reach the network |
+| `npm run converter` | the conversion rules: remote addresses pointed inside, everything needing a foreign machine switched off, what was already local left alone, and the `website.ini` in the right form |
+| `npm run localpages` | get to the converter from inside the desktop — from the bookmarks and by typing its name — and prove no other path in the repository can be opened that way |
+| `npm run explore` | click through every application and every MixtNet page in the shipped bundle and fail on a console error, an unhandled rejection, or a page that renders empty |
+| `npm run interact` | drive the desktop the way a person does: drag a window, snap it to an edge, switch workspaces, open a context menu, resize — and check the geometry that results |
+| `npm run devgate` | `dev.html` asks the backend who is signed in: an administrator gets the source build, anyone else is sent to `index.html` |
+| `npm run gen:defaultfs` | read `defaultfs/` and regenerate `src/os/defaultfs.ts` (run for you by `npm run build`) |
+| `npm run gen:appindex` | read `src/apps` and regenerate `src/os/appindex.ts` (run for you by `npm run build`) |
 
 ---
 
@@ -87,22 +98,27 @@ loads the published bundle, exactly as a visitor would get it.
 * **Theming** — six Mixt-Y accents, three bundled wallpapers, light/dark/auto, font scale —
   all driven through CSS custom properties (`os/theme.ts`, `index.css`).
 
-## Applications (20)
+## Applications (21)
 
 Preinstalled: Files, Terminal, Mixtsfox (web browser), Software Manager, System Settings,
-Text Editor (Xed), Calculator, System Monitor, Media Player, Image Viewer, Weather,
-Archive Manager, Screenshot, 2048, Help, About This Computer.
+Text Editor (Xed), Calculator, System Monitor, Mixt Player, Image Viewer, Archive Manager,
+Screenshot, Help, About This Computer.
 Installable from the **Software Manager** with a simulated download: Drawing (a paint
-program), Mail (a working email client), News Reader.
+program), Mail (a working email client), News Reader, Weather, and VLC media player.
 
-**Administration** is the twentieth, and the only one not everybody gets: it is listed
-only for the signed-in administrator account. Everything privileged lives there —
-approving or rejecting apps waiting in the publish queue, adding and removing the
-whitelisted accounts, and what the server is holding (`data.json`, `ROOTPASS.md`, live
-sessions). Standard users and guests never see it, and launching it by hand gets a
-refusal rather than the console. The **Administration** category in the menu gathers the
-administrative tools together: the console, Software Manager, System Settings and System
-Monitor.
+**Mixt Player** ships with the system and is the default handler for sound and video; a
+player installed later can be chosen instead in System Settings, and if the one chosen has
+since been removed the built-in player takes over rather than nothing opening.
+
+**Administration** and **Screen Viewer** are the two not everybody gets: both are listed
+only for the signed-in administrator account. Everything privileged lives in
+Administration — approving or rejecting apps waiting in the publish queue, adding and
+removing the whitelisted accounts, switching guest mail on and off, and what the server is
+holding (`data.json`, `ROOTPASS.md`, live sessions). Screen Viewer shows what the other
+accounts and the guest sign-ins have on screen. Standard users and guests never see either,
+and launching one by hand gets a refusal rather than the console. Guests get no Terminal at
+all. The **Administration** category in the menu gathers the administrative tools together:
+the console, Screen Viewer, Software Manager, System Settings and System Monitor.
 
 Highlights:
 
@@ -254,7 +270,7 @@ src/
     sdk.ts            mixt.js — the runtime an application calls into
     errorboundary.tsx boot failure screen + plain-DOM last resort report
   shell/              Desktop, Panel, MainMenu, WindowFrame, AppIcon, ContextMenu, Notifications
-  apps/               registry.tsx + one module per application (19)
+  apps/               registry.tsx + one module per application (21)
   net/                types, index (URL resolution + search), dns, sitekit, storage, downloads
     internet/         the directory: manifest + servers/*.server.tsx + /etc/hosts helpers
     sites/            portal, tech, services, social page trees
