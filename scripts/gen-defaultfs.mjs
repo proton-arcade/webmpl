@@ -17,9 +17,11 @@
  * Empty directories are real empty directories on disk, so they survive being
  * checked out and are still here to be listed.
  *
- * The README.md in that folder explains it to a person reading the repository.
- * It is not part of the filesystem it describes, so it is left out: a new
- * account should not boot to find one sitting at /.
+ * Two things in that folder are about the repository rather than the desktop,
+ * and are left out of the tree: the README.md that explains the folder, and the
+ * .gitkeep file in each empty directory. git cannot represent an empty
+ * directory, so without the placeholder a fresh clone would simply be missing
+ * Downloads, Public, the Trash and the rest.
  */
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { resolve, dirname, relative, sep } from 'node:path'
@@ -61,7 +63,14 @@ const ext = (name) => {
 /* This folder is also a place a person reads, so it is allowed to explain
    itself. The README describing it is not part of the filesystem it describes,
    and a new account should not boot to find one at /. */
-const IGNORED = new Set(['README.md', 'readme.md', 'README'])
+const IGNORED_AT_ROOT = new Set(['README.md', 'readme.md', 'README'])
+
+/* git has no representation of an empty directory, so every empty directory in
+   here carries a .gitkeep to keep it in the repository — without one, a fresh
+   clone would be missing the folder entirely and a new account would boot
+   without Downloads, or Public, or a Trash. The placeholder is about the
+   repository, not about the desktop, so it is never turned into a file. */
+const IGNORED_EVERYWHERE = new Set(['.gitkeep'])
 
 /* Walk the folder into nested {name -> node} maps. Directories are listed
    alphabetically so the generated module does not reshuffle itself on every
@@ -69,7 +78,8 @@ const IGNORED = new Set(['README.md', 'readme.md', 'README'])
 function walk(abs, isRoot = false) {
   const out = {}
   for (const name of readdirSync(abs).sort()) {
-    if (isRoot && IGNORED.has(name)) continue
+    if (IGNORED_EVERYWHERE.has(name)) continue
+    if (isRoot && IGNORED_AT_ROOT.has(name)) continue
     const full = resolve(abs, name)
     const st = statSync(full)
     if (st.isDirectory()) out[name] = { type: 'dir', children: walk(full) }

@@ -1,0 +1,7 @@
+This file exists so git tracks the directory.
+
+git has no representation of an empty directory, so without a file in it
+this folder would simply not exist in a fresh clone — and the default
+filesystem a new account gets would be missing it.
+
+scripts/gen-defaultfs.mjs skips it, so it never appears in the desktop.
