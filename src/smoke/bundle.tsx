@@ -354,6 +354,34 @@ export async function runSmoke() {
     assert(!icon.includes('M50 4 L74 84 L26 84 Z'), 'the old hand-drawn cone is back')
   })
 
+  /* The override has to survive every place an app is drawn, not just the
+     desktop. Nineteen call sites pass `icon` through; if one of them stops, the
+     app silently reverts to a generic tile and nothing else fails. */
+  await check('every app with its own artwork keeps it through AppIcon', () => {
+    const withIcon = APPS.filter((a) => typeof a.icon === 'function')
+    assert(withIcon.length > 0, 'no app declares its own artwork, so the override is untested')
+
+    for (const app of withIcon) {
+      /* the sizes the shell and the in-app lists actually use */
+      for (const size of [12, 15, 18, 22, 26, 30, 40, 46, 72]) {
+        const html = renderToString(
+          <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={size} rounded={0.3} />,
+        )
+        assert(
+          html.includes('M206.969,427C70.306,427'),
+          `${app.id} lost its artwork at size ${size}`,
+        )
+        assert(!html.includes('<rect'), `${app.id} was drawn on the generic tile at size ${size}`)
+      }
+    }
+
+    /* and an app with no override still gets the tile — the fallback matters */
+    const plain = APPS.find((a) => typeof a.icon !== 'function')!
+    const tiled = renderToString(<AppIcon glyph={plain.glyph} color={plain.color} size={22} />)
+    assert(tiled.includes('<rect'), `${plain.id} lost its tile`)
+    assert(!tiled.includes('M206.969,427C70.306,427'), 'an unrelated app picked up the cone')
+  })
+
   await check('the VLC window renders the real cone and its menus', () => {
     const vlc = APPS.find((a) => a.id === 'mediaplayer')!
     const Vlc = vlc.component

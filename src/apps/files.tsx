@@ -445,7 +445,7 @@ export default function FilesApp({ win, api }: AppProps) {
     for (const app of appsForFile(target)) {
       items.push({
         label: app.name,
-        icon: <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={14} rounded={0.3} />,
+        icon: <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={14} rounded={0.3} />,
         onClick: () => launch(app.id, { path: target }),
       })
     }

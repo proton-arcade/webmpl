@@ -248,7 +248,7 @@ export default function ScreenViewerApp({ win, api: winApi }: AppProps) {
                       color: '#3a4038',
                     }}
                   >
-                    <AppIcon glyph={w.app.glyph} color={w.app.color} color2={w.app.color2} size={12} />
+                    <AppIcon glyph={w.app.glyph} color={w.app.color} color2={w.app.color2} icon={w.app.icon} size={12} />
                     {w.app.name}
                   </div>
                   <div style={{ padding: 8, fontSize: 10.5, color: '#5c665f', lineHeight: 1.5 }}>
@@ -272,7 +272,7 @@ export default function ScreenViewerApp({ win, api: winApi }: AppProps) {
                 }}
               >
                 {screen.map((w) => (
-                  <AppIcon key={w.app.id} glyph={w.app.glyph} color={w.app.color} color2={w.app.color2} size={15} />
+                  <AppIcon key={w.app.id} glyph={w.app.glyph} color={w.app.color} color2={w.app.color2} icon={w.app.icon} size={15} />
                 ))}
                 <div style={{ flex: 1 }} />
                 <span style={{ fontSize: 10.5, color: '#cfd4cd' }}>

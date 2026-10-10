@@ -321,7 +321,7 @@ function Appearance() {
                   background: settings.desktopIcons.includes(a.id) ? 'color-mix(in srgb, var(--wm-accent) 34%, transparent)' : undefined,
                 }}
               >
-                <AppIcon glyph={a.glyph} color={a.color} color2={a.color2} size={18} />
+                <AppIcon glyph={a.glyph} color={a.color} color2={a.color2} icon={a.icon} size={18} />
                 {a.name}
               </span>
             ))}

@@ -511,7 +511,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
                       <div key={app.id} onClick={() => setSelected(app.id)} style={{ cursor: 'pointer' }}>
                         <Screenshot app={app} />
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-                          <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={22} />
+                          <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={22} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{app.name}</div>
                             <div style={{ fontSize: 11, opacity: 0.7 }}><Stars value={ratingOf(app)} size={10} /> {ratingOf(app).toFixed(1)}</div>
@@ -546,7 +546,7 @@ export default function SoftwareApp({ win, api }: AppProps) {
                     }}
                   >
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                      <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={40} />
+                      <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={40} />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{app.name}</div>
                         <div style={{ fontSize: 11.5, opacity: 0.72, display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -657,7 +657,7 @@ function DetailPage({
     <div style={{ maxWidth: 820 }}>
       {/* header */}
       <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-        <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={72} />
+        <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={72} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 22, fontWeight: 700 }}>{app.name}</div>
           <div style={{ fontSize: 12.5, opacity: 0.75 }}>{devOf(app)} · {app.categories.join(', ')}</div>
@@ -783,7 +783,7 @@ function DetailPage({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 10 }}>
             {related.map((r) => (
               <div key={r.id} onClick={() => onPick(r.id)} style={{ cursor: 'pointer', display: 'flex', gap: 9, alignItems: 'center', border: '1px solid rgba(0,0,0,0.14)', borderRadius: 9, padding: 9 }}>
-                <AppIcon glyph={r.glyph} color={r.color} color2={r.color2} size={30} />
+                <AppIcon glyph={r.glyph} color={r.color} color2={r.color2} icon={r.icon} size={30} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
                   <div style={{ fontSize: 11, opacity: 0.7 }}><Stars value={ratingOf(r)} size={10} /> {ratingOf(r).toFixed(1)}</div>
@@ -821,7 +821,7 @@ function UpdatesPanel({
       )}
       {updates.map((app) => (
         <div key={app.id} style={{ display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.12)', padding: '10px 0' }}>
-          <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} size={36} />
+          <AppIcon glyph={app.glyph} color={app.color} color2={app.color2} icon={app.icon} size={36} />
           <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => onOpen(app.id)}>
             <div style={{ fontWeight: 600 }}>{app.name}</div>
             <div style={{ fontSize: 12.5, opacity: 0.75, fontFamily: 'var(--font-mono)' }}>
