@@ -308,6 +308,31 @@ const leaked = [...pw.querySelectorAll('.desktop-icon')].some((e) => (e.textCont
 if (leaked) bad('a standard account can see the users folder')
 else ok('a standard account does not get the users folder')
 
+/* --------------------- 5. the application tree on disk -------------------- */
+console.log('• the application tree in /usr/share/applications…')
+const appBoot = await boot({ token: 'demo-token', role: 'user', username: 'demo' })
+appBoot.w.dispatchEvent(new appBoot.w.CustomEvent('mixt:launch', { detail: { appId: 'nemo', props: { path: '/usr/share/applications' } } }))
+await tick(800)
+let apw = win(appBoot.d)
+if (!apw) bad('the file manager did not open on /usr/share/applications')
+else {
+  const atRoot = [...apw.querySelectorAll('.desktop-icon .label')].map((e) => e.textContent)
+  if (!atRoot.includes('index')) bad(`the application index is not there — saw ${atRoot.slice(0, 6).join(',')}`)
+  else ok('the index file is in /usr/share/applications')
+  if (!atRoot.includes('nemo')) bad(`there is no directory for the Files application — saw ${atRoot.slice(0, 6).join(',')}`)
+  else {
+    const nemoDir = [...apw.querySelectorAll('.desktop-icon')].find((e) => e.querySelector('.label')?.textContent === 'nemo')
+    nemoDir.dispatchEvent(new appBoot.w.MouseEvent('dblclick', { bubbles: true, cancelable: true, view: appBoot.w }))
+    await tick(500)
+    apw = win(appBoot.d)
+    const inside = [...apw.querySelectorAll('.desktop-icon .label')].map((e) => e.textContent)
+    if (!inside.includes('main.js')) bad(`an application directory has no main.js — saw ${inside.join(',')}`)
+    else if (!inside.includes('_Dependencies')) bad(`an application directory has no _Dependencies folder — saw ${inside.join(',')}`)
+    else if (!inside.includes('README.md')) bad(`an application directory has nothing but the main file — saw ${inside.join(',')}`)
+    else ok('an application directory holds main.js, _Dependencies and the rest')
+  }
+}
+
 /* -------------------------------- 5. backups ------------------------------ */
 console.log('• backing an account up…')
 const bak = await boot({ token: 'demo-token', role: 'user', username: 'demo' })

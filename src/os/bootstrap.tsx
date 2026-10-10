@@ -15,10 +15,16 @@ import { readMailCache, writeMailCache } from '../apps/mailstore'
  *  browser denies storage or a saved filesystem is incomplete, so nothing in
  *  this function is allowed to throw — main.tsx calls it before the first
  *  render, and an exception there means no desktop at all. */
-export function bootstrap() {
-  const os = useOS.getState()
-  applyThemeVars(os.settings)
-
+/**
+ * Create whatever the filesystem is supposed to hold and does not yet.
+ *
+ * Split out from bootstrap() because it has to run against the filesystem that
+ * is actually mounted. Every account has its own tree, and it is swapped in
+ * when they sign in — which happens after bootstrap() has already run, so
+ * anything written before that moment landed in a tree that was then replaced
+ * and quietly thrown away. Sign-in calls this again after mounting.
+ */
+export function ensureFilesystem() {
   // Make sure the user's home directories exist (fresh installs, old stores,
   // a home directory that was deleted). mkdirp creates any missing parent, so
   // an incomplete tree still ends up with a usable home.
@@ -66,6 +72,13 @@ export function bootstrap() {
   } catch {
     /* ignore */
   }
+}
+
+export function bootstrap() {
+  const os = useOS.getState()
+  applyThemeVars(os.settings)
+
+  ensureFilesystem()
 
   const uptimeKey = 'mixt.boot.cycle'
   const cycles = Number(safeSession.getItem(uptimeKey) ?? '0') + 1

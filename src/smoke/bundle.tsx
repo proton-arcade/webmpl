@@ -32,6 +32,8 @@ import {
 } from '../net'
 import { useOS, sanitizeSettings, DEFAULT_SETTINGS } from '../os/store'
 import { vfs, useVFS, parseTree, ensureWebShare, mountFilesystem, vfsKey, savedOwners } from '../os/vfs'
+import { ensureAppTree, APPS_DIR, APP_INDEX_FILE, appTreeFiles } from '../os/appfiles'
+import { APP_INDEX, APP_SHARED_FILES } from '../os/appindex'
 import { migrateBranding } from '../os/migrate'
 import { bootstrap } from '../os/bootstrap'
 import { safeLocal, safeSession, clearSavedData } from '../os/storage'
@@ -801,6 +803,44 @@ export async function runSmoke() {
     assert(savedOwners().includes('smoke-alice') && savedOwners().includes('smoke-bob'), 'both accounts should be listed')
 
     for (const who of ['smoke-alice', 'smoke-bob']) localStorage.removeItem(vfsKey(who))
+  })
+
+  /* ---- the application tree in /usr/share/applications -------------------- */
+  await check('every application has a directory, laid out the same way', () => {
+    ensureAppTree()
+    const built = appTreeFiles()
+    assert(built.length > APP_INDEX.length * 2, `the tree only holds ${built.length} files`)
+    for (const a of APP_INDEX) {
+      const dir = `${APPS_DIR}/${a.id}`
+      assert(vfs.node(dir)?.type === 'dir', `${dir} is not a directory`)
+      const main = vfs.read(`${dir}/main.js`) ?? ''
+      assert(main.includes(a.name), `${a.id}/main.js does not name the application`)
+      assert(main.includes(a.file), `${a.id}/main.js does not say which file implements it`)
+      assert(vfs.node(`${dir}/_Dependencies`)?.type === 'dir', `${a.id} has no _Dependencies folder`)
+      assert((vfs.read(`${dir}/README.md`) ?? '').includes(a.description), `${a.id}/README.md has no description`)
+    }
+  })
+
+  await check('the application index lists name, summary, description and file', () => {
+    const index = vfs.read(APP_INDEX_FILE) ?? ''
+    assert(index.startsWith(';'), 'the index does not read as a comment-led INI file')
+    for (const a of APP_INDEX) {
+      assert(index.includes(`[${a.name}]`), `the index has no section for ${a.name}`)
+      assert(index.includes(`Summary=${a.summary}`), `the index has no summary for ${a.name}`)
+      assert(index.includes(`Description=${a.description}`), `the index has no description for ${a.name}`)
+      assert(index.includes(`File=${APPS_DIR}/${a.id}/main.js`), `the index does not name the file for ${a.name}`)
+    }
+    /* the shared helpers are listed too, so the tree covers all of src/apps */
+    for (const f of APP_SHARED_FILES)
+      assert((vfs.read(`${APPS_DIR}/_shared.txt`) ?? '').includes(f), `the shared list is missing ${f}`)
+  })
+
+  await check('the application tree is filled in for a filesystem that predates it', () => {
+    vfs.rm(APPS_DIR)
+    assert(!vfs.exists(APP_INDEX_FILE), 'the tree was not removed for the test')
+    ensureAppTree()
+    assert(vfs.exists(APP_INDEX_FILE), 'ensureAppTree did not walk the index back in')
+    assert(vfs.exists(`${APPS_DIR}/${APP_INDEX[0].id}/main.js`), 'ensureAppTree left the applications behind')
   })
 
   /* ---- the white-screen regressions: a desktop that never mounts ---------- *

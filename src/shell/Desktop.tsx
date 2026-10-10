@@ -13,6 +13,7 @@ import { validateUsername, ACCENTS } from '../os/users'
 import * as api from '../os/api'
 import { setPersistenceEnabled } from '../os/storage'
 import { mountFilesystem, persistNow, setAdminView } from '../os/vfs'
+import { ensureFilesystem } from '../os/bootstrap'
 import { appForFile, launch } from '../os/bus'
 
 export default function Desktop() {
@@ -60,6 +61,11 @@ export default function Desktop() {
      * key. Signing in swaps the mounted tree to theirs; what the previous
      * session had is written out first, so nothing is lost on the way past. */
     mountFilesystem(s.username || 'anonymous')
+    /* Filled in again now that this account's tree is the one mounted. Running
+     * it only at boot wrote into a tree that this mount then replaced, so the
+     * home folders, the hosted share and /usr/share/applications were missing
+     * for anybody who signed in. */
+    ensureFilesystem()
     /* only the administrator gets the /users folder at the root */
     setAdminView(s.role === 'admin')
     const st = useOS.getState()
