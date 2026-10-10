@@ -21,7 +21,8 @@
     "gen:defaultfs": "node scripts/gen-defaultfs.mjs",
     "files": "node scripts/files.mjs",
     "human": "node scripts/human.mjs",
-    "converter": "node scripts/converter.mjs"
+    "converter": "node scripts/converter.mjs",
+    "sdk": "node scripts/sdk.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

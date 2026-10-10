@@ -251,6 +251,7 @@ src/
     storage.ts        safe web-storage access (never throws, falls back to memory)
     defaultfs.ts      generated from defaultfs/ — do not edit by hand
     mailaddr.ts       the two local mail domains, in one place
+    sdk.ts            mixt.js — the runtime an application calls into
     errorboundary.tsx boot failure screen + plain-DOM last resort report
   shell/              Desktop, Panel, MainMenu, WindowFrame, AppIcon, ContextMenu, Notifications
   apps/               registry.tsx + one module per application (19)
@@ -262,10 +263,53 @@ scripts/smoke.mjs     runner (esbuild via Vite SSR build → jsdom → assertion
 scripts/diagnose.mjs  boot matrix runner (one process per hostile condition)
 scripts/static.mjs    hosting check: plain static server, subdirectory and file://
 scripts/converter.mjs checks the converter website
+scripts/sdk.mjs       checks the mixt.js runtime against the shipped bundle
 scripts/gen-defaultfs.mjs  defaultfs/ → src/os/defaultfs.ts
 scripts/gen-appindex.mjs   src/apps → src/os/appindex.ts
 scripts/build-static.mjs  publishes mixt.bundle.js/.css and dist/
 vite.static.config.ts build config for the published bundle (IIFE, everything relative)
+```
+
+## mixt.js — what an application talks to
+
+Every application in `/usr/share/applications` ships a `main.js` that says what it is and how it
+starts. `window.mixt` is the other side of that: the runtime an application calls into, installed
+before anything else runs and written into the filesystem at `/usr/share/mixt/mixt.js` so it can be
+listed as a dependency and read like any other file.
+
+```js
+mixt.version                       // 1 — check it before using something new
+mixt.whoami()                      // {username, role, guest, address} — never a password
+mixt.apps.list()                   // every app this session may see
+mixt.apps.launch('nemo', {})       // open one; the window id, or null
+mixt.apps.open('/home/mixt/a.txt') // open a file with whatever handles it
+
+mixt.fs.read('/etc/hostname')      // text, or null
+mixt.fs.write(path, 'hi')          // true if it was written
+mixt.fs.list('/home/mixt')         // entries, or null
+mixt.fs.mkdir('/a/b/c')            // makes the parents too
+mixt.fs.move / copy / trash / remove
+mixt.fs.basename / dirname
+
+mixt.notify('Saved', 'Written.')
+mixt.terminal('/srv/www')          // open a terminal, optionally there
+mixt.mail.address()                // this session's local address
+```
+
+Three things about it are deliberate:
+
+* **Nothing throws.** A missing path gives `null`; a refused write gives `false`. An application
+  calling into the OS should not have to wrap every line in a `try`, and a failure it can see is
+  one it can report.
+* **The filesystem calls are synchronous**, because they read and write the same tree the desktop
+  is already showing — a change is on screen immediately, with nothing to await.
+* **There is no way out.** No `fetch`, no upload, no remote storage in this API. An application
+  written against `mixt.js` cannot leave this machine, which is the whole point of a desktop that
+  claims to be self-contained. The runtime is frozen, so one application cannot redefine the OS out
+  from under the next.
+
+```bash
+npm run sdk                # 26 checks, run against the shipped bundle
 ```
 
 ## The converter — a second website in the repository

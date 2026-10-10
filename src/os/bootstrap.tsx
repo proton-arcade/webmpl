@@ -4,6 +4,8 @@ import { vfs } from '../os/vfs'
 import { ensureNetworkFiles } from '../net/internet/hosts'
 import { ensureWebShare } from '../os/vfs'
 import { ensureAppTree } from './appfiles'
+import { MIXT_SDK_PATH, MIXT_SDK_SOURCE } from './sdk'
+import { parentPath } from './vfs'
 import { safeSession } from './storage'
 import { INSTALLED_VERSION, REPO_VERSIONS } from '../apps/versions'
 import { getSession, serverMail } from './api'
@@ -69,6 +71,16 @@ export function ensureFilesystem() {
    * before it existed. */
   try {
     ensureAppTree()
+  } catch {
+    /* ignore */
+  }
+
+  /* /usr/share/mixt/mixt.js — the runtime an application talks to. Written next
+   * to the applications that use it, so a main.js can name it as a dependency
+   * and a person can read what the desktop offers without opening the source. */
+  try {
+    vfs.mkdirp(parentPath(MIXT_SDK_PATH))
+    vfs.write(MIXT_SDK_PATH, MIXT_SDK_SOURCE, 'text/javascript')
   } catch {
     /* ignore */
   }

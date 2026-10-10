@@ -12,6 +12,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import Desktop from '../shell/Desktop'
 import { bootstrap } from './bootstrap'
+import { installSDK } from './sdk'
 import { BootBoundary, renderPlainFailure } from './errorboundary'
 
 /* Last resort, installed before anything can fail: if a script error escapes
@@ -36,6 +37,15 @@ export function startDesktop(target?: HTMLElement | null) {
     window.addEventListener('unhandledrejection', reportIfBlank as EventListener)
   } catch {
     /* no window to listen to */
+  }
+
+  // The runtime every application talks to, installed as window.mixt before
+  // anything else runs, so an application's own file can rely on it being there
+  // rather than checking for it.
+  try {
+    installSDK()
+  } catch (error) {
+    console.error('[mixt] could not install the mixt.js runtime:', error)
   }
 
   // Session housekeeping (theme, home directories, welcome notifications) must
