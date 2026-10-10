@@ -1,7 +1,7 @@
 /**
  * Served-site check.
  *
- *   npm run served [baseURL ...]      (default: http://127.0.0.1:3000)
+ *   npm run served [baseURL ...]      (default: http://127.0.0.1:8080)
  *
  * Every other harness in this repo builds the sources fresh and runs them
  * inside jsdom, so they all pass even when the files a browser downloads are
@@ -17,7 +17,7 @@
 import { JSDOM } from 'jsdom'
 
 const BASES = process.argv.slice(2).filter((a) => /^https?:\/\//.test(a))
-const TARGETS = BASES.length ? BASES : ['http://127.0.0.1:3000']
+const TARGETS = BASES.length ? BASES : ['http://127.0.0.1:8080']
 
 const green = (s) => `\x1b[32m${s}\x1b[0m`
 const red = (s) => `\x1b[31m${s}\x1b[0m`

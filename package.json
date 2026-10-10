@@ -6,9 +6,7 @@
   "description": "Mixt Web OS \u2014 a full desktop computer that runs in the browser, styled after Linux Mint",
   "scripts": {
     "start": "node server.cjs",
-    "dev": "vite",
     "build": "node scripts/build-static.mjs",
-    "preview": "vite preview --host",
     "smoke": "node scripts/smoke.mjs",
     "diagnose": "node scripts/diagnose.mjs",
     "interact": "node scripts/interact.mjs",
@@ -17,7 +15,6 @@
     "served": "node scripts/served.mjs",
     "session": "node scripts/session.mjs",
     "mail": "node scripts/mail.mjs",
-    "devgate": "node scripts/devgate.mjs http://127.0.0.1:3000",
     "gen:appindex": "node scripts/gen-appindex.mjs",
     "gen:defaultfs": "node scripts/gen-defaultfs.mjs",
     "files": "node scripts/files.mjs",

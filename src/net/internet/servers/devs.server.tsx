@@ -15,7 +15,7 @@ export default defineServer({
   ports: [
     { port: 80, service: 'http' },
     { port: 443, service: 'https' },
-    { port: 3000, service: 'http-alt', version: 'vite dev server (this OS)' },
+    { port: 8080, service: 'http-alt', version: 'mixt backend (this OS)' },
     { port: 9418, service: 'git', version: 'git daemon' },
   ],
   records: { TXT: ['"v=spf1 -all"', '"you are reading this from inside the project"'] },

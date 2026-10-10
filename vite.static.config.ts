@@ -4,7 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 /* The build that produces the website people can open.
  *
- * `npm run dev` (vite.config.ts) serves the TypeScript sources with hot reload.
+ * Nothing else serves these files: Apache (or any static host) reads the folder
+ * directly, and `npm start` runs the backend that also hands them out.
  * This config produces the plain files that index.html loads, so the folder
  * works on any static host — a bare `python3 -m http.server`, VSCode Live
  * Server, nginx, GitHub Pages, even double-clicking index.html:

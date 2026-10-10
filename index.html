@@ -22,8 +22,7 @@
       such as http://localhost:8080/mixt/.
 
       Editing the sources? `npm run build` regenerates the two bundle files
-      below, and `npm run dev` serves the TypeScript sources with hot reload
-      through dev.html.
+      below. There is no dev server to run — this folder is the site.
     -->
     <link rel="stylesheet" href="mixt.bundle.css" />
   </head>
@@ -53,9 +52,9 @@
             '<code style="color:#9ede6a">index.html</code>. Open the browser console and the network ' +
             'tab to see why it was refused — a missing file and a server sending the wrong type are ' +
             'the usual two.</div>' +
-            '<div style="opacity:.55;font-size:12px">Any static server can host this folder ' +
-            '(for example: <code>python3 -m http.server 8000</code>). To work on the sources, run ' +
-            '<code>npm run dev</code> and open dev.html.</div>' +
+            '<div style="opacity:.55;font-size:12px">Any static server can host this folder — ' +
+            'drop it into Apache\'s document root, or run <code>npm start</code> to serve it ' +
+            'with the backend on port 8080.</div>' +
             '</div></div>'
         }, 2500)
       })

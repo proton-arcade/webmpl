@@ -23,74 +23,90 @@ your accounts, files and settings — in the browser.
   bottom give halves, and the four corners give quarters. Super+arrows does the same.
 
 
-### Run it like any other website
+### Run it on Apache
+
+Drop the folder into your document root and open it:
 
 ```bash
-python3 -m http.server 8000        # or any static file server, pointed at this folder
-open http://localhost:8000/
+# XAMPP (Windows)
+cp -r . /c/xampp/htdocs/mixt
+
+# Debian / Ubuntu
+sudo cp -r . /var/www/html/mixt
+
+# macOS (the Apache that ships with it)
+sudo cp -r . /Library/WebServer/Documents/mixt
 ```
 
-That is the whole setup. The repository root **is** the site:
+Then open `http://localhost/mixt/`. That is the whole setup — there is no build step to
+run on the server and nothing else to configure.
 
-```
-index.html        the page
-mixt.bundle.js    the app (a classic script — no modules, no build step to visit)
-mixt.bundle.css   the theme
-wallpapers/  logo.svg
-```
+The `.htaccess` in the folder sets the index page and the MIME types the bundle needs, so
+an Apache with unusual defaults still hands out `mixt.bundle.js` as JavaScript rather than
+`text/plain` — which a browser refuses to run, leaving a white page that looks like a
+broken build.
 
-Everything is relative, so it also works from a subdirectory (`http://localhost:8000/mixt/`)
-and by opening `index.html` straight from disk. No backend, no environment variables, no
-CDN, no service worker, no CORS, no MIME-type rules, no `npm install` — nothing for a host
-to configure.
+Everything is relative, so the site also works from the document root, from a
+subdirectory like the one above, and by opening `index.html` straight from disk.
 
-### Run it with the backend
+To upload it somewhere instead, `npm run build` assembles a stand-alone copy in `dist/`
+holding exactly the files a host needs.
+
+### Add the backend (accounts, mail, administrator)
 
 ```bash
 npm install          # once
 npm start            # → http://localhost:8080
 ```
 
-That is the full desktop: accounts, mail between them, the administrator console and the
-publishing queue. `npm start` runs `node server.cjs` — a single dependency-free Node file
-that serves this folder **and** the JSON API under `/api/`. Change the port with
-`PORT=9000 npm start`. State lives in `data.json` beside it.
+`npm start` runs `node server.cjs` — a single dependency-free Node file that serves this
+folder **and** the JSON API under `/api/`. Change the port with `PORT=9000 npm start`.
+State lives in `data.json` beside it.
 
-The backend is optional. Without it the site still runs, in offline mode: one local
-account, no mail between accounts, no administrator. That is the "any static server"
-mode above.
+To put it behind Apache, start it alongside and let Apache forward `/api` to it. This
+goes in the **virtual host**, not in `.htaccess` — `ProxyPass` is registered
+`RSRC_CONF|ACCESS_CONF`, and `AllowOverride All` only grants the `OR_*` bits, so Apache
+rejects it in a `.htaccess` with "ProxyPass not allowed here" and answers every request
+with a 500.
 
-### Work on the sources
+```apache
+# /etc/apache2/sites-available/mixt.conf
+<VirtualHost *:80>
+    DocumentRoot /var/www/html/mixt
 
-```bash
-npm install
-npm run dev        # http://localhost:3000/dev.html — TypeScript + hot reload
-npm run build      # regenerate mixt.bundle.js / mixt.bundle.css (and dist/)
+    <Directory /var/www/html/mixt>
+        AllowOverride All          # lets the folder's .htaccess apply
+        Require all granted
+    </Directory>
+
+    # a2enmod proxy proxy_http, then:
+    ProxyPass        /api/ http://127.0.0.1:8080/api/
+    ProxyPassReverse /api/ http://127.0.0.1:8080/api/
+</VirtualHost>
 ```
 
-`npm run dev` serves the sources with hot reload through `dev.html`; `index.html` always
-loads the published bundle, exactly as a visitor would get it.
+Without the proxy the site still runs, in offline mode: one local account, no mail
+between accounts, no administrator. That is what the drop-in folder does on its own.
 
-To edit the sources *and* have accounts and mail, run both — the dev server forwards
-`/api` to the backend, and the backend forwards the dev module graph back to Vite, so
-`http://localhost:8080/dev.html` works as well as port 3000:
+### Build
 
 ```bash
-npm start            # terminal 1 — backend on 8080
-npm run dev          # terminal 2 — Vite on 3000
+npm install          # once
+npm run build        # regenerate mixt.bundle.js / mixt.bundle.css, and dist/
 ```
+
+There is no dev server. `index.html` always loads the published bundle, exactly as a
+visitor gets it, so what you edit is what you reload.
 
 | script | what it does |
 | --- | --- |
 | `npm start` | the backend on port 8080 — this folder as a static site plus the `/api` JSON API (`node server.cjs`, no dependencies); `PORT=…` changes the port |
-| `npm run dev` | dev server on port 3000, hot reload through `dev.html`; the published `index.html`, bundle, logo and wallpapers are served as raw bytes with correct MIME types, so `http://localhost:3000/` is the real site |
 | `npm run build` | build `mixt.bundle.js` + `mixt.bundle.css` into the root, and assemble `dist/` |
-| `npm run preview` | serve the assembled `dist/` copy |
 | `npm run smoke` | build `src/smoke/bundle.tsx` for node, run it inside jsdom, assert 117 behaviours (desktop mounting, every app rendering, every MixtNet page rendering, DNS resolution and NXDOMAIN, real terminal commands, window management, persistence, and the boot-safety checks below) |
 | `npm run diagnose` | boot the real entry point (`src/os/start.tsx`) inside jsdom under eleven hostile browser conditions — blocked storage, a full disk, a damaged or truncated saved filesystem, stale settings, a tiny window, no canvas — and report which ones leave a white page |
 | `npm run static` | host the folder the way a normal static server does — as the web root, from a subdirectory, and from `file://` — fetch the page over HTTP, execute the script the server returns, and fail if the desktop does not mount |
 | `npm run session` | boot the shipped bundle against a small fake API and walk the server-only flows: the administrator signs in and owns the desktop, System Settings reports Administrator, the Administration console lists what is waiting for approval, a standard user never sees it, logging out returns a sign-in screen you can actually type into, and empty boxes go in as a guest |
-| `npm run served [url …]` | ask a running server what a browser would actually get: every asset in `index.html` must return 200 **and** a content-type the browser accepts (a stylesheet served as `text/javascript` is dropped outright, which leaves a running OS with no CSS — a white page), and the served `mixt.bundle.js` itself must mount the desktop. Defaults to `http://127.0.0.1:3000` |
+| `npm run served [url …]` | ask a running server what a browser would actually get: every asset in `index.html` must return 200 **and** a content-type the browser accepts (a stylesheet served as `text/javascript` is dropped outright, which leaves a running OS with no CSS — a white page), and the served `mixt.bundle.js` itself must mount the desktop. Defaults to `http://127.0.0.1:8080` |
 | `npm run files` | the file manager and the per-account filesystem, against the shipped bundle: the path bar's Back and drive buttons, opening a folder, dragging a file onto a folder and onto empty space across two windows, `/usr/share/applications`, every account's own storage key, the administrator's `/users`, and backing an account up |
 | `npm run human` | sit down and use it: write a file, back the account up, delete the file, restore it and check it came back; open a sound file; install VLC and choose it; sign in as the administrator and read another account's file through `/users`; sign out and in as somebody else |
 | `npm run mail` | start an isolated server and walk the mail flows end to end — addresses resolving on both local domains, a mailbox switched off and back on, per-guest mailboxes, guest sign-in tracking, password changes |
@@ -99,7 +115,6 @@ npm run dev          # terminal 2 — Vite on 3000
 | `npm run localpages` | get to the converter from inside the desktop — from the bookmarks and by typing its name — and prove no other path in the repository can be opened that way |
 | `npm run explore` | click through every application and every MixtNet page in the shipped bundle and fail on a console error, an unhandled rejection, or a page that renders empty |
 | `npm run interact` | drive the desktop the way a person does: drag a window, snap it to an edge, switch workspaces, open a context menu, resize — and check the geometry that results |
-| `npm run devgate` | `dev.html` asks the backend who is signed in: an administrator gets the source build, anyone else is sent to `index.html` |
 | `npm run gen:defaultfs` | read `defaultfs/` and regenerate `src/os/defaultfs.ts` (run for you by `npm run build`) |
 | `npm run gen:appindex` | read `src/apps` and regenerate `src/os/appindex.ts` (run for you by `npm run build`) |
 
@@ -280,8 +295,9 @@ notifications and the session/lock state; `src/os/bootstrap.tsx` runs the boot s
 
 ```
 index.html            the published site (classic script + stylesheet, relative paths)
-dev.html              the dev-server entry (loads src/main.tsx, hot reload)
+.htaccess             Apache: index page and MIME types (the /api proxy must be in the vhost)
 mixt.bundle.js/.css   built by `npm run build`, committed — index.html loads these
+server.cjs            the backend: this folder plus the /api JSON API (`npm start`)
 defaultfs/            the default filesystem, as ordinary files (see below)
 converter/            a second website: turns a page from out there into one for this project
 wallpapers/ logo.svg  assets, referenced relatively
@@ -310,6 +326,7 @@ scripts/gen-defaultfs.mjs  defaultfs/ → src/os/defaultfs.ts
 scripts/gen-appindex.mjs   src/apps → src/os/appindex.ts
 scripts/build-static.mjs  publishes mixt.bundle.js/.css and dist/
 vite.static.config.ts build config for the published bundle (IIFE, everything relative)
+vite.config.ts        plugins for the test harnesses' SSR builds — no server
 ```
 
 ## mixt.js — what an application talks to
