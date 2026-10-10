@@ -16,6 +16,35 @@ import {
 } from './users'
 
 const LS_SETTINGS = 'mixt.settings.v2'
+/* What an account has installed from the Software Manager. Per account, like
+ * the filesystem: two people on one browser have installed different things,
+ * and neither should inherit the other's. This used not to be saved at all, so
+ * everything anybody installed vanished the moment the page was reloaded. */
+const LS_INSTALLED = 'mixt.installed.v2'
+export const installedKey = (who: string) => (who ? `${LS_INSTALLED}:${who}` : LS_INSTALLED)
+
+let installedOwner = ''
+export function loadInstalled(who: string) {
+  installedOwner = who || ''
+  let map: Record<string, boolean> = {}
+  try {
+    const raw = safeLocal.getItem(installedKey(who)) ?? safeLocal.getItem(LS_INSTALLED)
+    const parsed = raw ? JSON.parse(raw) : null
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) map = parsed
+  } catch {
+    /* unreadable saved state — nothing installed is a safe answer */
+  }
+  useOS.setState({ installed: map })
+  return map
+}
+
+function persistInstalled(map: Record<string, boolean>) {
+  try {
+    safeLocal.setItem(installedKey(installedOwner), JSON.stringify(map))
+  } catch {
+    /* a blocked or full store must not break installing */
+  }
+}
 
 export const DEFAULT_SETTINGS: Settings = {
   username: 'mixt',
@@ -437,7 +466,11 @@ export const useOS = create<OSState>()((set, get) => ({
   },
 
   setInstalled: (appId, value) =>
-    set((s) => ({ installed: { ...s.installed, [appId]: value } })),
+    set((s) => {
+      const installed = { ...s.installed, [appId]: value }
+      persistInstalled(installed)
+      return { installed }
+    }),
 
   applyUpdate: (appId, version) =>
     set((s) => ({ updatesApplied: { ...s.updatesApplied, [appId]: version } })),

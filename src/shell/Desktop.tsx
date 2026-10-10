@@ -14,6 +14,7 @@ import * as api from '../os/api'
 import { setPersistenceEnabled } from '../os/storage'
 import { mountFilesystem, persistNow, setAdminView } from '../os/vfs'
 import { ensureFilesystem } from '../os/bootstrap'
+import { loadInstalled } from '../os/store'
 import { appForFile, launch } from '../os/bus'
 
 export default function Desktop() {
@@ -61,6 +62,8 @@ export default function Desktop() {
      * key. Signing in swaps the mounted tree to theirs; what the previous
      * session had is written out first, so nothing is lost on the way past. */
     mountFilesystem(s.username || 'anonymous')
+    /* …and what that account has installed, which is theirs too */
+    loadInstalled(s.username || 'anonymous')
     /* Filled in again now that this account's tree is the one mounted. Running
      * it only at boot wrote into a tree that this mount then replaced, so the
      * home folders, the hosted share and /usr/share/applications were missing
@@ -83,16 +86,27 @@ export default function Desktop() {
     const stored = api.getSession()
     if (stored) adoptServerSession(stored)
 
-    const refresh = () =>
-      api.online().then((ok) => {
-        const s = api.getSession()
-        if (ok && !s) {
-          setAuthGate(true)
-          return
-        }
-        setAuthGate(false)
-        if (ok && s) adoptServerSession(s)
-      })
+    /* Adopting the session and asking the server are separate jobs. The
+     * session has to be adopted whatever the server does — it used to happen
+     * only inside this .then, so signing in or out while the backend was
+     * unreachable left the previous person's filesystem mounted, and the next
+     * person to sit down could read their files. */
+    const adopt = () => {
+      const s = api.getSession()
+      if (s) adoptServerSession(s)
+      return s
+    }
+    const refresh = () => {
+      const s = adopt()
+      api
+        .online()
+        .then((ok) => {
+          const now = api.getSession()
+          setAuthGate(ok && !now)
+          if (now) adoptServerSession(now)
+        })
+        .catch(() => setAuthGate(!s))
+    }
     refresh()
     // logging out (or the server going away) re-opens the login gate
     window.addEventListener('mixt:authchanged', refresh)

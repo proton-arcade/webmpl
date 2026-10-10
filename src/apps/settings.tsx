@@ -849,7 +849,18 @@ function BackupSection() {
     if (!f) return
     let text = ''
     try {
-      text = await f.text()
+      if (typeof f.text === 'function') {
+        text = await f.text()
+      } else {
+        /* older browsers have no Blob.text(); FileReader has been there since
+           the beginning, so a backup can still be restored on them */
+        text = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve(String(r.result ?? ''))
+          r.onerror = () => reject(new Error('could not read the file'))
+          r.readAsText(f)
+        })
+      }
     } catch {
       setMessage('That file could not be read.')
       return
